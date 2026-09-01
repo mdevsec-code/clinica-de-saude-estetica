@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/brand/logo-noely-cerqueira.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#F7EFEC" />
+    <title>Noely Cerqueira — Estética e Micropigmentação</title>
+    <meta
+      name="description"
+      content="Clínica de estética e micropigmentação da Noely Cerqueira, em Camaçari (BA). Agende seu atendimento online."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Noely Cerqueira — Estética e Micropigmentação" />
+    <meta property="og:title" content="Noely Cerqueira — Estética e Micropigmentação" />
+    <meta
+      property="og:description"
+      content="Clínica de estética e micropigmentação da Noely Cerqueira, em Camaçari (BA). Agende seu atendimento online."
+    />
+    <meta property="og:image" content="/brand/logo-noely-cerqueira.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Estrutura fixa (não gerenciada pelo Vue) exigida pelo ScrollSmoother:
+         precisa existir no DOM ANTES do plugin ser inicializado em main.ts,
+         que por sua vez precisa rodar ANTES do app montar — se o wrapper
+         fosse criado pelo próprio App.vue, o ScrollSmoother só existiria
+         depois que componentes filhos (ex.: a Home, com seus próprios
+         ScrollTriggers) já tivessem montado, já que no Vue os filhos montam
+         antes do pai. #ambient-slot/#overlay-slot são alvos de <Teleport>
+         para os elementos fixos que não devem fazer parte do conteúdo
+         "suavizado" (ver App.vue) — #ambient-slot vem ANTES do wrapper para
+         continuar pintando atrás de tudo, #overlay-slot vem DEPOIS para
+         continuar por cima. -->
+    <div id="ambient-slot"></div>
+    <div id="smooth-wrapper">
+      <div id="smooth-content">
+        <div id="app"></div>
+      </div>
+    </div>
+    <div id="overlay-slot"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

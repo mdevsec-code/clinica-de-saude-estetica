@@ -1,0 +1,87 @@
+:root {
+  /* Paleta extraída da identidade visual real da clínica (logo rosé/nude). */
+  --color-bg: #fbf5f1;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f4e9e3;
+  --color-border: #ead9d1;
+
+  --color-ink: #3a2c2a;
+  --color-ink-muted: #7d6b66;
+  --color-ink-soft: #a6928d;
+
+  --color-rose-900: #6f3d43;
+  --color-rose-700: #9c5b60;
+  --color-rose-500: #b97c7f;
+  --color-rose-300: #dcaba8;
+  --color-rose-100: #f3ddd6;
+
+  --color-success: #4f7a5c;
+  --color-danger: #a4453f;
+
+  /* Acento "champagne" — reservado para toques pontuais de destaque premium
+     (selo de recurso principal, brilho de borda, ícones de KPI) que precisam
+     se diferenciar do rosé/nude sem introduzir uma família de cor nova: é um
+     dourado desaturado, próximo em luminosidade ao rosé-500, então nunca
+     compete com ele por atenção — só complementa. Nunca usado em texto de
+     corpo nem em área grande. */
+  --color-gold-100: #f4ead6;
+  --color-gold-500: #c8a465;
+  --color-gold-700: #9c7c43;
+
+  /* Contraparte escura da paleta (marrom quente, nunca preto puro) — usada
+     em seções de destaque editorial para dar profundidade/contraste dramático
+     sem sair da identidade rosé/nude da marca. */
+  --color-dusk-900: #1c1210;
+  --color-dusk-800: #291b18;
+  --color-dusk-700: #3a2622;
+
+  --font-display: 'Cormorant Garamond', 'Georgia', serif;
+  --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 2px 8px rgba(58, 44, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(58, 44, 42, 0.1);
+  --shadow-lg: 0 16px 48px rgba(58, 44, 42, 0.14);
+  --shadow-glow: 0 0 0 1px rgba(111, 61, 67, 0.06), 0 24px 64px -16px rgba(111, 61, 67, 0.32);
+
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Mesma curva usada nas animações GSAP registradas como 'premium-out' em
+     lib/motion.ts — mantém transições CSS puras (:hover etc.) visualmente
+     coerentes com o que o GSAP anima via JS. */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 160ms;
+  --duration-base: 280ms;
+  --duration-slow: 480ms;
+
+  --container-max: 1120px;
+  --touch-target-min: 44px;
+
+  /* Cores de gráfico (painel administrativo, dashboard) — vêm da paleta de
+     referência validada da skill de dataviz (references/palette.md), não de
+     tons rosé escolhidos "de olho": identidade categórica exige separação
+     de matiz real (deuteranopia/protanopia), que a paleta rosé/nude da marca
+     (todos tons próximos do mesmo hue) não consegue oferecer. Validado com
+     validate_palette.js para os 6 slots usados aqui, modo claro, contra
+     --color-bg — ver comentário em CategoryBarList.vue. */
+  --chart-seq-500: #256abf;
+  --chart-cat-1: #2a78d6;
+  --chart-cat-2: #eb6834;
+  --chart-cat-3: #1baf7a;
+  --chart-cat-4: #eda100;
+  --chart-cat-5: #e87ba4;
+  --chart-cat-6: #008300;
+}

@@ -1,0 +1,299 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Base de toda medida em rem do site (títulos, parágrafos, textos pequenos):
+     ~19px em vez do padrão 16px do navegador — aumentado duas vezes a pedido
+     explícito do cliente para deixar a leitura mais confortável em todo o site. */
+  font-size: 118.75%;
+}
+
+/* Painel administrativo em telas de mesa: a classe .is-admin é ligada/
+   desligada pelo próprio AdminLayout.vue (onMounted/onUnmounted) — como
+   todo texto do painel já é dimensionado em rem (mesma convenção do resto
+   do site), bastar aumentar a base aqui escala tudo dentro dele de uma vez,
+   sem tocar em cada componente individualmente. Só a partir de 900px: no
+   celular o painel já usa a tela toda, aumentar a fonte ali só atrapalharia
+   o layout compacto das tabelas/listas. */
+@media (min-width: 900px) {
+  html.is-admin {
+    font-size: 132%;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  /* Rede de segurança contra estouro horizontal: se alguma palavra específica
+     (ex.: "Micropigmentação" num título grande, num nome de serviço comprido)
+     for mais larga que a tela em algum tamanho de fonte/viewport, ela quebra
+     em vez de forçar rolagem horizontal na página inteira. */
+  overflow-wrap: break-word;
+}
+
+#app {
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-rose-300);
+  color: var(--color-rose-900);
+}
+
+/* Scrollbar discreta na identidade da marca — só em navegadores que
+   suportam cada API (as duas coexistem sem conflito: cada engine ignora a
+   que não reconhece). */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rose-300) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-rose-300);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-rose-500);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-rose-700);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--color-rose-900);
+}
+
+/* SplitText com mask:'lines' (ver useSplitReveal.ts) envolve cada linha do
+   título numa caixa com overflow:hidden — a altura dessa caixa vem do
+   line-height do elemento NO MOMENTO do split. Em 1.1 (a base acima, pensada
+   para corpo de texto comum) a Cormorant Garamond — uma serifada com
+   ascendentes/acentos bem altos — não cabe inteira: o topo de maiúsculas,
+   pontos de interrogação e diacríticos ficava cortado permanentemente (não
+   só durante a animação — a máscara continua no DOM depois dela terminar).
+   Título comum (sem quebra de linha) mal nota a diferença; título de duas
+   linhas ganha um respiro visualmente aceitável — troca melhor que continuar
+   cortando texto. */
+[data-split] {
+  line-height: 1.28;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Área mínima de toque confortável no mobile (item 76/54 do escopo). */
+button, a.button, .tap-target {
+  min-height: var(--touch-target-min);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+/* Estado inicial dos elementos animados por scroll (useScrollReveal /
+   useHeroIntro, em qualquer view) — precisa ser global porque esses
+   componentes e composables são reaproveitados em várias páginas, não só
+   na Home onde o padrão nasceu. */
+[data-reveal],
+[data-hero-fade] {
+  opacity: 0;
+}
+
+/* --- Sistema de botões compartilhado ---
+   Centralizado aqui porque antes cada view (Home/Booking/NotFound) duplicava
+   sua própria versão de .button/.button--primary/.button--ghost — qualquer
+   ajuste de estilo exigia editar três lugares e eles já tinham divergido
+   entre si (padding, ease). O brilho (::before) e o "magnetismo" (JS, ver
+   useMagneticButton) são propositalmente independentes: o brilho é
+   puramente CSS/hover, então continua funcionando em touch/reduced-motion
+   mesmo se o JS do magnetismo nunca entrar em ação. */
+.button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 16px 30px;
+  border-radius: var(--radius-pill);
+  border: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform var(--duration-base) var(--ease-premium), box-shadow var(--duration-base) var(--ease-premium), border-color var(--duration-base) var(--ease-premium), background var(--duration-base) var(--ease-premium);
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.35) 48%, transparent 66%);
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--ease-premium);
+}
+
+.button:hover::before,
+.button:active::before {
+  transform: translateX(120%);
+}
+
+.button--primary {
+  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.button--primary:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow);
+}
+
+.button--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button--ghost {
+  background: var(--color-surface);
+  border: 1px solid var(--color-rose-300);
+  color: var(--color-rose-900);
+}
+
+.button--ghost:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-rose-700);
+  box-shadow: var(--shadow-md);
+}
+
+/* :active cobre o toque: em touch, :hover não dispara de forma confiável
+   (às vezes fica "grudado" depois do tap) — sem isso, botões no mobile não
+   davam nenhum retorno visual imediato ao toque, só o resultado da ação
+   (navegação, submit) alguns instantes depois. */
+@media (hover: none) {
+  .button--primary:active,
+  .button--ghost:active {
+    transform: scale(0.96);
+  }
+
+  .button--primary:active {
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button:hover,
+  .button:active {
+    transform: none;
+  }
+}
+
+/* Ícone circular ao lado do <h1> de cada view do painel administrativo
+   (Painel, Agenda, Financeiro, Estoque…) — ecoa a mesma linguagem de
+   "ícone dentro de círculo rosé" já usada nos cards de especialidade do site
+   público, dando ao painel uma identidade visual claramente da mesma marca
+   em vez de parecer um CRUD genérico. Compartilhado aqui (não duplicado por
+   view) porque é usado de forma idêntica em quatro componentes diferentes. */
+.admin-page-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-rose-100), var(--color-surface));
+  border: 1px solid var(--color-rose-300);
+  color: var(--color-rose-700);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Crossfade genérico entre estados de uma mesma view (carregando → erro →
+   conteúdo real) — compartilhado porque toda view do painel administrativo
+   segue exatamente esse padrão de três estados mutuamente exclusivos.
+   Sem isso, a troca de aba no painel "piscava": o spinner de carregamento
+   (ou o conteúdo antigo) desaparecia e o novo aparecia de uma vez, sem
+   transição nenhuma, mesmo com a troca de ROTA já animada em AdminLayout —
+   o salto ficava dentro da própria view, não entre views. */
+.fade-swap-enter-active,
+.fade-swap-leave-active {
+  transition: opacity var(--duration-base) var(--ease-premium);
+}
+
+.fade-swap-enter-from,
+.fade-swap-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-swap-enter-active,
+  .fade-swap-leave-active {
+    transition: none;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

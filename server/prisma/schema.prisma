@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Cada linha relevante do sistema carrega tenantId: isolamento de dados
+// entre clínicas é feito sempre por filtro explícito de tenant, nunca implícito.
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  timezone  String   @default("America/Bahia")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  users             User[]
+  customers         Customer[]
+  serviceCategories ServiceCategory[]
+  services          Service[]
+  businessHours     BusinessHour[]
+  blockedTimes      BlockedTime[]
+  appointments      Appointment[]
+  settings          TenantSettings?
+  expenses          Expense[]
+  inventoryItems    InventoryItem[]
+}
+
+enum UserRole {
+  ADMIN
+  RECEPTION
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  name         String
+  email        String
+  passwordHash String
+  role         UserRole @default(RECEPTION)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([tenantId, email])
+}
+
+// Configurações públicas da clínica (contato, redes sociais, regras de agendamento).
+// Nunca hardcoded no frontend — tudo consultado via API.
+model TenantSettings {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  whatsapp           String
+  instagram          String
+  email              String
+  address            String
+  addressMapUrl      String?
+  minAdvanceMinutes  Int      @default(120)
+  slotGranularityMin Int      @default(15)
+  maxAdvanceDays     Int      @default(60)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  name      String
+  whatsapp  String
+  email     String?
+  birthDate DateTime? @db.Date
+  notes     String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  appointments Appointment[]
+
+  @@index([tenantId, whatsapp])
+}
+
+model ServiceCategory {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  name      String
+  slug      String
+  imageUrl  String?
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+  // Marca o "carro-chefe" da clínica (hoje: Harmonização Facial e Corporal) —
+  // usado para dar destaque visual próprio na home, sem depender de assumir
+  // "a primeira categoria da lista" no frontend.
+  featured  Boolean @default(false)
+
+  services Service[]
+
+  @@unique([tenantId, slug])
+}
+
+model Service {
+  id              String          @id @default(cuid())
+  tenantId        String
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  categoryId      String
+  category        ServiceCategory @relation(fields: [categoryId], references: [id])
+  name            String
+  slug            String
+  description     String?
+  durationMinutes Int
+  bufferMinutes   Int             @default(0)
+  priceCents      Int?
+  imageUrl        String?
+  active          Boolean         @default(true)
+  sortOrder       Int             @default(0)
+
+  appointments Appointment[]
+
+  @@unique([tenantId, slug])
+}
+
+// Horário de funcionamento recorrente por dia da semana (0 = domingo ... 6 = sábado).
+// Pode haver múltiplas faixas no mesmo dia (ex.: manhã e tarde).
+model BusinessHour {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  weekday  Int
+  opensAt  String // "09:00"
+  closesAt String // "17:00"
+  active   Boolean @default(true)
+
+  @@index([tenantId, weekday])
+}
+
+// Bloqueios pontuais: folgas, férias, feriados, eventos externos importados do Google Calendar (fase futura).
+model BlockedTime {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  startAt   DateTime @db.Timestamptz(3)
+  endAt     DateTime @db.Timestamptz(3)
+  reason    String?
+  source    String   @default("MANUAL") // MANUAL | GOOGLE_CALENDAR (fase futura)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, startAt, endAt])
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  PUBLIC_SITE
+  INTERNAL
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id])
+  serviceId   String
+  service     Service           @relation(fields: [serviceId], references: [id])
+  // timestamptz (não o timestamp sem fuso padrão do Prisma) de propósito: o
+  // código inteiro trata startAt/endAt como instantes absolutos em UTC (é
+  // assim que availability.service.ts e o frontend calculam tudo), e a
+  // EXCLUDE CONSTRAINT anti-double-booking (ver prisma/manual-sql/001) precisa
+  // de timestamptz para construir um tstzrange de forma imutável — com
+  // timestamp sem fuso, a conversão implícita depende da sessão e nunca
+  // poderia ser imutável.
+  startAt     DateTime          @db.Timestamptz(3)
+  endAt       DateTime          @db.Timestamptz(3)
+  status      AppointmentStatus @default(CONFIRMED)
+  source      AppointmentSource @default(PUBLIC_SITE)
+  notes       String?
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  cancelledAt DateTime?         @db.Timestamptz(3)
+
+  // A prevenção definitiva de double-booking (item 26 do escopo) NÃO depende só
+  // desta constraint do Prisma: uma EXCLUDE constraint via btree_gist é aplicada
+  // por SQL manual (ver prisma/manual-sql/001_appointment_no_overlap.sql) para
+  // impedir, a nível de banco, qualquer sobreposição de horário confirmada,
+  // mesmo sob concorrência. Este índice apenas acelera as consultas de disponibilidade.
+  @@index([tenantId, startAt, endAt])
+  @@index([tenantId, status])
+}
+
+enum ExpenseCategory {
+  PRODUTOS
+  EQUIPAMENTOS
+  ALUGUEL
+  MARKETING
+  SALARIOS
+  OUTROS
+}
+
+// Controle financeiro de gastos (Fase 2). Somado a Service.priceCents dos
+// atendimentos concluídos, dá a base de receita x despesa do dashboard —
+// nada de projeção/estimativa inventada, só o que foi de fato cadastrado.
+model Expense {
+  id          String          @id @default(cuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  description String
+  category    ExpenseCategory @default(OUTROS)
+  amountCents Int
+  paidAt      DateTime        @db.Date
+  notes       String?
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, paidAt])
+}
+
+// Controle de estoque (Fase 2). quantity é ajustada diretamente (delta) via
+// endpoint dedicado em vez de um livro-razão de movimentações separado —
+// suficiente para o volume de uma clínica de porte único, sem a complexidade
+// extra de uma tabela de auditoria que ninguém pediu ainda.
+model InventoryItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  unit        String   @default("un")
+  quantity    Int      @default(0)
+  minQuantity Int      @default(0)
+  costCents   Int?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, name])
+}
