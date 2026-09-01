@@ -104,11 +104,12 @@ onUnmounted(() => {
           </RouterLink>
         </nav>
 
-        <RouterLink to="/admin/login" class="header__admin-link" title="Área administrativa" aria-label="Área administrativa">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <RouterLink to="/admin/login" class="header__admin-link" aria-label="Área administrativa">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="4" y="10" width="16" height="10" rx="2" />
             <path d="M8 10V7a4 4 0 0 1 8 0v3" />
           </svg>
+          <span class="header__admin-tooltip" role="tooltip">Área administrativa</span>
         </RouterLink>
 
         <button
@@ -343,12 +344,13 @@ onUnmounted(() => {
    ao lado da navegação em vez de um item de texto, para não competir com o
    CTA principal "Agendar" nem parecer parte da navegação voltada à cliente. */
 .header__admin-link {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   margin-left: var(--space-1);
   padding-left: calc(var(--space-2) + 1px);
   border-left: 1px solid var(--color-border);
@@ -357,14 +359,15 @@ onUnmounted(() => {
 }
 
 .header__admin-link svg {
-  width: 18px;
-  height: 18px;
+  width: 21px;
+  height: 21px;
   border-radius: 50%;
-  padding: 8px;
+  padding: 10px;
   box-sizing: content-box;
   background: var(--color-rose-100);
   color: inherit;
-  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+  box-shadow: var(--shadow-sm);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 .header__admin-link:hover {
@@ -375,6 +378,59 @@ onUnmounted(() => {
   background: var(--color-rose-700);
   color: #fff;
   transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Tooltip customizado (em vez do title nativo do navegador, que renderiza
+   uma caixinha cinza do sistema fora de contexto com o resto do site) —
+   pequeno cartão na paleta da marca, com setinha, que aparece em hover/foco. */
+.header__admin-tooltip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-md, var(--shadow-lg));
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-4px) scale(0.94);
+  transform-origin: top center;
+  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+}
+
+.header__admin-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--color-rose-700);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 3px 0 0 0;
+}
+
+.header__admin-link:hover .header__admin-tooltip,
+.header__admin-link:focus-visible .header__admin-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header__admin-tooltip {
+    transition: opacity var(--duration-fast) linear;
+    transform: none;
+  }
 }
 
 .header__menu-toggle {

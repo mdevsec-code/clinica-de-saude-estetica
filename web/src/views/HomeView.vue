@@ -339,12 +339,25 @@ const steps = [
   box-shadow: var(--shadow-lg);
   position: relative;
   z-index: 2;
+  background: var(--color-bg);
+  /* border-radius + overflow:hidden sozinhos deixam uma franja cinza de
+     anti-aliasing na borda orgânica no Chrome (bug antigo e conhecido do
+     motor de renderização). Uma máscara com o mesmo raio força o navegador
+     a suavizar a borda corretamente — é o fix definitivo, o border-radius
+     acima cuida só do formato do box-shadow. */
+  -webkit-mask-image: radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
 }
 
 .hero__photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Sem isso o Chrome deixa uma franja cinza de anti-aliasing entre o
+     border-radius orgânico do container e a borda reta da imagem
+     recortada — replicar o mesmo raio na própria img elimina a costura. */
+  border-radius: inherit;
+  display: block;
 }
 
 .hero__ring {
@@ -507,6 +520,8 @@ const steps = [
   aspect-ratio: 1;
   border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
   overflow: hidden;
+  -webkit-mask-image: radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
   box-shadow: var(--shadow-lg);
   border: 3px solid var(--color-surface);
 }
@@ -515,6 +530,8 @@ const steps = [
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
+  display: block;
 }
 
 .featured__icon {
