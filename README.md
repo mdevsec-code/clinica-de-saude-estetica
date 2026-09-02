@@ -28,7 +28,7 @@ agenda, financeiro, estoque e usuários.
 - [Estrutura do repositório](#-estrutura-do-repositório)
 - [Stack tecnológica](#-stack-tecnológica)
 - [Funcionalidades](#-funcionalidades)
-- [Modelo de dados](#-modelo-de-dados)
+- [Modelagem de dados](#-modelagem-de-dados)
 - [Segurança](#-segurança)
 - [Como rodar localmente](#-como-rodar-localmente)
 - [Variáveis de ambiente](#-variáveis-de-ambiente)
@@ -131,7 +131,7 @@ com **Ctrl/Cmd+K** (paleta de comandos) além dos atalhos de menu.
 - **Auditoria**: toda mutação feita por um usuário administrativo (criar, alterar, excluir) é registrada com autor, ação, tipo de registro e diff dos dados alterados, consultável e filtrável em `/admin/auditoria`.
 - **Financeiro completo**: despesas com vencimento e status, vencimentos/recebimentos do dia, histórico de faturamento diário, DRE (receitas − despesas por período) e conciliação bancária a partir de extratos OFX (parser próprio, sem dependência externa), com sugestão automática de correspondência entre lançamento e transação bancária.
 
-## 🗃️ Modelo de dados
+## 🗃️ Modelagem de dados
 
 Schema Prisma multi-tenant-ready — toda tabela relevante carrega `tenantId`:
 
