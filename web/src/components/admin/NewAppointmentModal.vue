@@ -3,10 +3,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import AdminModal from './AdminModal.vue';
 import AdminDatePicker from './AdminDatePicker.vue';
+import AdminSelect, { type AdminSelectGroup } from './AdminSelect.vue';
 import { fetchCategories } from '@/services/catalog.service';
 import { fetchAvailableSlots } from '@/services/availability.service';
 import { createAppointment } from '@/services/appointments.service';
 import { ApiError } from '@/services/api';
+import { toLocalDateKey } from '@/utils/calendar';
 import type { Service, ServiceCategory, Slot } from '@/types';
 
 const emit = defineEmits<{ close: []; created: [] }>();
@@ -29,6 +31,18 @@ onMounted(async () => {
 // deixar claro que o passo que falta é cadastrar um serviço primeiro.
 const hasAnyService = computed(() => categories.value.some((c) => c.services.length > 0));
 
+const serviceOptions = computed<AdminSelectGroup[]>(() =>
+  categories.value
+    .filter((c) => c.services.length > 0)
+    .map((category) => ({
+      label: category.name,
+      options: category.services.map((service) => ({
+        value: service.id,
+        label: `${service.name} (${service.durationMinutes} min)`,
+      })),
+    })),
+);
+
 const selectedServiceId = ref('');
 const selectedService = computed<Service | null>(() => {
   for (const category of categories.value) {
@@ -38,7 +52,7 @@ const selectedService = computed<Service | null>(() => {
   return null;
 });
 
-const todayKey = new Date().toISOString().slice(0, 10);
+const todayKey = toLocalDateKey(new Date());
 const date = ref(todayKey);
 const slots = ref<Slot[]>([]);
 const loadingSlots = ref(false);
@@ -106,14 +120,7 @@ async function onSubmit() {
     <form v-else class="new-appt" @submit.prevent="onSubmit">
       <label class="admin-field">
         Serviço
-        <select v-model="selectedServiceId" required :disabled="loadingCategories">
-          <option value="" disabled>Selecione um serviço</option>
-          <optgroup v-for="category in categories" :key="category.id" :label="category.name">
-            <option v-for="service in category.services" :key="service.id" :value="service.id">
-              {{ service.name }} ({{ service.durationMinutes }} min)
-            </option>
-          </optgroup>
-        </select>
+        <AdminSelect v-model="selectedServiceId" :options="serviceOptions" placeholder="Selecione um serviço" :disabled="loadingCategories" />
       </label>
 
       <label class="admin-field">
@@ -184,48 +191,10 @@ async function onSubmit() {
   color: var(--color-ink-muted);
 }
 
-.admin-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.admin-field select,
-.admin-field input {
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 400;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-bg);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
-}
-
-.admin-field select:focus-visible,
-.admin-field input:focus-visible {
-  border-color: var(--color-rose-700);
-  box-shadow: 0 0 0 3px var(--color-rose-100);
-  outline: none;
-}
-
-.admin-field select {
-  padding-right: 34px;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c5b60' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
-  cursor: pointer;
-}
-
-.admin-field select:hover {
-  border-color: var(--color-rose-500);
-}
+/* Tipografia, borda, fundo, foco e a setinha do select são compartilhados —
+   ver .admin-field em styles/global.css. Este formulário não precisa de
+   nenhum dimensionamento próprio (nada de flex/min-width específico), por
+   isso não sobra nenhuma regra local aqui. */
 
 .new-appt__hint {
   font-size: 0.85rem;

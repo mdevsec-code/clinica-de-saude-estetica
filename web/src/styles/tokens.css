@@ -35,8 +35,14 @@
   --color-dusk-800: #291b18;
   --color-dusk-700: #3a2622;
 
-  --font-display: 'Cormorant Garamond', 'Georgia', serif;
+  /* Uma única família tipográfica em todo o programa (site público + painel
+     administrativo) — antes havia uma serifada (Cormorant Garamond) reservada
+     a títulos/branding e a Manrope no resto, o que criava inconsistência
+     visual (ex.: números de tabela financeira ora numa fonte, ora noutra).
+     --font-display é mantida como alias só para não precisar tocar as
+     dezenas de usos existentes de var(--font-display) nos componentes. */
   --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-body);
 
   --space-1: 4px;
   --space-2: 8px;

@@ -5,11 +5,17 @@ import { ApiError } from '@/services/api';
 import { createUser, fetchUsers, setUserActive } from '@/services/admin-users.service';
 import { useAuthStore } from '@/stores/auth';
 import type { AdminAccount } from '@/types';
+import AdminSelect, { type AdminSelectOption } from '@/components/admin/AdminSelect.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
+
+const roleOptions: AdminSelectOption<'ADMIN' | 'RECEPTION'>[] = [
+  { value: 'RECEPTION', label: 'Recepção' },
+  { value: 'ADMIN', label: 'Administrador' },
+];
 
 const users = ref<AdminAccount[]>([]);
 const loading = ref(true);
@@ -112,10 +118,7 @@ async function toggleActive(user: AdminAccount) {
         </label>
         <label class="admin-field admin-field--small">
           Função
-          <select v-model="form.role">
-            <option value="RECEPTION">Recepção</option>
-            <option value="ADMIN">Administrador</option>
-          </select>
+          <AdminSelect v-model="form.role" :options="roleOptions" />
         </label>
         <button type="submit" class="button button--primary" :disabled="creating">
           {{ creating ? 'Criando…' : 'Criar conta' }}
@@ -124,7 +127,7 @@ async function toggleActive(user: AdminAccount) {
       <p v-if="createError" class="admin-error">{{ createError }}</p>
     </form>
 
-    <Transition name="fade-swap" mode="out-in">
+    <Transition name="fade-swap">
     <LoadingState v-if="loading" key="loading" label="Carregando contas…" />
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
 
@@ -195,13 +198,10 @@ async function toggleActive(user: AdminAccount) {
   gap: var(--space-3);
 }
 
+/* Aparência (tipografia, borda, fundo, foco, setinha do select) é
+   compartilhada — ver .admin-field em styles/global.css. Aqui fica só o
+   dimensionamento específico deste formulário dentro do layout flex-wrap. */
 .admin-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-ink);
   flex: 1;
   min-width: 180px;
 }
@@ -209,40 +209,6 @@ async function toggleActive(user: AdminAccount) {
 .admin-field--small {
   flex: 0 0 160px;
   min-width: 140px;
-}
-
-.admin-field input,
-.admin-field select {
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 400;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-bg);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
-}
-
-.admin-field input:focus-visible,
-.admin-field select:focus-visible {
-  border-color: var(--color-rose-700);
-  box-shadow: 0 0 0 3px var(--color-rose-100);
-  outline: none;
-}
-
-.admin-field select {
-  padding-right: 34px;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c5b60' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
-  cursor: pointer;
-}
-
-.admin-field select:hover {
-  border-color: var(--color-rose-500);
 }
 
 .admin-error {

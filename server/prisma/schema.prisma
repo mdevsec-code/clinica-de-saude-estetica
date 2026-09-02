@@ -26,6 +26,8 @@ model Tenant {
   settings          TenantSettings?
   expenses          Expense[]
   inventoryItems    InventoryItem[]
+  bankTransactions  BankTransaction[]
+  auditLogs         AuditLog[]
 }
 
 enum UserRole {
@@ -44,7 +46,48 @@ model User {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now()) @db.Timestamptz(3)
 
+  auditLogs AuditLog[]
+
   @@unique([tenantId, email])
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+// Trilha de auditoria (Fase 3): um registro por ação de escrita feita por um
+// usuário AUTENTICADO do painel — nunca de agendamentos públicos (a rota de
+// booking não passa por requireAuth, então req.user nunca existe ali; ver
+// auditLogger em middleware/audit.middleware.ts). Sem relação CASCADE em
+// User de propósito: um log de auditoria precisa sobreviver mesmo que a
+// conta que fez a ação um dia deixe de existir — por isso userName também
+// fica congelado aqui (snapshot no momento da ação), não só o id.
+model AuditLog {
+  id          String      @id @default(cuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  userName    String
+  action      AuditAction
+  entityType  String
+  entityId    String?
+  entityLabel String?
+  method      String
+  path        String
+  // Corpo da requisição (o que foi de fato enviado), com campos sensíveis
+  // (senha etc.) removidos antes de salvar — ver redactSensitive() em
+  // audit.middleware.ts. Guardado bruto (não um diff antes/depois) por
+  // simplicidade: o objetivo aqui é "o que foi enviado", não um histórico de
+  // versão campo a campo.
+  changes     Json?
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType])
+  @@index([tenantId, userId])
 }
 
 // Configurações públicas da clínica (contato, redes sociais, regras de agendamento).
@@ -201,9 +244,21 @@ enum ExpenseCategory {
   OUTROS
 }
 
+enum ExpenseStatus {
+  PENDING
+  PAID
+}
+
 // Controle financeiro de gastos (Fase 2). Somado a Service.priceCents dos
 // atendimentos concluídos, dá a base de receita x despesa do dashboard —
 // nada de projeção/estimativa inventada, só o que foi de fato cadastrado.
+//
+// status/dueAt/paidAt (Fase 3 — vencimentos): um gasto nasce PENDING com
+// dueAt preenchido (ainda não pago, vence em tal dia) ou já PAID com paidAt
+// preenchido (lançado como já quitado, fluxo antigo de antes desta fase
+// continua funcionando sem mudança nenhuma). paidAt vira nulo só enquanto
+// PENDING — markExpensePaid (finance.service.ts) é o único caminho que
+// transiciona PENDING → PAID, preenchendo paidAt no momento da baixa.
 model Expense {
   id          String          @id @default(cuid())
   tenantId    String
@@ -211,11 +266,51 @@ model Expense {
   description String
   category    ExpenseCategory @default(OUTROS)
   amountCents Int
-  paidAt      DateTime        @db.Date
+  status      ExpenseStatus   @default(PAID)
+  dueAt       DateTime?       @db.Date
+  paidAt      DateTime?       @db.Date
   notes       String?
   createdAt   DateTime        @default(now()) @db.Timestamptz(3)
 
+  bankTransactions BankTransaction[]
+
   @@index([tenantId, paidAt])
+  @@index([tenantId, dueAt])
+  @@index([tenantId, status])
+}
+
+enum BankTransactionStatus {
+  UNMATCHED
+  MATCHED
+  IGNORED
+}
+
+// Conciliação bancária (Fase 3): transações importadas de um extrato OFX
+// (formato padrão de exportação bancária, o mesmo usado pelo Microsoft
+// Money — daí o pedido específico por "OFX money"). fitId é o identificador
+// único que o PRÓPRIO banco atribui a cada transação dentro do arquivo OFX
+// (tag FITID) — é a chave de deduplicação: reimportar o mesmo extrato (ou um
+// período sobreposto) nunca duplica lançamentos, só ignora o que já existe.
+// amountCents mantém o sinal original do OFX (negativo = saída/débito,
+// positivo = entrada/crédito) em vez de normalizar para módulo, porque a
+// tela de conciliação precisa distinguir os dois fluxos.
+model BankTransaction {
+  id               String                @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  fitId            String
+  postedAt         DateTime              @db.Date
+  amountCents      Int
+  description      String
+  memo             String?
+  status           BankTransactionStatus @default(UNMATCHED)
+  matchedExpenseId String?
+  matchedExpense   Expense?              @relation(fields: [matchedExpenseId], references: [id])
+  importedAt       DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@unique([tenantId, fitId])
+  @@index([tenantId, status])
+  @@index([tenantId, postedAt])
 }
 
 // Controle de estoque (Fase 2). quantity é ajustada diretamente (delta) via

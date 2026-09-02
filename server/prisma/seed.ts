@@ -78,8 +78,13 @@ async function main() {
     });
   }
 
-  const adminEmail = process.env.ADMIN_SEED_EMAIL ?? 'admin@example.com';
-  const adminPassword = process.env.ADMIN_SEED_PASSWORD ?? 'change-me';
+  const adminEmail = process.env.ADMIN_SEED_EMAIL;
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD;
+  if (!adminEmail || !adminPassword) {
+    throw new Error(
+      'ADMIN_SEED_EMAIL e ADMIN_SEED_PASSWORD são obrigatórios para rodar o seed (evita criar um admin com credenciais previsíveis).',
+    );
+  }
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   await prisma.user.upsert({

@@ -87,7 +87,14 @@ export function weekRangeLabel(days: CalendarDay[]): string {
 }
 
 export function dayLabel(date: Date): string {
-  return date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  // Intl devolve tudo em minúsculo em pt-BR ("terça-feira, 01 de setembro de
+  // 2026") — correto por convenção do idioma (só o início de frase é
+  // maiúsculo, diferente do title case do inglês). Antigamente um
+  // text-transform:capitalize no CSS tentava resolver isso e piorava:
+  // capitalizava CADA palavra, incluindo "de" ("01 De Setembro De 2026").
+  // Capitalizar só a primeira letra aqui, na fonte do dado, é o jeito certo.
+  const raw = date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 export function startOfDay(date: Date): Date {
@@ -104,4 +111,30 @@ export function addMonths(date: Date, amount: number): Date {
 
 export function addDays(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
+}
+
+// Dia da semana (0=domingo) + minutos desde meia-noite no fuso da clínica —
+// não no fuso do dispositivo do visitante. Usado pelo indicador "aberto
+// agora" da página de Contato: sem isso, alguém acessando o site de fora da
+// Bahia veria o status calculado com a HORA LOCAL DELE, dizendo "fechado"
+// enquanto a clínica está de portas abertas (ou o contrário). America/Bahia
+// hardcoded de propósito, mesmo valor já fixo em BookingView.vue/
+// AdminDashboardView.vue — o site é de uma clínica única, não multi-fuso.
+export function nowInClinicTimezone(): { weekday: number; minutes: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bahia',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const WEEKDAY_MAP: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const weekdayShort = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
+  // hour12:false às vezes devolve "24" pra meia-noite em vez de "00"
+  // (comportamento conhecido do Intl em alguns navegadores) — %24 normaliza.
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0') % 24;
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+
+  return { weekday: WEEKDAY_MAP[weekdayShort] ?? 0, minutes: hour * 60 + minute };
 }

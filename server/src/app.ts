@@ -5,6 +5,7 @@ import pinoHttp from 'pino-http';
 import { env } from './config/env';
 import { errorHandler } from './middleware/error-handler';
 import { resolveTenant } from './middleware/tenant.middleware';
+import { auditLogger } from './middleware/audit.middleware';
 import { authRouter } from './modules/auth/auth.routes';
 import { catalogRouter } from './modules/catalog/catalog.routes';
 import { availabilityRouter } from './modules/availability/availability.routes';
@@ -13,13 +14,17 @@ import { settingsRouter } from './modules/settings/settings.routes';
 import { financeRouter } from './modules/finance/finance.routes';
 import { inventoryRouter } from './modules/inventory/inventory.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { auditRouter } from './modules/audit/audit.routes';
 
 export function createApp() {
   const app = express();
 
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN }));
-  app.use(express.json());
+  // Limite padrão do Express (100kb) é apertado para o upload de extrato
+  // OFX (POST /finance/bank/import, conteúdo do arquivo inteiro como JSON) —
+  // um extrato de alguns meses de uma clínica pequena passa fácil disso.
+  app.use(express.json({ limit: '5mb' }));
   app.use(pinoHttp());
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -27,6 +32,12 @@ export function createApp() {
   // Toda rota de negócio passa por resolveTenant antes de tocar o banco —
   // é o ponto único que garante isolamento entre clínicas (item 7 do escopo).
   app.use(resolveTenant);
+
+  // Antes das rotas de propósito: precisa registrar o listener de
+  // res.on('finish') ANTES da rota rodar, mesmo que o próprio log só seja
+  // escrito depois (ver comentário em audit.middleware.ts sobre por que
+  // isso funciona mesmo estando antes de requireAuth de cada router).
+  app.use(auditLogger);
 
   app.use('/auth', authRouter);
   app.use('/catalog', catalogRouter);
@@ -36,6 +47,7 @@ export function createApp() {
   app.use('/finance', financeRouter);
   app.use('/inventory', inventoryRouter);
   app.use('/dashboard', dashboardRouter);
+  app.use('/audit', auditRouter);
 
   app.use(errorHandler);
 

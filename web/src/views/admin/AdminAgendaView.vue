@@ -22,6 +22,7 @@ import CalendarGrid from '@/components/admin/CalendarGrid.vue';
 import DayAppointmentList from '@/components/admin/DayAppointmentList.vue';
 import AdminModal from '@/components/admin/AdminModal.vue';
 import NewAppointmentModal from '@/components/admin/NewAppointmentModal.vue';
+import AdminSelect, { type AdminSelectGroup, type AdminSelectOption } from '@/components/admin/AdminSelect.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
 
@@ -38,6 +39,22 @@ const error = ref<string | null>(null);
 const statusFilter = ref<'ALL' | AppointmentStatus>('ALL');
 const serviceFilter = ref<string>('ALL');
 const categories = ref<ServiceCategory[]>([]);
+
+const statusOptions: AdminSelectOption<'ALL' | AppointmentStatus>[] = [
+  { value: 'ALL', label: 'Todos' },
+  { value: 'CONFIRMED', label: 'Confirmado' },
+  { value: 'CANCELLED', label: 'Cancelado' },
+  { value: 'COMPLETED', label: 'Concluído' },
+  { value: 'NO_SHOW', label: 'Não compareceu' },
+];
+
+const serviceOptions = computed<(AdminSelectOption | AdminSelectGroup)[]>(() => [
+  { value: 'ALL', label: 'Todos' },
+  ...categories.value.map((category) => ({
+    label: category.name,
+    options: category.services.map((service) => ({ value: service.id, label: service.name })),
+  })),
+]);
 
 onMounted(async () => {
   fetchCategories()
@@ -190,30 +207,19 @@ function onAppointmentCreated() {
     <div class="admin-agenda__filters">
       <label class="admin-field">
         Status
-        <select v-model="statusFilter">
-          <option value="ALL">Todos</option>
-          <option value="CONFIRMED">Confirmado</option>
-          <option value="CANCELLED">Cancelado</option>
-          <option value="COMPLETED">Concluído</option>
-          <option value="NO_SHOW">Não compareceu</option>
-        </select>
+        <AdminSelect v-model="statusFilter" :options="statusOptions" />
       </label>
       <label class="admin-field">
         Serviço
-        <select v-model="serviceFilter">
-          <option value="ALL">Todos</option>
-          <optgroup v-for="category in categories" :key="category.id" :label="category.name">
-            <option v-for="service in category.services" :key="service.id" :value="service.id">{{ service.name }}</option>
-          </optgroup>
-        </select>
+        <AdminSelect v-model="serviceFilter" :options="serviceOptions" />
       </label>
     </div>
 
-    <Transition name="fade-swap" mode="out-in">
+    <Transition name="fade-swap">
       <LoadingState v-if="loading" key="loading" label="Carregando agenda…" />
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
       <div v-else key="content">
-        <Transition name="fade-swap" mode="out-in">
+        <Transition name="fade-swap">
           <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" />
           <CalendarGrid
             v-else
@@ -309,7 +315,10 @@ function onAppointmentCreated() {
 .admin-agenda__range {
   font-weight: 700;
   color: var(--color-rose-900);
-  text-transform: capitalize;
+  /* Sem text-transform:capitalize: monthLabel/weekRangeLabel/dayLabel
+     (calendar.ts) já devolvem a string corretamente capitalizada em
+     português — um capitalize aqui forçaria também o "de" a maiúscula
+     ("Setembro De 2026", errado). */
 }
 
 .admin-agenda__view-toggle {
@@ -348,46 +357,10 @@ function onAppointmentCreated() {
   margin-bottom: var(--space-5);
 }
 
+/* Aparência (tipografia, borda, fundo, foco, setinha do select) é
+   compartilhada — ver .admin-field em styles/global.css. Aqui fica só o
+   dimensionamento específico deste formulário. */
 .admin-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-ink);
   min-width: 180px;
-}
-
-.admin-field select {
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 400;
-  padding: 9px 34px 9px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface);
-  /* Só dá pra estilizar o CAMPO em si — a lista de opções aberta é
-     renderizada pelo sistema operacional, fora do alcance do CSS em
-     praticamente todo navegador. appearance:none troca a setinha nativa (que
-     varia de aparência entre navegadores/SO) por uma seta consistente com o
-     resto do site. */
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c5b60' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
-  cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
-}
-
-.admin-field select:hover {
-  border-color: var(--color-rose-500);
-}
-
-.admin-field select:focus-visible {
-  border-color: var(--color-rose-700);
-  box-shadow: 0 0 0 3px var(--color-rose-100);
-  outline: none;
 }
 </style>

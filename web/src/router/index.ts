@@ -70,6 +70,12 @@ export const router = createRouter({
           meta: { requiresRole: 'ADMIN' },
           component: () => import('@/views/admin/AdminUsersView.vue'),
         },
+        {
+          path: 'auditoria',
+          name: 'admin-audit',
+          meta: { requiresRole: 'ADMIN' },
+          component: () => import('@/views/admin/AdminAuditView.vue'),
+        },
       ],
     },
     {

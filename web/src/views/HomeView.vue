@@ -18,7 +18,6 @@ import type { ServiceCategory } from '@/types';
 import { FALLBACK_CATEGORIES } from '@/data/fallback';
 import CategoryIcon from '@/components/CategoryIcon.vue';
 import DecorativeDots from '@/components/DecorativeDots.vue';
-import SectionDivider from '@/components/SectionDivider.vue';
 import MarqueeRibbon from '@/components/MarqueeRibbon.vue';
 
 useStaggerReveal('.differentials', '.differential');
@@ -177,7 +176,6 @@ const steps = [
       </div>
     </section>
 
-    <SectionDivider v-if="categories.length" fill="var(--color-surface-muted)" bg-before="var(--color-dusk-900)" />
     <section class="section section--muted" v-if="categories.length">
       <div class="container">
         <h2 data-split>Especialidades</h2>
@@ -347,6 +345,20 @@ const steps = [
      acima cuida só do formato do box-shadow. */
   -webkit-mask-image: radial-gradient(white, black);
   mask-image: radial-gradient(white, black);
+  /* Mesmo estado inicial que useHeroIntro.ts define via GSAP fromTo — precisa
+     existir já no CSS (não só depois que o JS roda) porque a cortina de
+     abertura (AppIntroLoader) desliza pra fora ANTES do onComplete que
+     dispara essa timeline: sem isso, a foto ficava visível "pronta" por um
+     instante enquanto a cortina saía de cena, e só depois era escondida e
+     reanimada — lia como a foto/título carregando duas vezes. Revertido em
+     prefers-reduced-motion (useHeroIntro.ts não anima nesse caso). */
+  clip-path: inset(100% 0% 0% 0%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__photo {
+    clip-path: none;
+  }
 }
 
 .hero__photo img {
@@ -440,7 +452,16 @@ const steps = [
 }
 
 .section--muted {
-  background: var(--color-surface-muted);
+  /* Antes havia um SectionDivider (onda em SVG) entre `.section--dark` e esta
+     seção — mesma classe de costura de subpixel já resolvida abaixo em
+     `.cta-final` (ver comentário lá), só que aqui ainda não tinha sido
+     corrigida: qualquer arredondamento de subpixel na borda curva da onda
+     deixava uma linha de 1px da cor escura vazando bem na fronteira com o
+     creme. Mesma solução — sem onda nenhuma: o próprio gradiente desta seção
+     nasce na cor exata da seção anterior (--color-dusk-900) e clareia até
+     --color-surface-muted só DENTRO da própria caixa, então não há fronteira
+     entre dois elementos para uma costura aparecer. */
+  background: linear-gradient(180deg, var(--color-dusk-900) 0%, var(--color-surface-muted) 12%, var(--color-surface-muted) 100%);
 }
 
 .section h2 {
