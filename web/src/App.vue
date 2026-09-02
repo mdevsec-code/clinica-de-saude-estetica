@@ -7,6 +7,7 @@ import WhatsAppButton from '@/components/WhatsAppButton.vue';
 import AmbientBackground from '@/components/AmbientBackground.vue';
 import GrainOverlay from '@/components/GrainOverlay.vue';
 import ScrollProgress from '@/components/ScrollProgress.vue';
+import AppIntroLoader from '@/components/AppIntroLoader.vue';
 import { refreshScroll, resetScrollTop } from '@/composables/useSmoothScroll';
 
 const router = useRouter();
@@ -18,6 +19,24 @@ const route = useRoute();
 // contato) ficava renderizado por cima E embaixo do painel em TODA rota
 // /admin/*, duplicando marca e navegação numa ferramenta de trabalho interna.
 const isAdminRoute = computed(() => route.path.startsWith('/admin'));
+
+// Key da transição de PÁGINA (abaixo): usa o path da rota-mãe casada
+// (route.matched[0].path), não o path resolvido completo. Por que isso
+// importa — era a causa real (e nunca resolvida até aqui) da "tela fica
+// branca ao trocar de aba do painel": /admin, /admin/financeiro,
+// /admin/agenda... todas essas rotas casam a MESMA rota-mãe (/admin, ver
+// router/index.ts), mas antes a key usava o path COMPLETO — diferente pra
+// cada aba — então o Vue via cada troca de aba como uma troca de PÁGINA
+// inteira, desmontando e remontando o AdminLayout INTEIRO (cabeçalho, nav,
+// tudo) a cada clique, disparando a transição de página abaixo (mode="out-
+// in", fade a partir de opacity:0) por cima de tudo — o mesmo padrão de bug
+// já corrigido dentro do próprio AdminLayout.vue, só que uma camada acima,
+// onde a correção interna nunca alcançava. Com a rota-mãe como key, as abas
+// do painel mantêm UMA SÓ instância de AdminLayout (que já tem sua própria
+// transição interna pra trocar de aba, ver AdminLayout.vue) — só troca de
+// key (e por isso remonta com a transição de página) ao navegar pra uma
+// página de nível diferente de verdade (Home, Serviços, Agendar, Login).
+const pageKey = computed(() => route.matched[0]?.path ?? route.path);
 
 // Cada troca de rota muda a altura da página (e o Vue troca a view inteira
 // dentro da transição abaixo) — sem resetar o topo e recalcular os limites
@@ -45,9 +64,9 @@ router.afterEach(async () => {
 
   <AppHeader v-if="!isAdminRoute" />
   <main>
-    <RouterView v-slot="{ Component, route: viewRoute }">
+    <RouterView v-slot="{ Component }">
       <Transition name="page" mode="out-in">
-        <component :is="Component" :key="viewRoute.path" />
+        <component :is="Component" :key="pageKey" />
       </Transition>
     </RouterView>
   </main>
@@ -57,6 +76,7 @@ router.afterEach(async () => {
     <ScrollProgress v-if="!isAdminRoute" />
     <WhatsAppButton v-if="!isAdminRoute" variant="floating" />
     <GrainOverlay />
+    <AppIntroLoader v-if="!isAdminRoute" />
   </Teleport>
 </template>
 

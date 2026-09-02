@@ -9,6 +9,7 @@ import {
   updateCategory,
   updateService,
 } from '@/services/admin-catalog.service';
+import { fetchDashboardStats } from '@/services/admin-dashboard.service';
 import type { AdminCategory, AdminService } from '@/types';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -35,7 +36,34 @@ async function load() {
   }
 }
 
-onMounted(load);
+// IDs dos 3 serviços mais agendados no mês, na ordem — reaproveita o mesmo
+// cálculo já feito para o dashboard (getDashboardStats) em vez de duplicar a
+// lógica aqui. É puramente decorativo (selo "mais agendado"): se a chamada
+// falhar, a tela de catálogo continua funcionando normalmente sem o selo, por
+// isso roda em paralelo ao load() principal e nunca bloqueia nem propaga erro.
+const topServiceIds = ref<string[]>([]);
+
+async function loadTopServices() {
+  try {
+    const stats = await fetchDashboardStats();
+    topServiceIds.value = stats.topServices
+      .filter((s) => s.count > 0)
+      .slice(0, 3)
+      .map((s) => s.id);
+  } catch {
+    // selo decorativo — falha silenciosa, ver comentário acima
+  }
+}
+
+function topServiceRank(serviceId: string): number | null {
+  const index = topServiceIds.value.indexOf(serviceId);
+  return index === -1 ? null : index + 1;
+}
+
+onMounted(() => {
+  load();
+  loadTopServices();
+});
 
 function formatPrice(cents: number | null) {
   if (cents == null) return 'Consulte';
@@ -243,7 +271,7 @@ async function toggleServiceActive(service: AdminService) {
       </div>
     </div>
 
-    <Transition name="fade-swap" mode="out-in">
+    <Transition name="fade-swap">
     <LoadingState v-if="loading" key="loading" label="Carregando catálogo…" />
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
 
@@ -279,7 +307,11 @@ async function toggleServiceActive(service: AdminService) {
       <EmptyState v-if="!categories.length" title="Nenhuma categoria cadastrada ainda." />
 
       <div v-for="category in categories" :key="category.id" class="admin-card admin-category" :class="{ 'admin-category--inactive': !category.active }">
-        <div class="admin-category__header">
+        <div
+          class="admin-category__header"
+          :class="{ 'admin-category__header--photo': category.imageUrl && editingCategoryId !== category.id }"
+          :style="category.imageUrl && editingCategoryId !== category.id ? { backgroundImage: `url(${category.imageUrl})` } : undefined"
+        >
           <div v-if="editingCategoryId === category.id" class="admin-form-row admin-category__edit-row">
             <input v-model="editCategoryForm.name" type="text" class="admin-inline-input" placeholder="Nome" />
             <input v-model="editCategoryForm.imageUrl" type="text" class="admin-inline-input" placeholder="URL da imagem" />
@@ -287,9 +319,8 @@ async function toggleServiceActive(service: AdminService) {
             <button type="button" class="admin-chip-btn" @click="cancelEditCategory">Cancelar</button>
           </div>
           <div v-else class="admin-category__title">
-            <span class="admin-category__thumb">
-              <img v-if="category.imageUrl" :src="category.imageUrl" alt="" />
-              <span v-else class="admin-category__thumb-fallback">{{ category.name.charAt(0) }}</span>
+            <span v-if="!category.imageUrl" class="admin-category__thumb">
+              <span class="admin-category__thumb-fallback">{{ category.name.charAt(0) }}</span>
             </span>
             <div class="admin-category__title-text">
               <div class="admin-category__name-row">
@@ -305,13 +336,13 @@ async function toggleServiceActive(service: AdminService) {
           </div>
 
           <div class="admin-category__actions">
-            <button type="button" class="admin-icon-btn" title="Editar categoria" aria-label="Editar categoria" @click="startEditCategory(category)">
+            <button type="button" class="admin-icon-btn" data-tooltip="Editar categoria" aria-label="Editar categoria" @click="startEditCategory(category)">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
             </button>
-            <button v-if="!category.featured" type="button" class="admin-icon-btn" title="Definir como destaque" aria-label="Definir como destaque" @click="setFeatured(category)">
+            <button v-if="!category.featured" type="button" class="admin-icon-btn" data-tooltip="Definir como destaque" aria-label="Definir como destaque" @click="setFeatured(category)">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.6 5.9 6.4.6-4.8 4.3 1.4 6.2L12 16.9 6.4 20l1.4-6.2-4.8-4.3 6.4-.6Z" /></svg>
             </button>
-            <button type="button" class="admin-icon-btn" :class="{ 'admin-icon-btn--danger': category.active }" :title="category.active ? 'Desativar categoria' : 'Reativar categoria'" :aria-label="category.active ? 'Desativar categoria' : 'Reativar categoria'" @click="toggleCategoryActive(category)">
+            <button type="button" class="admin-icon-btn" :class="{ 'admin-icon-btn--danger': category.active }" :data-tooltip="category.active ? 'Desativar categoria' : 'Reativar categoria'" :aria-label="category.active ? 'Desativar categoria' : 'Reativar categoria'" @click="toggleCategoryActive(category)">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10" /><path d="M18.36 6.64a9 9 0 1 1-12.73 0" /></svg>
             </button>
           </div>
@@ -344,28 +375,36 @@ async function toggleServiceActive(service: AdminService) {
               </div>
             </template>
             <template v-else>
-              <div class="admin-service__icon">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7l9 5 9-5-9-5Z" /><path d="M3 12l9 5 9-5" /></svg>
+              <div class="admin-service__icon" :class="{ 'admin-service__icon--photo': service.imageUrl }">
+                <img v-if="service.imageUrl" :src="service.imageUrl" alt="" />
+                <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7l9 5 9-5-9-5Z" /><path d="M3 12l9 5 9-5" /></svg>
               </div>
               <div class="admin-service__info">
                 <span class="admin-service__name-row">
                   <span class="admin-service__name">{{ service.name }}</span>
+                  <span v-if="topServiceRank(service.id)" class="admin-badge admin-badge--top">
+                    <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" stroke="none" aria-hidden="true"><path d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c1.5 1.5 2 3.5 2 5a6 6 0 1 1-12 0c0-4 3-5 3-8 0-1.5.7-3 3-4Z" /></svg>
+                    Mais agendado
+                  </span>
                   <span v-if="!service.active" class="admin-badge admin-badge--muted">Inativo</span>
                 </span>
                 <span v-if="service.description" class="admin-service__description">{{ service.description }}</span>
+                <span v-else class="admin-service__description admin-service__description--placeholder">Sem descrição cadastrada.</span>
                 <span class="admin-service__meta">
                   <span class="admin-service__meta-pill">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                     {{ service.durationMinutes }} min
                   </span>
-                  <span class="admin-service__price">{{ formatPrice(service.priceCents) }}</span>
+                  <span class="admin-service__price" :class="{ 'admin-service__price--placeholder': service.priceCents == null }">
+                    {{ formatPrice(service.priceCents) }}
+                  </span>
                 </span>
               </div>
               <div class="admin-service__actions">
-                <button type="button" class="admin-icon-btn admin-icon-btn--sm" title="Editar serviço" aria-label="Editar serviço" @click="startEditService(service)">
+                <button type="button" class="admin-icon-btn admin-icon-btn--sm" data-tooltip="Editar serviço" aria-label="Editar serviço" @click="startEditService(service)">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                 </button>
-                <button type="button" class="admin-icon-btn admin-icon-btn--sm" :class="{ 'admin-icon-btn--danger': service.active }" :title="service.active ? 'Desativar serviço' : 'Reativar serviço'" :aria-label="service.active ? 'Desativar serviço' : 'Reativar serviço'" @click="toggleServiceActive(service)">
+                <button type="button" class="admin-icon-btn admin-icon-btn--sm" :class="{ 'admin-icon-btn--danger': service.active }" :data-tooltip="service.active ? 'Desativar serviço' : 'Reativar serviço'" :aria-label="service.active ? 'Desativar serviço' : 'Reativar serviço'" @click="toggleServiceActive(service)">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10" /><path d="M18.36 6.64a9 9 0 1 1-12.73 0" /></svg>
                 </button>
               </div>
@@ -458,7 +497,15 @@ async function toggleServiceActive(service: AdminService) {
 
 .admin-card {
   position: relative;
-  overflow: hidden;
+  /* clip (não hidden) + overflow-clip-margin: continua recortando a faixa
+     de destaque (::before) e o banner de foto (.admin-category__header--photo,
+     ver comentário mais abaixo) rente à borda arredondada do card, mas dá
+     respiro suficiente pros tooltips dos botões de ação (Editar/Destaque/
+     Desativar, ver data-tooltip em .admin-icon-btn) escaparem sem serem
+     cortados — o padding do card (24px) sozinho não é suficiente pra caber
+     a pilha inteira do tooltip acima/abaixo do botão. */
+  overflow: clip;
+  overflow-clip-margin: 60px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -636,12 +683,6 @@ async function toggleServiceActive(service: AdminService) {
   justify-content: center;
 }
 
-.admin-category__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .admin-category__thumb-fallback {
   font-family: var(--font-display);
   font-size: 1.4rem;
@@ -682,6 +723,63 @@ async function toggleServiceActive(service: AdminService) {
   flex-shrink: 0;
 }
 
+/* Categoria com imagem cadastrada: o cabeçalho vira uma faixa fotográfica
+   (mesma linguagem visual dos cards de especialidade da home —
+   .specialty-card--photo — só que como banner horizontal em vez de card 3:4,
+   por ser uma tela de gestão densa e não uma vitrine). O sangramento até a
+   borda do card funciona porque .admin-card já tem overflow:hidden + o
+   mesmo border-radius, então a margem negativa é recortada certinho pelo
+   pai sem precisar repetir o raio aqui. */
+.admin-category__header--photo {
+  position: relative;
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  min-height: 108px;
+  align-items: flex-end;
+  background-size: cover;
+  background-position: center;
+}
+
+.admin-category__header--photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(28, 18, 16, 0.05) 0%, rgba(28, 18, 16, 0.25) 55%, rgba(28, 18, 16, 0.85) 100%);
+  pointer-events: none;
+}
+
+.admin-category__header--photo .admin-category__title,
+.admin-category__header--photo .admin-category__actions {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-category__header--photo .admin-category__actions {
+  align-self: flex-start;
+}
+
+.admin-category__header--photo .admin-category__title h2,
+.admin-category__header--photo .admin-category__count {
+  color: #fff;
+}
+
+.admin-category__header--photo .admin-category__title h2 {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.admin-category__header--photo .admin-category__count {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-category__header--photo .admin-icon-btn {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.admin-category__header--photo .admin-icon-btn:hover {
+  background: #fff;
+}
+
 .admin-badge {
   font-size: 0.72rem;
   font-weight: 700;
@@ -701,12 +799,30 @@ async function toggleServiceActive(service: AdminService) {
   color: var(--color-ink-soft);
 }
 
+/* Tom "champagne" reservado para selos de destaque premium (ver tokens.css)
+   — cabe bem aqui porque "mais agendado" é um dado de mérito (vem de
+   agendamentos reais, não de uma escolha manual como o Destaque da home),
+   então usar o dourado em vez do rosé do --featured evita confundir os dois
+   conceitos. */
+.admin-badge--top {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--color-gold-100);
+  color: var(--color-gold-700);
+}
+
 .admin-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
+  /* A regra global de touch target (button, ver global.css) já força
+     min-height:44px aqui; min-width equivalente evita um retângulo estreito
+     de 34x44 (ou 28x44 na variante --sm) — a ideia é uma área de toque
+     confortável nos dois eixos, não só na altura. */
+  min-width: var(--touch-target-min);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -724,6 +840,7 @@ async function toggleServiceActive(service: AdminService) {
 .admin-icon-btn--sm {
   width: 28px;
   height: 28px;
+  min-width: var(--touch-target-min);
 }
 
 .admin-icon-btn--danger {
@@ -806,6 +923,17 @@ async function toggleServiceActive(service: AdminService) {
   justify-content: center;
 }
 
+.admin-service__icon--photo {
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-service__icon--photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .admin-service__info {
   display: flex;
   flex-direction: column;
@@ -851,9 +979,24 @@ async function toggleServiceActive(service: AdminService) {
   color: var(--color-rose-700);
 }
 
+/* "Sob consulta" (priceCents null) não é um preço de verdade — dar o mesmo
+   peso visual do preço real (rosé, negrito) passaria a falsa impressão de
+   valor definido. Itálico + tom neutro deixa claro que é um placeholder
+   intencional, não um campo esquecido em branco. */
+.admin-service__price--placeholder {
+  color: var(--color-ink-soft);
+  font-weight: 600;
+  font-style: italic;
+}
+
 .admin-service__description {
   font-size: 0.82rem;
   color: var(--color-ink-muted);
+}
+
+.admin-service__description--placeholder {
+  color: var(--color-ink-soft);
+  font-style: italic;
 }
 
 .admin-service__actions {

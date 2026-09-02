@@ -121,9 +121,13 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
   const completionRatePct = finishedCount > 0 ? Math.round((completedCount / finishedCount) * 100) : null;
   const noShowRatePct = finishedCount > 0 ? Math.round((noShowCount / finishedCount) * 100) : null;
 
-  const serviceCounts = new Map<string, { name: string; count: number }>();
+  // Inclui o id (não só o nome) para o front poder cruzar isso com a tela de
+  // catálogo — ex.: selo "mais agendado" num serviço específico — sem
+  // depender de casar por nome (frágil se dois serviços tiverem nomes iguais
+  // em categorias diferentes).
+  const serviceCounts = new Map<string, { id: string; name: string; count: number }>();
   for (const appt of serviceCountAppointments) {
-    const entry = serviceCounts.get(appt.service.id) ?? { name: appt.service.name, count: 0 };
+    const entry = serviceCounts.get(appt.service.id) ?? { id: appt.service.id, name: appt.service.name, count: 0 };
     entry.count += 1;
     serviceCounts.set(appt.service.id, entry);
   }

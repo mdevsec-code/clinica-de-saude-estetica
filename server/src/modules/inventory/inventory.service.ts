@@ -60,10 +60,18 @@ export async function adjustQuantity(tenantId: string, id: string, delta: number
   const item = await prisma.inventoryItem.findFirst({ where: { id, tenantId } });
   if (!item) throw new NotFoundError('Item não encontrado.');
 
-  const nextQuantity = item.quantity + delta;
-  if (nextQuantity < 0) {
+  // updateMany com a checagem de estoque no próprio WHERE (em vez de
+  // ler quantity e escrever em dois passos) torna o ajuste atômico no
+  // banco: duas requisições concorrentes não podem mais ler o mesmo
+  // valor inicial e ambas passarem na validação de "não negativo".
+  const result = await prisma.inventoryItem.updateMany({
+    where: { id, tenantId, quantity: { gte: -delta } },
+    data: { quantity: { increment: delta } },
+  });
+
+  if (result.count === 0) {
     throw new AppError('Estoque não pode ficar negativo.', 422, 'NEGATIVE_STOCK');
   }
 
-  return prisma.inventoryItem.update({ where: { id }, data: { quantity: nextQuantity } });
+  return prisma.inventoryItem.findFirst({ where: { id, tenantId } });
 }

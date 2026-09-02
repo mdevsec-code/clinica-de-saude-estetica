@@ -64,6 +64,18 @@ const href = computed(() => {
   z-index: 50;
 }
 
+/* Em /agendar e /servicos, BookingSummaryBar.vue fica fixa no rodapé com seu
+   próprio CTA no canto inferior direito — exatamente onde este botão flutua
+   por padrão. Sem afastar um do outro, os dois se sobrepõem no mobile,
+   tapando o botão "Continuar" da barra. :has() detecta a barra em QUALQUER
+   lugar do documento (os dois são teleportados para containers irmãos, ver
+   index.html/App.vue) sem exigir que cada página passe uma prop só pra isso.
+   96px é a altura aproximada da barra (texto de 3 linhas + padding) mais uma
+   folga; env(...) soma o mesmo respiro de safe-area que a barra já aplica. */
+body:has(.summary-bar) .whatsapp-btn--floating {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
 .whatsapp-btn:hover {
   transform: translateY(-2px);
 }

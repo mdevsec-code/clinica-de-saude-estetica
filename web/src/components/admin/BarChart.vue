@@ -46,6 +46,7 @@ function showLabel(i: number) {
             v-for="(d, i) in data"
             :key="i"
             class="bar-chart__col"
+            :data-tooltip="`${d.label}: ${d.value}`"
             :style="colWidthPx ? { flex: `0 0 ${colWidthPx}px` } : undefined"
           >
             <span class="bar-chart__value">{{ d.value }}</span>
@@ -53,7 +54,6 @@ function showLabel(i: number) {
               class="bar-chart__bar"
               :class="{ 'bar-chart__bar--today': i === data.length - 1 }"
               :style="{ height: `${Math.max(2, (d.value / max) * 100)}%` }"
-              :title="`${d.label}: ${d.value}`"
             />
           </div>
         </div>
@@ -81,6 +81,15 @@ function showLabel(i: number) {
 
 .bar-chart__scroll {
   overflow-x: auto;
+  /* overflow-x:auto força overflow-y a computar como auto também (regra do
+     próprio CSS: os dois eixos só ficam "visible" se AMBOS forem visible) —
+     ou seja, este container também recorta verticalmente, mesmo sem
+     precisar de scroll vertical nenhum. O tooltip de cada coluna (ver
+     data-tooltip em .bar-chart__col) aparece ACIMA da coluna inteira
+     (sempre a mesma altura, não só acima da barra), e a barra do maior
+     valor do período sempre toca o topo do plot (100% de altura) — sem
+     este respiro, o tooltip dela ficaria cortado bem no topo. */
+  padding-top: 46px;
 }
 
 .bar-chart__scroll--active {

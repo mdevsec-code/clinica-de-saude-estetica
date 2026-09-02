@@ -145,7 +145,7 @@ async function toggleActive(item: InventoryItem) {
       <p v-if="createError" class="admin-error">{{ createError }}</p>
     </form>
 
-    <Transition name="fade-swap" mode="out-in">
+    <Transition name="fade-swap">
     <LoadingState v-if="loading" key="loading" label="Carregando estoque…" />
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
     <EmptyState v-else-if="!items.length" key="empty" title="Nenhum item cadastrado ainda." />
@@ -324,8 +324,13 @@ async function toggleActive(item: InventoryItem) {
 }
 
 .admin-inventory__step {
-  width: 32px;
-  height: 32px;
+  /* 44px nos dois eixos: a regra global de touch target (button, ver
+     global.css) já forçava a ALTURA pra 44px, mas sem largura equivalente o
+     botão de +/- virava uma pílula oval em vez do círculo pretendido — ruim
+     justo no controle que a recepção mais usa por tablet pra ajustar
+     estoque. */
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
   border-radius: 50%;
   border: 1px solid var(--color-border);
   background: var(--color-bg);

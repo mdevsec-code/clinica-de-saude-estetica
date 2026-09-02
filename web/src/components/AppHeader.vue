@@ -104,13 +104,20 @@ onUnmounted(() => {
           </RouterLink>
         </nav>
 
-        <RouterLink to="/admin/login" class="header__admin-link" aria-label="Área administrativa">
-          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="4" y="10" width="16" height="10" rx="2" />
-            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-          </svg>
-          <span class="header__admin-tooltip" role="tooltip">Área administrativa</span>
-        </RouterLink>
+        <div class="header__admin-slot">
+          <RouterLink
+            to="/admin/login"
+            class="header__admin-link"
+            aria-label="Área administrativa"
+            data-tooltip="Área administrativa"
+            data-tooltip-pos="bottom"
+          >
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="10" width="16" height="10" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </RouterLink>
+        </div>
 
         <button
           class="header__menu-toggle"
@@ -254,8 +261,14 @@ onUnmounted(() => {
 
 .header__nav-indicator {
   position: absolute;
-  top: 5px;
-  left: 5px;
+  /* top/left ficam em 0 de propósito: moveIndicatorTo (script acima) já
+     calcula um transform:translate() com a posição inteira do link ativo
+     relativa a .header__nav-group (getBoundingClientRect dos dois). Um
+     top/left diferente de zero aqui SOMARIA a esse translate — a pílula
+     ficava deslocada para baixo/direita do rótulo em vez de encaixada nele
+     (mais perceptível quando "Contato", o último item, estava ativo). */
+  top: 0;
+  left: 0;
   background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-sm);
@@ -343,6 +356,20 @@ onUnmounted(() => {
    visível no topo do site (não escondido só no rodapé) — um ícone discreto
    ao lado da navegação em vez de um item de texto, para não competir com o
    CTA principal "Agendar" nem parecer parte da navegação voltada à cliente. */
+/* Divisor + espaçamento ficam neste wrapper, não em .header__admin-link: o
+   link precisa ser uma caixa 48×48 perfeitamente simétrica, porque tanto o
+   ícone (centralizado por flex) quanto o tooltip (centralizado via
+   left:50%) tomam ESTA caixa como referência. Um padding-left assimétrico
+   aqui deslocaria o ícone para a direita do centro geométrico da caixa sem
+   deslocar o tooltip junto — a seta do tooltip parava de apontar pro ícone. */
+.header__admin-slot {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+  padding-left: calc(var(--space-2) + 1px);
+  border-left: 1px solid var(--color-border);
+}
+
 .header__admin-link {
   position: relative;
   flex-shrink: 0;
@@ -351,9 +378,6 @@ onUnmounted(() => {
   justify-content: center;
   width: 48px;
   height: 48px;
-  margin-left: var(--space-1);
-  padding-left: calc(var(--space-2) + 1px);
-  border-left: 1px solid var(--color-border);
   color: var(--color-ink-soft);
   transition: color var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
 }
@@ -381,57 +405,11 @@ onUnmounted(() => {
   box-shadow: var(--shadow-glow);
 }
 
-/* Tooltip customizado (em vez do title nativo do navegador, que renderiza
-   uma caixinha cinza do sistema fora de contexto com o resto do site) —
-   pequeno cartão na paleta da marca, com setinha, que aparece em hover/foco. */
-.header__admin-tooltip {
-  position: absolute;
-  top: calc(100% + 12px);
-  left: 50%;
-  z-index: 10;
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  box-shadow: var(--shadow-md, var(--shadow-lg));
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-50%) translateY(-4px) scale(0.94);
-  transform-origin: top center;
-  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
-}
-
-.header__admin-tooltip::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  background: var(--color-rose-700);
-  transform: translateX(-50%) rotate(45deg);
-  border-radius: 3px 0 0 0;
-}
-
-.header__admin-link:hover .header__admin-tooltip,
-.header__admin-link:focus-visible .header__admin-tooltip {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .header__admin-tooltip {
-    transition: opacity var(--duration-fast) linear;
-    transform: none;
-  }
-}
+/* O tooltip em si (pill na paleta da marca + setinha) vem do mecanismo
+   compartilhado [data-tooltip] em styles/global.css — nasceu aqui (era um
+   <span> + CSS só deste componente) e foi generalizado pra todo o app.
+   data-tooltip-pos="bottom" porque este ícone fica colado no topo da
+   viewport: não há espaço acima dele para o posicionamento padrão. */
 
 .header__menu-toggle {
   display: flex;

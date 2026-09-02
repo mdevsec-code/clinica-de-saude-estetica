@@ -46,7 +46,8 @@ function isDisabled(dateKey: string): boolean {
 function positionPanel() {
   if (!trigger.value) return;
   const rect = trigger.value.getBoundingClientRect();
-  const panelWidth = 280;
+  const panelWidth = 304; // deve casar com o width de .admin-date__panel no <style>
+
   // Altura real quando já montado (teleport já commitou no DOM nesse ponto);
   // sem fallback aqui, a 1ª abertura de cada instância mediria 0 e sempre
   // abriria pra baixo, mesmo colada no rodapé da tela.
@@ -220,6 +221,18 @@ watch(
   font-weight: 600;
   color: var(--color-ink);
   padding: 10px 14px;
+  /* "📅 01/09/2026" (ícone + data completa) precisa de ~150-160px pra não
+     estourar a própria caixa — com a fonte do painel administrativo ainda
+     maior em telas de mesa (html.is-admin, ver global.css), um pai que
+     tentasse encolher este botão pra algo mais estreito (ex.: um
+     .admin-field--small de 140px) deixava o conteúdo vazar visualmente pra
+     fora do botão, por cima do que viesse a seguir na linha (o CSS não
+     recalcula quebra de linha a partir de overflow visual). white-space
+     evita o texto da data quebrar no meio; min-width garante que o próprio
+     componente nunca aceite ser espremido abaixo do que o conteúdo precisa,
+     não importa a largura que o container pai tentar impor. */
+  min-width: 158px;
+  white-space: nowrap;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
@@ -244,12 +257,20 @@ watch(
 .admin-date__panel {
   position: fixed;
   z-index: 210;
-  width: 280px;
+  /* 304px (era 280px) + padding reduzido de --space-4 pra --space-3: dá mais
+     espaço real pras 7 colunas de dias abaixo, que numa grade fixa tinham só
+     ~34px de largura — pequeno demais pra um toque confiável num tablet de
+     recepção. Ainda cabe com folga nas telas mais estreitas comuns (a partir
+     de 360px, sobra ~28px de margem nas duas laterais — ver o clamp em
+     positionPanel() no script, que usa esta MESMA largura pra nunca deixar o
+     painel vazar da viewport). Se mudar este valor, mudar também o
+     `panelWidth` em positionPanel(). */
+  width: 304px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  padding: var(--space-4);
+  padding: var(--space-3);
 }
 
 .admin-date__nav {
@@ -263,13 +284,19 @@ watch(
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--color-rose-900);
-  text-transform: capitalize;
+  /* Sem text-transform:capitalize de propósito: monthLabel() (calendar.ts)
+     já devolve a string corretamente capitalizada em português ("Setembro
+     de 2026") — um capitalize aqui forçaria TODA palavra a maiúscula,
+     incluindo o "de" ("Setembro De 2026", errado). */
   font-size: 0.95rem;
 }
 
 .admin-date__nav-btn {
-  width: 28px;
-  height: 28px;
+  /* 44px nos dois eixos (não só a altura, que a regra global de touch target
+     em global.css já forçava): sem largura equivalente o botão virava uma
+     pílula oval de 28x44 em vez do círculo pretendido. */
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
   border-radius: 50%;
   border: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -305,6 +332,14 @@ watch(
 
 .admin-date__day {
   aspect-ratio: 1;
+  /* Anula a regra global de touch target (button { min-height: 44px }, ver
+     global.css): numa grade fixa de 7 colunas dentro de um painel de 280px,
+     essas células já ficam com uns ~34px de largura (definida pelo grid) —
+     a altura mínima global as esticava pra 44px sem esticar a largura junto,
+     virando uma "pílula" oval em vez do círculo do dia selecionado/hoje.
+     min-height:0 deixa a altura seguir aspect-ratio:1 (= a própria largura),
+     mantendo a célula quadrada/circular como desenhado. */
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;

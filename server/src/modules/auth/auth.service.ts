@@ -30,7 +30,7 @@ export async function login({ tenantId, email, password }: LoginInput) {
   }
 
   const token = jwt.sign(
-    { sub: user.id, tenantId: user.tenantId, role: user.role, email: user.email },
+    { sub: user.id, tenantId: user.tenantId, role: user.role, email: user.email, name: user.name },
     env.JWT_SECRET,
     { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] },
   );

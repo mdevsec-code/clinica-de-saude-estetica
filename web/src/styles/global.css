@@ -262,22 +262,200 @@ button, a.button, .tap-target {
    Sem isso, a troca de aba no painel "piscava": o spinner de carregamento
    (ou o conteúdo antigo) desaparecia e o novo aparecia de uma vez, sem
    transição nenhuma, mesmo com a troca de ROTA já animada em AdminLayout —
-   o salto ficava dentro da própria view, não entre views. */
-.fade-swap-enter-active,
-.fade-swap-leave-active {
-  transition: opacity var(--duration-base) var(--ease-premium);
+   o salto ficava dentro da própria view, não entre views.
+
+   Usar SEM mode="out-in" no <Transition> (ver cada view: AdminFinanceView,
+   AdminAgendaView etc.) é essencial, não opcional — era exatamente essa a
+   causa do "painel fica branco" que persistia mesmo depois da troca de aba
+   em si (AdminLayout.vue) já ter sido corrigida pra crossfade: como TODA
+   view recarrega os dados do zero a cada visita, esse swap interno
+   LoadingState→conteúdo acontece sempre, e com out-in o spinner precisa
+   terminar de desaparecer POR COMPLETO antes do conteúdo sequer começar a
+   aparecer — um vão em branco entre os dois.
+
+   MAS remover só o mode não bastava (confirmado gravando a troca quadro a
+   quadro, ver comentário maior em AdminLayout.vue): mesmo com só o elemento
+   que ENTRA animando (o que sai passou a sumir instantâneo, sem transição
+   própria), um fade-in a partir de opacity:0 sozinho já cria uma janela real
+   em que nada na tela está opaco o suficiente pra ler como conteúdo — lê
+   como "a tela ficou branca" mesmo sem duas camadas se sobrepondo. A
+   correção definitiva: nunca deixar a opacidade cair — só `transform` anima
+   (um leve translateY), o conteúdo nasce 100% opaco e sempre legível, só
+   fisicamente se deslocando pro lugar. */
+.fade-swap-enter-active {
+  transition: transform var(--duration-base) var(--ease-premium);
 }
 
-.fade-swap-enter-from,
-.fade-swap-leave-to {
-  opacity: 0;
+.fade-swap-enter-from {
+  transform: translateY(8px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-swap-enter-active,
-  .fade-swap-leave-active {
+  .fade-swap-enter-active {
     transition: none;
   }
+}
+
+/* --- Tooltip compartilhado (attr(data-tooltip)) ---
+   Substitui o title="" nativo do navegador (caixinha cinza do sistema, fora
+   de contexto com o resto do site) em TODO o app — era usado só uma vez
+   (ícone da área administrativa em AppHeader.vue, com uma cópia inteira de
+   markup + CSS só pra esse caso) e ficou generalizado aqui pra qualquer
+   elemento em qualquer view, sem precisar de um <span> extra por instância:
+   basta um atributo data-tooltip="texto" no elemento. content:attr() num
+   pseudo-elemento NÃO é lido por leitor de tela, então o elemento precisa
+   continuar tendo seu próprio nome acessível (aria-label, texto visível
+   etc.) — o pseudo-elemento aqui é só decoração visual.
+   Direção padrão: acima do elemento (mais comum — a maioria dos gatilhos de
+   tooltip no painel fica em linhas/tabelas com mais espaço livre acima do
+   que abaixo). data-tooltip-pos="bottom" inverte para abaixo, usado quando
+   o elemento já está perto do topo da viewport (ex.: ícone no header). */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after,
+[data-tooltip]::before {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-md, var(--shadow-lg));
+  transform: translateX(-50%) translateY(4px) scale(0.94);
+  transform-origin: bottom center;
+}
+
+[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  z-index: 20;
+  width: 10px;
+  height: 10px;
+  background: var(--color-rose-700);
+  border-radius: 0 0 3px 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::before {
+  opacity: 1;
+}
+
+[data-tooltip-pos='bottom']::after {
+  bottom: auto;
+  top: calc(100% + 12px);
+  transform: translateX(-50%) translateY(-4px) scale(0.94);
+  transform-origin: top center;
+}
+
+[data-tooltip-pos='bottom']::before {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-radius: 3px 0 0 0;
+}
+
+[data-tooltip-pos='bottom']:hover::after,
+[data-tooltip-pos='bottom']:focus-visible::after {
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tooltip]::after,
+  [data-tooltip]::before {
+    transition: opacity var(--duration-fast) linear;
+  }
+
+  [data-tooltip]:hover::after,
+  [data-tooltip]:focus-visible::after,
+  [data-tooltip-pos='bottom']:hover::after,
+  [data-tooltip-pos='bottom']:focus-visible::after {
+    transform: translateX(-50%);
+  }
+}
+
+/* --- Campo de formulário do painel administrativo (.admin-field) ---
+   Centralizado aqui pelo mesmo motivo do .admin-page-icon acima: quatro
+   views (Financeiro, Agenda, Novo agendamento, Usuários) tinham cada uma sua
+   própria cópia de .admin-field input/select — e já haviam divergido em
+   detalhes (ex.: uma delas usava --color-surface de fundo no select em vez
+   de --color-bg das outras três). Só a aparência (tipografia, borda, fundo,
+   estado de foco/hover, a setinha custom do select) mora aqui; o
+   dimensionamento do campo dentro do layout de cada formulário (flex,
+   min-width, a variante --small) continua em cada view porque isso é
+   genuinamente específico do formulário, não uma questão de estilo. */
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.admin-field input,
+.admin-field select,
+.admin-field textarea {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 400;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.admin-field input:focus-visible,
+.admin-field select:focus-visible,
+.admin-field textarea:focus-visible {
+  border-color: var(--color-rose-700);
+  box-shadow: 0 0 0 3px var(--color-rose-100);
+  outline: none;
+}
+
+.admin-field select {
+  /* Só dá pra estilizar o CAMPO em si — a lista de opções aberta é do
+     sistema operacional, fora do alcance do CSS em praticamente todo
+     navegador. appearance:none troca a setinha nativa por uma consistente
+     com o resto do site. */
+  padding-right: 34px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c5b60' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.admin-field select:hover {
+  border-color: var(--color-rose-500);
 }
 
 .visually-hidden {

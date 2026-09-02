@@ -80,13 +80,22 @@ function onKeydown(event: KeyboardEvent) {
 
 .admin-modal__header h2 {
   font-size: 1.2rem;
-  text-transform: capitalize;
+  /* Sem text-transform:capitalize: os títulos passados por quem usa este
+     modal já vêm com a capitalização correta em português (só a primeira
+     letra, ex.: "Novo agendamento" ou um dayLabel() já formatado) — um
+     capitalize aqui forçaria toda palavra a maiúscula, inclusive
+     preposições ("Novo Agendamento", "01 De Setembro De 2026"), errado. */
 }
 
 .admin-modal__close {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  /* A regra global de touch target (button { min-height: 44px }, ver
+     global.css) já esticava a ALTURA deste botão pra 44px sem esticar a
+     largura — resultado era uma "pílula" oval de 32x44 em vez de um círculo.
+     Fixar os dois lados em --touch-target-min mantém o botão circular e dá
+     uma área de toque adequada nas duas dimensões. */
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
   border-radius: 50%;
   border: 1px solid var(--color-border);
   background: none;

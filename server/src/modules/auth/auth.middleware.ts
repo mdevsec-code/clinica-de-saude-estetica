@@ -9,6 +9,7 @@ interface TokenPayload {
   tenantId: string;
   role: UserRole;
   email: string;
+  name: string;
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
@@ -32,7 +33,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
       return next(new UnauthorizedError('Sessão inválida ou expirada.'));
     }
 
-    req.user = { id: payload.sub, tenantId: payload.tenantId, role: payload.role, email: payload.email };
+    req.user = { id: payload.sub, tenantId: payload.tenantId, role: payload.role, email: payload.email, name: payload.name };
     next();
   } catch {
     next(new UnauthorizedError('Sessão inválida ou expirada.'));
