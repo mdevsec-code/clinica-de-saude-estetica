@@ -28,7 +28,7 @@ agenda, financeiro, estoque e usuários.
 - [Estrutura do repositório](#-estrutura-do-repositório)
 - [Stack tecnológica](#-stack-tecnológica)
 - [Funcionalidades](#-funcionalidades)
-- [Modelo de dados](#-modelo-de-dados)
+- [Modelagem de dados](#-modelagem-de-dados)
 - [Segurança](#-segurança)
 - [Como rodar localmente](#-como-rodar-localmente)
 - [Variáveis de ambiente](#-variáveis-de-ambiente)
