@@ -176,9 +176,18 @@ const steps = [
       </div>
     </section>
 
-    <section class="section section--muted" v-if="categories.length">
+    <section class="section section--muted section--specialties" v-if="categories.length">
+      <span class="specialties__glow" aria-hidden="true" />
+      <DecorativeDots :count="10" />
       <div class="container">
-        <h2 data-split>Especialidades</h2>
+        <div class="specialties__heading">
+          <p class="specialties__eyebrow" data-reveal>O que oferecemos</p>
+          <h2 data-split>Especialidades</h2>
+          <p class="specialties__lead" data-reveal>
+            Um procedimento para cada etapa do seu cuidado — da limpeza de pele à micropigmentação,
+            sempre com técnica e atenção aos detalhes.
+          </p>
+        </div>
         <div class="specialties">
           <RouterLink
             v-for="category in categories"
@@ -309,6 +318,22 @@ const steps = [
   overflow-wrap: break-word;
   margin-bottom: var(--space-5);
   perspective: 700px;
+  /* Mesmo problema que a foto do hero tinha (ver comentário em .hero__photo):
+     splitHeroTitle (useSplitReveal.ts) só esconde o título quando o SplitText
+     roda, dentro de onAppIntroReady — e isso só dispara DEPOIS que a cortina
+     de abertura termina de deslizar pra fora. Sem esconder o título já no
+     CSS, ele ficava visível por inteiro (texto puro, sem split) enquanto a
+     cortina saía de cena, e só then era desmontado/escondido e reanimado —
+     lia como o texto carregando duas vezes. splitHeroTitle volta a deixar
+     isto opacity:1 no exato instante em que faz o split (ver useSplitReveal.ts).
+     Revertido em prefers-reduced-motion, onde o split nunca roda. */
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__title {
+    opacity: 1;
+  }
 }
 
 .hero__lead {
@@ -459,9 +484,34 @@ const steps = [
      deixava uma linha de 1px da cor escura vazando bem na fronteira com o
      creme. Mesma solução — sem onda nenhuma: o próprio gradiente desta seção
      nasce na cor exata da seção anterior (--color-dusk-900) e clareia até
-     --color-surface-muted só DENTRO da própria caixa, então não há fronteira
-     entre dois elementos para uma costura aparecer. */
-  background: linear-gradient(180deg, var(--color-dusk-900) 0%, var(--color-surface-muted) 12%, var(--color-surface-muted) 100%);
+     --color-surface-muted DENTRO da própria caixa, então não há fronteira
+     entre dois elementos para uma costura aparecer.
+     A transição em si precisou virar uma curva suave tipo smoothstep em
+     pixels fixos, não um ramp linear com um trecho plano na entrada: cor
+     batendo nas duas pontas não basta, e mesmo um platô plano seguido de
+     rampa linear ainda deixava uma "dobra" visível (o olho humano enxerga
+     mudança BRUSCA de inclinação como uma linha — Mach band — mesmo sem
+     nenhuma descontinuidade real de cor; confirmado aqui: a diferença de
+     cor pixel-a-pixel na costura é mínima, mas a linha continuava visível).
+     smoothstep (t²(3-2t)) tem inclinação zero nas DUAS pontas por
+     construção, então casa naturalmente com o platô plano de
+     `.section--dark` acima e o platô plano desta seção abaixo, sem nenhum
+     ponto de inflexão abrupta em lugar nenhum da curva. */
+  background: linear-gradient(
+    180deg,
+    var(--color-dusk-900) 0px,
+    color-mix(in srgb, var(--color-surface-muted) 2.8%, var(--color-dusk-900)) 28px,
+    color-mix(in srgb, var(--color-surface-muted) 10.4%, var(--color-dusk-900)) 56px,
+    color-mix(in srgb, var(--color-surface-muted) 21.6%, var(--color-dusk-900)) 84px,
+    color-mix(in srgb, var(--color-surface-muted) 35.2%, var(--color-dusk-900)) 112px,
+    color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-dusk-900)) 140px,
+    color-mix(in srgb, var(--color-surface-muted) 64.8%, var(--color-dusk-900)) 168px,
+    color-mix(in srgb, var(--color-surface-muted) 78.4%, var(--color-dusk-900)) 196px,
+    color-mix(in srgb, var(--color-surface-muted) 89.6%, var(--color-dusk-900)) 224px,
+    color-mix(in srgb, var(--color-surface-muted) 97.2%, var(--color-dusk-900)) 252px,
+    var(--color-surface-muted) 280px,
+    var(--color-surface-muted) 100%
+  );
 }
 
 .section h2 {
@@ -491,9 +541,33 @@ const steps = [
 
 /* --- Sobre a clínica: seção de contraste dramático --- */
 .section--dark {
-  background: radial-gradient(circle at 15% 20%, var(--color-dusk-700) 0%, transparent 55%),
+  /* A 1ª camada (topo) força os últimos ~160px a ser dusk-900 sólido e
+     garantido, não importa o quanto o brilho radial abaixo ainda esteja
+     ativo naquela altura: numa seção larga (raio "55%" do radial é relativo
+     à distância até o canto mais distante, dominada pela largura), o brilho
+     pode não ter decaído a zero ainda perto da borda inferior — o que fazia
+     a borda real ficar um pouco mais clara que --color-dusk-900 puro,
+     descasando com o gradiente de .section--muted logo abaixo (que começa
+     assumindo dusk-900 exato) e deixando uma linha visível na costura. */
+  background: linear-gradient(to top, var(--color-dusk-900) 0px, var(--color-dusk-900) 60px, transparent 160px),
+    radial-gradient(circle at 15% 20%, var(--color-dusk-700) 0%, transparent 55%),
     var(--color-dusk-900);
   padding-block: var(--space-9);
+  /* Mesmo raciocínio do overlap em `.cta-final` (ver comentário lá): mesmo
+     com a cor batendo EXATAMENTE dos dois lados da fronteira (confirmado
+     medindo os pixels reais em repouso), o navegador ainda rasteriza os
+     dois elementos como caixas separadas e pode deixar um fio de costura
+     por arredondamento de subpixel. Em repouso 1px já bastava, mas a
+     costura reaparecia durante o SCROLL em si (ScrollSmoother move a
+     página inteira via transform, e o compositor pode arredondar a borda
+     de cada elemento de forma levemente diferente quadro a quadro enquanto
+     esse transform está em movimento) — por isso o overlap subiu para 3px
+     e as duas seções ganharam translateZ(0), forçando as duas para o mesmo
+     tipo de camada de composição em vez de uma ficar "promovida" e a outra
+     não (a causa mais comum desse tipo de costura intermitente ligada a
+     scroll/animação). */
+  margin-bottom: -3px;
+  transform: translateZ(0);
 }
 
 .section--dark h2 {
@@ -618,10 +692,57 @@ const steps = [
 }
 
 /* --- Especialidades --- */
+.section--specialties {
+  position: relative;
+  overflow: hidden;
+}
+
+.specialties__glow {
+  position: absolute;
+  top: -10%;
+  right: -8%;
+  width: min(640px, 70%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 164, 101, 0.22), transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.specialties__heading {
+  max-width: 640px;
+  margin-bottom: var(--space-6);
+  position: relative;
+}
+
+.specialties__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.9rem;
+  color: var(--color-rose-700);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+
+.specialties__lead {
+  color: var(--color-ink-muted);
+  font-size: 1.1rem;
+  max-width: 56ch;
+  margin-top: var(--space-3);
+}
+
 .specialties {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
+  /* align-items:stretch (o padrão do grid) faz TODO card da mesma linha
+     esticar até bater a altura do mais alto — como o card em destaque
+     (grid-column: span 2, ver .specialty-card--featured) tem nome maior e
+     puxa mais altura, isso distorcia a proporção 3:4 dos cards com foto ao
+     lado dele, deixando tudo desproporcional. Cada card passa a assumir
+     sua própria altura natural (aspect-ratio, no caso das fotos). */
+  align-items: start;
 }
 
 .specialty-card {
@@ -689,12 +810,33 @@ const steps = [
 
 .specialty-card:hover {
   border-color: var(--color-rose-500);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(156, 91, 96, 0.12);
 }
 
 .specialty-card--featured {
-  border-color: var(--color-rose-700);
-  box-shadow: var(--shadow-sm);
+  /* O card marcado "Destaque na home" no admin (ver AdminCatalogView) merece
+     se destacar de verdade na grade, não só ganhar um selo — ocupa a largura
+     de 2 colunas (span total no grid de 2 colunas do mobile; 2 de 5 no
+     desktop) e ganha um contorno/glow dourado sutil, coerente com o acento
+     "champagne" reservado a destaques premium (ver tokens.css). */
+  grid-column: 1 / -1;
+  border-color: var(--color-gold-500);
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(200, 164, 101, 0.35);
+}
+
+.specialty-card--featured:hover {
+  border-color: var(--color-gold-500);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(200, 164, 101, 0.5);
+}
+
+.specialty-card--featured .specialty-card__name {
+  font-size: 1.15rem;
+}
+
+@media (min-width: 620px) {
+  .specialty-card--featured {
+    grid-column: span 2;
+  }
 }
 
 .specialty-card__badge {
