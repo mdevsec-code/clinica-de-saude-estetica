@@ -18,6 +18,13 @@ export function initSmoothScroll(): ScrollSmoother | null {
   const content = document.querySelector('#smooth-content');
   if (!wrapper || !content) return null;
 
+  // history.scrollRestoration já foi desligado o mais cedo possível (script
+  // inline em index.html, antes de qualquer módulo JS rodar — ver comentário
+  // lá). Esta chamada é só a garantia final: zera a posição antes do
+  // ScrollSmoother ler e assumir o controle do scroll, cobrindo qualquer
+  // scroll residual entre o parse do HTML e este ponto.
+  window.scrollTo(0, 0);
+
   smoother = ScrollSmoother.create({
     wrapper: '#smooth-wrapper',
     content: '#smooth-content',

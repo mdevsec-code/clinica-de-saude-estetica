@@ -6,6 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#F7EFEC" />
     <title>Noely Cerqueira — Estética e Micropigmentação</title>
+    <script>
+      // Precisa ser inline e no <head> — script síncrono, roda ANTES do
+      // navegador sequer começar a desenhar a página. A mesma linha dentro
+      // de main.ts (um <script type="module">, que só executa depois do
+      // HTML inteiro já ter sido processado) chegava tarde demais: o
+      // navegador já tinha restaurado sozinho a posição de scroll da visita
+      // anterior antes desse módulo rodar, então desligar a restauração ali
+      // não desfazia o que já tinha acontecido. Aqui, roda a tempo.
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
+    </script>
     <meta
       name="description"
       content="Clínica de estética e micropigmentação da Noely Cerqueira, em Camaçari (BA). Agende seu atendimento online."

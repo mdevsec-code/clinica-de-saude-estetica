@@ -6,10 +6,14 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  /* Base de toda medida em rem do site (títulos, parágrafos, textos pequenos):
-     ~19px em vez do padrão 16px do navegador — aumentado duas vezes a pedido
-     explícito do cliente para deixar a leitura mais confortável em todo o site. */
-  font-size: 118.75%;
+  /* Base de toda medida em rem do site (títulos, parágrafos, textos pequenos).
+     Chegou a 118.75% (~19px) em dois aumentos pedidos pelo cliente para
+     leitura mais confortável — mas isso estava sendo testado com o zoom do
+     navegador abaixo de 100%, que mascarava o tamanho real. A 100% de zoom
+     puro (padrão de qualquer navegador) ficou grande demais mesmo já no
+     tamanho padrão (16px) — reduzido abaixo do próprio padrão do navegador,
+     em ajustes sucessivos, a pedido do cliente. */
+  font-size: 85%;
 }
 
 /* Painel administrativo em telas de mesa: a classe .is-admin é ligada/
@@ -21,7 +25,9 @@ html {
    o layout compacto das tabelas/listas. */
 @media (min-width: 900px) {
   html.is-admin {
-    font-size: 132%;
+    /* Reduzido de 132% junto com o ajuste do site público (regra `html`
+       acima) — mesmo pedido do cliente de diminuir o tamanho geral. */
+    font-size: 96%;
   }
 }
 

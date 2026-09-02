@@ -53,6 +53,13 @@ export function splitHeroTitle(el: HTMLElement): () => void {
     mask: 'lines',
     autoSplit: true,
     onSplit(self) {
+      // O elemento nasce com opacity:0 no CSS (ver .hero__title em
+      // HomeView.vue) só pra não aparecer "pronto" por um instante antes do
+      // split rodar. Assim que o split acontece (e as palavras já nascem
+      // com opacity:0 individualmente, prontas pra animar), o pai pode
+      // voltar a ficar visível — o conteúdo real continua escondido pelas
+      // próprias palavras até a timeline abaixo revelar cada uma.
+      gsap.set(el, { opacity: 1 });
       return gsap.from(self.words, {
         opacity: 0,
         yPercent: 130,
