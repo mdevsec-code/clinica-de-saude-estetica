@@ -100,11 +100,11 @@ web/src/
 
 ### Site público (`web/`)
 
-- **Home** com apresentação da clínica e categoria em destaque (Harmonização Facial e Corporal).
-- **Serviços** — categorias expansíveis por accordion, com ícones e imagens próprias.
-- **Agendamento** self-service em fluxo guiado: serviço → data → horário → dados do cliente → confirmação, consultando disponibilidade real do backend.
-- **Contato** com WhatsApp, Instagram, endereço e horário de funcionamento — dados vindos da API, nunca fixos no código.
-- Identidade visual autoral: micro-interações e animações com GSAP (scroll reveal, parallax, magnetic buttons, split-text).
+- **Home** com apresentação da clínica, categoria em destaque (Harmonização Facial) e seção "Especialidades" com card ampliado para o serviço em destaque.
+- **Serviços** — catálogo real da clínica (7 categorias, ~60 serviços com nome, preço e duração reais), em accordion expansível.
+- **Agendamento** self-service em fluxo guiado: serviço → data → horário → dados do cliente → confirmação, consultando disponibilidade real do backend. Indicador de progresso vira "Etapa X de 5" em telas estreitas em vez de cortar as últimas etapas.
+- **Contato** com card de WhatsApp (prévia animada de conversa), card de Instagram (print real do perfil, com fallback para fotos do catálogo), horário de funcionamento (com destaque do dia atual) e mapa — todo o conteúdo vem da API, nunca fixo no código.
+- Identidade visual autoral: micro-interações e animações com GSAP (scroll reveal, parallax, magnetic buttons, split-text, tooltips com brilho animado).
 
 ### Painel administrativo (`web/src/views/admin/`)
 
@@ -114,7 +114,7 @@ com **Ctrl/Cmd+K** (paleta de comandos) além dos atalhos de menu.
 
 | Rota | Tela | Descrição |
 |---|---|---|
-| `/admin` | Dashboard | Métricas agregadas (agendamentos, receita, ocupação) |
+| `/admin` | Dashboard | Métricas agregadas (agendamentos, receita, ocupação), números com contagem animada (GSAP) ao carregar |
 | `/admin/servicos` | Catálogo | CRUD de categorias e serviços, com banners e destaque de "mais agendado" |
 | `/admin/agenda` | Agenda | Visão de calendário dos agendamentos, criação manual |
 | `/admin/financeiro` | Financeiro | Despesas por status (pendente/pago/atrasado), vencimentos e recebimentos do dia, histórico de faturamento diário, DRE e conciliação bancária via importação de extrato OFX |
@@ -242,7 +242,8 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `npm run dev` | API em modo desenvolvimento (`ts-node-dev`, hot reload) |
 | `npm run build` | Compila TypeScript para `dist/` |
 | `npm start` | Roda a versão compilada (produção) |
-| `npm run seed` | Popula o banco com tenant, categorias, horários e admin |
+| `npm run seed` | Popula o banco com tenant, categorias/serviços reais, horários e admin |
+| `npm run seed:demo` | Opcional — adiciona clientes, agendamentos, despesas e estoque fictícios por cima do `seed`, útil para demonstração/gravação de tela |
 | `npm run prisma:studio` | Abre o Prisma Studio (explorador visual do banco) |
 | `npm run prisma:migrate` | Cria/aplica uma nova migration |
 
@@ -261,7 +262,6 @@ Fora de escopo desta fase, planejado para depois:
 
 - [ ] Integração com Google Calendar (sincronização de bloqueios)
 - [ ] Integração com Meta WhatsApp Cloud API (hoje o contato público é só via link `wa.me`)
-- [ ] Cadastro completo dos serviços de cada categoria (nome exato, duração, preço — as categorias já existem, faltam os serviços)
 - [ ] Multi-tenant real (hoje a resolução de tenant já existe e é usada em toda query, mas só há um tenant em produção)
 
 ---
