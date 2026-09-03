@@ -13,27 +13,70 @@ const steps: { key: BookingStep; label: string }[] = [
 ];
 
 const currentIndex = computed(() => steps.findIndex((s) => s.key === props.current));
+const progressPercent = computed(() => `${((currentIndex.value + 1) / steps.length) * 100}%`);
 </script>
 
 <template>
-  <ol class="progress" aria-label="Etapas do agendamento">
-    <li
-      v-for="(step, index) in steps"
-      :key="step.key"
-      class="progress__step"
-      :class="{
-        'progress__step--done': index < currentIndex,
-        'progress__step--active': index === currentIndex,
-      }"
-      :aria-current="index === currentIndex ? 'step' : undefined"
-    >
-      <span class="progress__dot">{{ index < currentIndex ? '✓' : index + 1 }}</span>
-      <span class="progress__label">{{ step.label }}</span>
-    </li>
-  </ol>
+  <div class="progress-wrap">
+    <!-- Abaixo de ~560px o <ol> horizontal (mesmo com overflow-x:auto) escondia
+         as etapas finais fora da tela sem nenhuma pista visual de que dava
+         pra arrastar — ruim justo num indicador de progresso, cujo papel é
+         deixar claro quantos passos faltam. Uma barra + "Etapa X de N" some
+         menos informação relevante nesse espaço do que a lista cortada.
+         O <ol> continua completo no DOM (só escondido via CSS) para leitor
+         de tela em telas largas; no compacto, o texto abaixo já comunica a
+         mesma informação sozinho, então não duplicamos com aria-hidden nos
+         dois ao mesmo tempo. -->
+    <p class="progress__compact">Etapa {{ currentIndex + 1 }} de {{ steps.length }} — {{ steps[currentIndex].label }}</p>
+    <div class="progress__bar" aria-hidden="true"><span class="progress__bar-fill" :style="{ width: progressPercent }" /></div>
+
+    <ol class="progress" aria-label="Etapas do agendamento">
+      <li
+        v-for="(step, index) in steps"
+        :key="step.key"
+        class="progress__step"
+        :class="{
+          'progress__step--done': index < currentIndex,
+          'progress__step--active': index === currentIndex,
+        }"
+        :aria-current="index === currentIndex ? 'step' : undefined"
+      >
+        <span class="progress__dot">{{ index < currentIndex ? '✓' : index + 1 }}</span>
+        <span class="progress__label">{{ step.label }}</span>
+      </li>
+    </ol>
+  </div>
 </template>
 
 <style scoped>
+.progress-wrap {
+  width: 100%;
+}
+
+.progress__compact {
+  display: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin-bottom: var(--space-2);
+}
+
+.progress__bar {
+  display: none;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.progress__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-rose-700);
+  transition: width var(--duration-base) var(--ease-standard);
+}
+
 .progress {
   display: flex;
   list-style: none;
@@ -86,5 +129,16 @@ const currentIndex = computed(() => steps.findIndex((s) => s.key === props.curre
   height: 1px;
   background: var(--color-border);
   margin-inline: var(--space-1);
+}
+
+@media (max-width: 560px) {
+  .progress__compact,
+  .progress__bar {
+    display: block;
+  }
+
+  .progress {
+    display: none;
+  }
 }
 </style>

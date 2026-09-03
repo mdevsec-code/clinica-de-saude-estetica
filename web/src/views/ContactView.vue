@@ -51,6 +51,7 @@ const hours = computed(() =>
   (settings.data?.businessHours ?? []).map((bh) => ({
     label: weekdayLabels[bh.weekday],
     range: `${bh.opensAt} – ${bh.closesAt}`,
+    weekday: bh.weekday,
   })),
 );
 
@@ -119,19 +120,28 @@ const liveStatus = computed(() => {
 });
 
 // --- Prévia de conversa do card do WhatsApp ---
-// Sequência de uma vez só (não em loop) ao montar: "digitando…" por um
-// instante e então a mensagem aparece — dá a sensação de uma conversa
-// prestes a começar sem virar uma animação repetitiva incomodando quem fica
-// com a aba aberta. prefers-reduced-motion pula direto pro estado final.
-const chatBubbleState = ref<'hidden' | 'typing' | 'shown'>('hidden');
+// Sequência de uma vez só (não em loop) ao montar: a pergunta da cliente
+// chega primeiro, depois "digitando…" e então a resposta — uma troca rápida
+// em vez de uma única mensagem estática, pra realmente parecer o início de
+// uma conversa real acontecendo. prefers-reduced-motion pula
+// direto pro estado final (as duas mensagens já visíveis, sem animação).
+const chatBubbleState = ref<'hidden' | 'customer' | 'typing' | 'shown'>('hidden');
 onMounted(() => {
   if (prefersReducedMotion()) {
     chatBubbleState.value = 'shown';
     return;
   }
-  setTimeout(() => (chatBubbleState.value = 'typing'), 500);
-  setTimeout(() => (chatBubbleState.value = 'shown'), 1700);
+  setTimeout(() => (chatBubbleState.value = 'customer'), 500);
+  setTimeout(() => (chatBubbleState.value = 'typing'), 1700);
+  setTimeout(() => (chatBubbleState.value = 'shown'), 3100);
 });
+
+// Print real da grade do perfil (@noelycerqueira) — arquivo estático em
+// web/public/brand/instagram-grid.jpg, não uma URL externa: assim o card
+// nunca depende do Instagram estar no ar nem quebra por causa de bloqueio
+// de terceiros/CORS. Precisa ser atualizado manualmente de tempos em tempos
+// pra continuar refletindo o feed atual.
+const igGridImage = '/brand/instagram-grid.jpg';
 
 // Aponta direto para a ficha real da clínica no Google Maps (Clínica Noely
 // Cerqueira Saúde e Beleza), não para uma busca genérica pelo texto do
@@ -174,17 +184,26 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
           <h2>Fale pelo WhatsApp</h2>
           <p class="contact-card__hint">Resposta rápida, direto com a equipe da clínica.</p>
 
-          <Transition name="chat-bubble">
-            <div v-if="chatBubbleState !== 'hidden'" class="whatsapp-preview">
-              <span class="whatsapp-preview__avatar" aria-hidden="true">NC</span>
-              <div class="whatsapp-preview__bubble">
-                <span v-if="chatBubbleState === 'typing'" class="whatsapp-preview__typing" aria-hidden="true">
-                  <span /><span /><span />
-                </span>
-                <span v-else>Olá! 😊 Como posso te ajudar?</span>
+          <div class="whatsapp-thread">
+            <Transition name="chat-bubble">
+              <div v-if="chatBubbleState !== 'hidden'" class="whatsapp-preview whatsapp-preview--customer">
+                <div class="whatsapp-preview__bubble whatsapp-preview__bubble--customer">
+                  Oi! Gostaria de agendar um horário 💆‍♀️
+                </div>
               </div>
-            </div>
-          </Transition>
+            </Transition>
+            <Transition name="chat-bubble">
+              <div v-if="chatBubbleState === 'typing' || chatBubbleState === 'shown'" class="whatsapp-preview">
+                <span class="whatsapp-preview__avatar" aria-hidden="true">NC</span>
+                <div class="whatsapp-preview__bubble">
+                  <span v-if="chatBubbleState === 'typing'" class="whatsapp-preview__typing" aria-hidden="true">
+                    <span /><span /><span />
+                  </span>
+                  <span v-else>Olá! 😊 Me conta qual procedimento você tem interesse!</span>
+                </div>
+              </div>
+            </Transition>
+          </div>
 
           <WhatsAppButton
             v-if="settings.data?.whatsapp"
@@ -197,22 +216,32 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
           <DecorativeDots :count="8" tone="light" />
           <span class="instagram-sparkle instagram-sparkle--1" aria-hidden="true">✦</span>
           <span class="instagram-sparkle instagram-sparkle--2" aria-hidden="true">✦</span>
-          <span class="contact-card__icon-wrap">
-            <span class="contact-card__icon-ring contact-card__icon-ring--gold" aria-hidden="true" />
-            <span class="contact-card__icon contact-card__icon--instagram">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="5" />
-                <circle cx="12" cy="12" r="4" />
-                <circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none" />
-              </svg>
+          <div class="instagram-header">
+            <span class="contact-card__icon-wrap">
+              <span class="contact-card__icon-ring contact-card__icon-ring--gold" aria-hidden="true" />
+              <span class="contact-card__icon contact-card__icon--instagram">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="5" />
+                  <circle cx="12" cy="12" r="4" />
+                  <circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none" />
+                </svg>
+              </span>
             </span>
-          </span>
-          <h2>Instagram</h2>
-          <span class="contact-card__handle">{{ settings.data?.instagram }}</span>
-          <span class="contact-card__cta">Seguir <span class="contact-card__cta-arrow" aria-hidden="true">→</span></span>
+            <div class="instagram-header__text">
+              <h2>Instagram</h2>
+              <span class="contact-card__handle">{{ settings.data?.instagram }}</span>
+            </div>
+          </div>
+
+          <div class="instagram-grid" aria-hidden="true">
+            <img :src="igGridImage" alt="" loading="lazy" />
+          </div>
+
+          <span class="contact-card__cta">Ver perfil <span class="contact-card__cta-arrow" aria-hidden="true">→</span></span>
         </a>
 
         <div class="contact-card contact-card--hours" v-if="hours.length" data-icon-card>
+          <DecorativeDots :count="6" tone="rose" />
           <span class="contact-card__icon-wrap">
             <span class="contact-card__icon-ring contact-card__icon-ring--rose" aria-hidden="true" />
             <span class="contact-card__icon">
@@ -243,7 +272,13 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
           </div>
 
           <div class="contact-card__hours-list">
-            <p v-for="h in hours" :key="h.label"><span class="contact-card__day">{{ h.label }}</span> {{ h.range }}</p>
+            <p
+              v-for="h in hours"
+              :key="h.label"
+              :class="{ 'contact-card__hours-row--today': h.weekday === nowClock.weekday }"
+            >
+              <span class="contact-card__day">{{ h.label }}</span> {{ h.range }}
+            </p>
           </div>
         </div>
       </div>
@@ -391,11 +426,27 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 }
 
 /* --- Prévia de conversa (WhatsApp) --- */
+.whatsapp-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: var(--space-4);
+}
+
 .whatsapp-preview {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  margin-bottom: var(--space-4);
+}
+
+.whatsapp-preview--customer {
+  justify-content: flex-end;
+}
+
+.whatsapp-preview__bubble--customer {
+  background: color-mix(in srgb, var(--color-gold-500) 32%, white 68%);
+  color: var(--color-rose-900);
+  border-radius: var(--radius-md) var(--radius-md) 4px var(--radius-md);
 }
 
 .whatsapp-preview__avatar {
@@ -508,7 +559,54 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   display: block;
   color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
+}
+
+/* --- Cabeçalho do card de Instagram: ícone ao lado do texto (não empilhado
+   em cima) — libera altura pra grade de fotos abaixo caber sem o card
+   ficar desproporcionalmente alto. --- */
+.instagram-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
+  position: relative;
+  z-index: 1;
+}
+
+.instagram-header .contact-card__icon-wrap {
+  margin-bottom: 0;
+}
+
+.instagram-header__text h2 {
+  margin-bottom: 2px;
+}
+
+/* --- Print real do perfil (ver igGridImage no script): um recorte só da
+   grade de posts, sem a barra de topo/bio do Instagram (o card já tem seu
+   próprio cabeçalho com ícone+handle acima) nem o aviso de login que o
+   Instagram mostra pra quem não está logado. --- */
+.instagram-grid {
+  /* Mesmo raciocínio de width:100% de antes (ver histórico): .contact-card
+     --instagram é flex column com align-items:flex-start, então filhos não
+     esticam à largura toda sozinhos. */
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.instagram-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform var(--duration-slow) var(--ease-premium);
+}
+
+.contact-card--instagram:hover .instagram-grid img {
+  transform: scale(1.04);
 }
 
 .contact-card__cta {
@@ -764,6 +862,25 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.contact-card__hours-list p {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid transparent;
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+}
+
+/* Linha de hoje ganha destaque próprio — sem isso, a lista inteira lia como
+   um bloco só de texto igual, obrigando a pessoa a caçar o dia atual na
+   tira de dias acima e depois voltar pra achar a linha correspondente. */
+.contact-card__hours-row--today {
+  background: var(--color-rose-100);
+  border-left-color: var(--color-rose-700);
+}
+
+.contact-card__hours-row--today .contact-card__day {
+  color: var(--color-rose-900);
 }
 
 .contact-map {
