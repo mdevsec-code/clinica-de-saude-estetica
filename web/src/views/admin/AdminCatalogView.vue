@@ -890,6 +890,19 @@ async function toggleServiceActive(service: AdminService) {
   gap: var(--space-3);
 }
 
+@media (max-width: 640px) {
+  /* Mesmo risco do grid de KPIs do dashboard (ver comentário lá): auto-fill
+     pode encaixar uma 2ª coluna bem abaixo do mínimo pedido em telas
+     estreitas, espremendo o conteúdo do card. display:flex em vez de só
+     trocar grid-template-columns — só a coluna sozinha não estava sendo
+     aplicada de verdade no Chromium testado (mesma peculiaridade do
+     dashboard), sair do grid contorna por completo. */
+  .admin-service-grid {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .admin-service {
   display: flex;
   align-items: flex-start;

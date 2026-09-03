@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { RouterLink } from 'vue-router';
 import { ApiError } from '@/services/api';
 import { fetchDashboardStats } from '@/services/admin-dashboard.service';
 import { fetchAppointments } from '@/services/admin-appointments.service';
-import { applyScrollReveal } from '@/composables/useScrollReveal';
+import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { refreshScroll } from '@/composables/useSmoothScroll';
 import { dayLabel, endOfDay, startOfDay, toLocalDateKey } from '@/utils/calendar';
 import type { AdminAppointment, AppointmentStatus, DashboardStats } from '@/types';
@@ -28,6 +28,12 @@ const error = ref<string | null>(null);
 // mês corrente, só este gráfico muda de janela).
 const CHART_RANGE_OPTIONS = [7, 14, 30, 60, 90] as const;
 const chartDays = ref<number>(14);
+// Trocar o período do gráfico não deve recarregar o painel inteiro (os KPIs,
+// os outros cards) — só o próprio gráfico. Por isso vive num loading
+// separado de `loading`, que nunca é tocado aqui: `loading` continua
+// reservado ao carregamento inicial (o único caso em que faz sentido trocar
+// todo o conteúdo pelo <LoadingState>, ver v-if="loading" no template).
+const chartLoading = ref(false);
 
 async function load() {
   loading.value = true;
@@ -45,13 +51,50 @@ async function load() {
   }
 }
 
-function selectChartRange(days: number) {
-  if (chartDays.value === days) return;
+async function selectChartRange(days: number) {
+  if (chartDays.value === days || chartLoading.value) return;
   chartDays.value = days;
-  load();
+  chartLoading.value = true;
+  try {
+    stats.value = await fetchDashboardStats(chartDays.value);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      router.push({ name: 'admin-login' });
+      return;
+    }
+    // Falha ao trocar só o período do gráfico não precisa derrubar o painel
+    // inteiro pra tela de erro — mantém os dados já carregados na tela.
+  } finally {
+    chartLoading.value = false;
+  }
 }
 
 onMounted(load);
+
+// O número grande "Atendimentos hoje" mora no <header>, fora do bloco
+// v-else-if="stats" que dispara onContentEnter (o cabeçalho já está no DOM
+// mesmo antes de stats carregar, só mostra "–" até lá) — então precisa do
+// próprio gatilho de animação, disparado assim que stats deixa de ser nulo
+// pela primeira vez. once:true porque só a entrada inicial deve contar; um
+// clique no filtro do gráfico não deve fazer esse número "recontar".
+watch(
+  stats,
+  (val) => {
+    if (!val || prefersReducedMotion()) return;
+    const el = document.querySelector<HTMLElement>('.admin-dashboard__hero-stat-value');
+    if (!el) return;
+    const counter = { value: 0 };
+    gsap.to(counter, {
+      value: val.appointmentsToday,
+      duration: 1,
+      ease: 'power2.out',
+      onUpdate: () => {
+        el.textContent = String(Math.round(counter.value));
+      },
+    });
+  },
+  { once: true },
+);
 
 // Data por extenso pro subtítulo do hero (ex.: "Terça-feira, 01 de setembro
 // de 2026") — reaproveita o mesmo formatador já usado no dia-inspecionado
@@ -100,19 +143,99 @@ const inspectDaySummary = computed(() => {
 // NÃO basta aqui: com mode="out-in", a inserção real do bloco de conteúdo só
 // acontece depois que a transição de SAÍDA do LoadingState termina (a
 // própria mecânica do modo out-in), o que só é resolvido bem depois do
-// nextTick — então o scan de [data-reveal] rodava contra um container ainda
-// sem os cards, e eles ficavam presos em opacity:0 (regra global) para
-// sempre. @after-enter do Transition dispara exatamente quando o elemento
-// que entrou (LoadingState, EmptyState OU o conteúdo real) já está no DOM —
-// rodar o scan sempre é inofensivo nos dois primeiros casos (não há
-// [data-reveal] neles) e resolve o caso que importa.
+// nextTick. @after-enter do Transition dispara exatamente quando o elemento
+// que entrou (LoadingState, EmptyState OU o conteúdo real) já está no DOM.
+//
+// Reveal SEM scroll de propósito (ao contrário de applyScrollReveal, usado
+// no site público): um dashboard não é uma página de marketing — a pessoa
+// espera ver os próprios KPIs completos assim que a tela carrega, não
+// precisar rolar pra "revelar" cards que já deviam estar visíveis. Com
+// scrollTrigger, os cards das linhas de baixo (fora do viewport inicial, ou
+// calculados errado por causa da transição de troca de aba ainda
+// assentando) ficavam presos em opacity:0 até um scroll manual disparar o
+// recálculo — lido como "os cards vão aparecendo conforme desce a página".
+// @after-enter do <Transition> às vezes dispara mais de uma vez pra essa
+// mesma entrada de conteúdo (ex.: reentradas rápidas durante a resolução
+// inicial de `stats`) — sem essa trava, cada disparo extra reiniciava a
+// contagem dos números do zero (visível como "o número chega no valor
+// final e recomeça"). A entrada em si (fade+stagger dos cards) é barata o
+// bastante pra rodar de novo sem mal nenhum, mas a contagem precisa
+// acontecer só uma vez de verdade.
+let countUpPlayed = false;
+
 function onContentEnter() {
-  applyScrollReveal('.admin-dashboard');
+  const cards = document.querySelectorAll<HTMLElement>('.admin-dashboard .kpi-card');
+  if (!cards.length) return;
+
+  if (prefersReducedMotion()) {
+    cards.forEach((el) => {
+      el.style.opacity = '1';
+      el.style.transform = 'none';
+    });
+  } else {
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 24 },
+      { opacity: 1, y: 0, duration: 0.6, stagger: 0.06, ease: 'premium-out' },
+    );
+    if (!countUpPlayed) {
+      countUpPlayed = true;
+      animateCountUps();
+    }
+  }
   refreshScroll();
 }
 
 function formatCurrency(cents: number) {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+// Números "subindo" do zero até o valor real (em vez de só aparecerem
+// prontos) — mesmo efeito clássico de dashboard premium, aplicado a todo
+// [data-count] dentro do painel (ver atributo nos <span class="kpi-card__
+// value"> do template). Genérico de propósito: não faz um tween por campo
+// nomeado, lê o alvo/formato de cada elemento via atributo, então funciona
+// pra qualquer KPI novo que ganhar data-count no futuro sem precisar tocar
+// aqui. Gated atrás do mesmo prefers-reduced-motion do resto do reveal —
+// sem animação, o valor formatado que já está no template (via {{ }}) é o
+// que fica, então não precisa de um "else" aqui.
+// data-counted (checado dentro do forEach abaixo) trava cada elemento pra
+// contar só uma vez na vida dele, e o estado do contador vive preso ao
+// próprio elemento (não recriado a cada chamada) — puramente defensivo
+// contra qualquer cenário futuro de onContentEnter disparando mais de uma
+// vez; sem essa trava, um segundo disparo reiniciaria a contagem do zero.
+const countState = new WeakMap<HTMLElement, { value: number }>();
+
+function animateCountUps() {
+  const targets = document.querySelectorAll<HTMLElement>('.admin-dashboard [data-count]');
+  targets.forEach((el) => {
+    // Trava no próprio nó do DOM (não numa variável do componente): mais
+    // à prova de qualquer cenário de dupla montagem/disparo repetido do
+    // reveal (ex.: prefetch de outras abas do painel) — mesmo que a função
+    // inteira rode de novo, cada elemento só conta uma vez na vida dele.
+    if (el.dataset.counted) return;
+    el.dataset.counted = 'true';
+
+    const target = Number(el.dataset.count);
+    if (Number.isNaN(target)) return;
+    const isCurrency = 'countCurrency' in el.dataset;
+    let counter = countState.get(el);
+    if (!counter) {
+      counter = { value: 0 };
+      countState.set(el, counter);
+    }
+    gsap.killTweensOf(counter);
+    counter.value = 0;
+    gsap.to(counter, {
+      value: target,
+      duration: 1.3,
+      delay: 0.15,
+      ease: 'power2.out',
+      onUpdate: () => {
+        el.textContent = isCurrency ? formatCurrency(Math.round(counter!.value)) : String(Math.round(counter!.value));
+      },
+    });
+  });
 }
 
 const chartData = computed(() => {
@@ -198,7 +321,7 @@ function formatUpcoming(iso: string) {
       </div>
       <div class="admin-dashboard__hero-stat">
         <span class="admin-dashboard__hero-stat-label">Atendimentos hoje</span>
-        <span class="admin-dashboard__hero-stat-value">{{ stats ? stats.appointmentsToday : '–' }}</span>
+        <span class="admin-dashboard__hero-stat-value" :data-count="stats?.appointmentsToday">{{ stats ? stats.appointmentsToday : '–' }}</span>
         <span class="admin-dashboard__hero-stat-hint">confirmados para hoje</span>
       </div>
     </header>
@@ -214,7 +337,7 @@ function formatUpcoming(iso: string) {
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
           </span>
           <span class="kpi-card__label">Este mês</span>
-          <span class="kpi-card__value">{{ stats.appointmentsThisMonth }}</span>
+          <span class="kpi-card__value" :data-count="stats.appointmentsThisMonth">{{ stats.appointmentsThisMonth }}</span>
           <span class="kpi-card__hint">agendamentos no total</span>
         </div>
         <div class="kpi-card kpi-card--accent" data-reveal>
@@ -222,7 +345,7 @@ function formatUpcoming(iso: string) {
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" /></svg>
           </span>
           <span class="kpi-card__label">Receita do mês</span>
-          <span class="kpi-card__value">{{ formatCurrency(stats.revenueThisMonthCents) }}</span>
+          <span class="kpi-card__value" :data-count="stats.revenueThisMonthCents" data-count-currency>{{ formatCurrency(stats.revenueThisMonthCents) }}</span>
           <span v-if="revenueTrend" class="kpi-trend kpi-trend--on-accent">
             <span aria-hidden="true">{{ revenueTrend.pct >= 0 ? '▲' : '▼' }}</span>
             {{ Math.abs(revenueTrend.pct) }}% vs. mês passado
@@ -234,7 +357,7 @@ function formatUpcoming(iso: string) {
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 17l-6-6-4 4-8-8M9 7H3v6" /></svg>
           </span>
           <span class="kpi-card__label">Gastos do mês</span>
-          <span class="kpi-card__value">{{ formatCurrency(stats.expensesThisMonthCents) }}</span>
+          <span class="kpi-card__value" :data-count="stats.expensesThisMonthCents" data-count-currency>{{ formatCurrency(stats.expensesThisMonthCents) }}</span>
           <span v-if="expensesTrend" class="kpi-trend" :class="expensesTrend.good ? 'kpi-trend--good' : 'kpi-trend--bad'">
             <span aria-hidden="true">{{ expensesTrend.pct >= 0 ? '▲' : '▼' }}</span>
             {{ Math.abs(expensesTrend.pct) }}% vs. mês passado
@@ -246,7 +369,7 @@ function formatUpcoming(iso: string) {
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 7H5.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H8" /></svg>
           </span>
           <span class="kpi-card__label">Saldo do mês</span>
-          <span class="kpi-card__value">{{ formatCurrency(stats.balanceThisMonthCents) }}</span>
+          <span class="kpi-card__value" :data-count="stats.balanceThisMonthCents" data-count-currency>{{ formatCurrency(stats.balanceThisMonthCents) }}</span>
           <span class="kpi-card__hint">receita − gastos</span>
         </div>
         <!-- Único cartão com o acento dourado (--color-gold-*): reservado, por
@@ -258,7 +381,7 @@ function formatUpcoming(iso: string) {
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12.5 12.5 20.5a2 2 0 0 1-2.83 0l-6.17-6.17a2 2 0 0 1 0-2.83L11.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5Z" /><circle cx="15.5" cy="8.5" r="1.25" fill="currentColor" stroke="none" /></svg>
           </span>
           <span class="kpi-card__label">Ticket médio</span>
-          <span class="kpi-card__value">{{ formatCurrency(stats.avgTicketCents) }}</span>
+          <span class="kpi-card__value" :data-count="stats.avgTicketCents" data-count-currency>{{ formatCurrency(stats.avgTicketCents) }}</span>
           <span class="kpi-card__hint">por atendimento concluído</span>
         </div>
         <div class="kpi-card kpi-card--ring" data-reveal>
@@ -281,7 +404,7 @@ function formatUpcoming(iso: string) {
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z" /></svg>
           </span>
           <span class="kpi-card__label">Estoque baixo</span>
-          <span class="kpi-card__value">{{ stats.lowStockCount }}</span>
+          <span class="kpi-card__value" :data-count="stats.lowStockCount">{{ stats.lowStockCount }}</span>
           <span class="kpi-card__hint">{{ stats.lowStockCount ? 'itens precisam de reposição' : 'tudo em dia' }}</span>
         </RouterLink>
       </div>
@@ -309,13 +432,14 @@ function formatUpcoming(iso: string) {
                 type="button"
                 class="chart-range__btn"
                 :class="{ 'chart-range__btn--active': chartDays === opt }"
+                :disabled="chartLoading"
                 @click="selectChartRange(opt)"
               >
                 {{ opt }}d
               </button>
             </div>
           </div>
-          <BarChart :data="chartData" />
+          <BarChart :data="chartData" :class="{ 'is-loading': chartLoading }" />
         </div>
 
         <div class="admin-card admin-card--feature">
@@ -606,6 +730,24 @@ function formatUpcoming(iso: string) {
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: var(--space-5);
   margin-bottom: var(--space-7);
+}
+
+@media (max-width: 640px) {
+  /* Em telas bem estreitas, auto-fill às vezes decide encaixar uma 2ª
+     coluna mesmo sem espaço real pra ela (ex.: 358px de container virava
+     "268px 66px" — bem abaixo do mínimo de 230px pedido), porque o cálculo
+     de quantas trilhas cabem não é feito com o mesmo resultado que a
+     distribuição 1fr depois aplica. O card espremido em 66px quebrava o
+     texto letra por letra. Trocar só grid-template-columns por 1fr não
+     bastou (confirmado testando até com !important direto no elemento —
+     o valor computado continuava vindo do auto-fill antigo; parece uma
+     peculiaridade real do Chromium ao recalcular auto-fill quando os itens
+     do grid têm container-type, ver .kpi-card abaixo). Sair do grid de
+     vez com flex em coluna única contorna o problema por completo. */
+  .admin-dashboard__kpis {
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .kpi-card {
@@ -916,6 +1058,21 @@ a.kpi-card {
 .chart-range__btn--active {
   background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
   color: #fff;
+}
+
+.chart-range__btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* BarChart durante a troca de período (ver chartLoading em selectChartRange):
+   o resto do painel continua 100% interativo, só o próprio gráfico esmaece
+   até o novo período chegar — nada de derrubar a tela inteira pro spinner
+   de carregamento por causa de um clique num filtro. */
+.admin-card--chart :deep(.is-loading) {
+  opacity: 0.4;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
 }
 
 .admin-card__icon {

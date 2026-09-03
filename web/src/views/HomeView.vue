@@ -86,6 +86,16 @@ const featuredCategory = computed(() => categories.value.find((c) => c.featured)
 
 const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings.data.instagram) : null));
 
+// Mesmas fotos reais das categorias usadas na grade "print do Instagram" do
+// card de contato (ver ContactView.vue) — reaproveitadas aqui em vez de
+// fabricar conteúdo, já que `categories` já vem carregado nesta view.
+const igPreviewPhotos = computed(() =>
+  categories.value
+    .map((c) => c.imageUrl)
+    .filter((url): url is string => !!url)
+    .slice(0, 6),
+);
+
 const differentials = [
   {
     title: 'Atendimento individual',
@@ -165,6 +175,7 @@ const steps = [
     </section>
 
     <section class="section section--dark">
+      <DecorativeDots :count="10" tone="light" />
       <div class="container section__about" data-reveal>
         <span class="section__quote-mark" aria-hidden="true">“</span>
         <h2 data-split>Sobre a clínica</h2>
@@ -248,6 +259,14 @@ const steps = [
       <div class="container">
         <a :href="igHref" target="_blank" rel="noopener" class="instagram-card" data-reveal>
           <DecorativeDots :count="8" tone="light" />
+          <div v-if="igPreviewPhotos.length" class="instagram-card__grid" aria-hidden="true">
+            <span
+              v-for="(photo, i) in igPreviewPhotos"
+              :key="i"
+              class="instagram-card__cell"
+              :style="{ backgroundImage: `url(${photo})` }"
+            />
+          </div>
           <div class="instagram-card__text">
             <span class="instagram-card__eyebrow">Instagram</span>
             <span class="instagram-card__handle">{{ settings.data?.instagram }}</span>
@@ -497,19 +516,25 @@ const steps = [
      construção, então casa naturalmente com o platô plano de
      `.section--dark` acima e o platô plano desta seção abaixo, sem nenhum
      ponto de inflexão abrupta em lugar nenhum da curva. */
+  /* Encurtado de 280px pra 190px: o texto "Especialidades" (padding-top do
+     .section, ~64px) ainda caía bem dentro da metade escura da transição
+     original, ficando pouco legível em cima do fundo ainda escuro. Mais
+     curta, a mesma curva smoothstep (sem platô nem inclinação abrupta —
+     ver comentário acima) clareia a tempo do texto, sem trazer de volta a
+     costura que a versão longa foi feita pra evitar. */
   background: linear-gradient(
     180deg,
     var(--color-dusk-900) 0px,
-    color-mix(in srgb, var(--color-surface-muted) 2.8%, var(--color-dusk-900)) 28px,
-    color-mix(in srgb, var(--color-surface-muted) 10.4%, var(--color-dusk-900)) 56px,
-    color-mix(in srgb, var(--color-surface-muted) 21.6%, var(--color-dusk-900)) 84px,
-    color-mix(in srgb, var(--color-surface-muted) 35.2%, var(--color-dusk-900)) 112px,
-    color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-dusk-900)) 140px,
-    color-mix(in srgb, var(--color-surface-muted) 64.8%, var(--color-dusk-900)) 168px,
-    color-mix(in srgb, var(--color-surface-muted) 78.4%, var(--color-dusk-900)) 196px,
-    color-mix(in srgb, var(--color-surface-muted) 89.6%, var(--color-dusk-900)) 224px,
-    color-mix(in srgb, var(--color-surface-muted) 97.2%, var(--color-dusk-900)) 252px,
-    var(--color-surface-muted) 280px,
+    color-mix(in srgb, var(--color-surface-muted) 2.8%, var(--color-dusk-900)) 19px,
+    color-mix(in srgb, var(--color-surface-muted) 10.4%, var(--color-dusk-900)) 38px,
+    color-mix(in srgb, var(--color-surface-muted) 21.6%, var(--color-dusk-900)) 57px,
+    color-mix(in srgb, var(--color-surface-muted) 35.2%, var(--color-dusk-900)) 76px,
+    color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-dusk-900)) 95px,
+    color-mix(in srgb, var(--color-surface-muted) 64.8%, var(--color-dusk-900)) 114px,
+    color-mix(in srgb, var(--color-surface-muted) 78.4%, var(--color-dusk-900)) 133px,
+    color-mix(in srgb, var(--color-surface-muted) 89.6%, var(--color-dusk-900)) 152px,
+    color-mix(in srgb, var(--color-surface-muted) 97.2%, var(--color-dusk-900)) 171px,
+    var(--color-surface-muted) 190px,
     var(--color-surface-muted) 100%
   );
 }
@@ -568,6 +593,8 @@ const steps = [
      scroll/animação). */
   margin-bottom: -3px;
   transform: translateZ(0);
+  position: relative;
+  overflow: hidden;
 }
 
 .section--dark h2 {
@@ -1087,6 +1114,31 @@ const steps = [
   box-shadow: var(--shadow-glow);
 }
 
+.instagram-card__grid {
+  /* width:100% por garantia mesmo com align-items:stretch já sendo o
+     padrão aqui (ver .instagram-card acima) — mesma classe de bug de
+     grid 1fr colapsando pra 0px já vista no card de Instagram da página
+     de Contato (ver comentário lá), então mais vale prevenir. */
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.instagram-card__cell {
+  aspect-ratio: 1;
+  background-size: cover;
+  background-position: center;
+  transition: transform var(--duration-slow) var(--ease-premium);
+}
+
+.instagram-card:hover .instagram-card__cell {
+  transform: scale(1.06);
+}
+
 .instagram-card__eyebrow {
   display: block;
   text-transform: uppercase;
@@ -1181,6 +1233,23 @@ const steps = [
   color: #fff;
 }
 
+/* Breakpoint próprio (menor que os 900px usados pelo resto da home) pra
+   "Como funciona" e "Diferenciais": são grades de só 3 itens de conteúdo
+   enxuto (ícone + título curto + 1-2 linhas), que cabem confortavelmente
+   em 3 colunas bem antes dos 900px que o hero/especialidades precisam —
+   um tablet em retrato (ex.: 820px) ficava preso na mesma coluna única do
+   celular por causa do breakpoint único e alto, desperdiçando bastante
+   espaço horizontal disponível à toa. */
+@media (min-width: 700px) {
+  .how-it-works__steps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .differentials {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (min-width: 900px) {
   .hero__grid {
     grid-template-columns: 1.1fr 0.9fr;
@@ -1210,18 +1279,23 @@ const steps = [
     display: block;
   }
 
-  .how-it-works__steps {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .differentials {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .instagram-card {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+  }
+
+  /* A grade de fotos precisa de uma largura própria contida (não esticar
+     igual aos outros dois itens do flex-row) pra continuar parecendo um
+     grid de perfil, não 6 quadrados minúsculos espremidos ao lado do texto. */
+  .instagram-card__grid {
+    width: 220px;
+    flex-shrink: 0;
+    order: -1;
+  }
+
+  .instagram-card__text {
+    flex: 1;
   }
 }
 </style>
