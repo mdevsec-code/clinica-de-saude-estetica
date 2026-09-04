@@ -15,16 +15,18 @@ import { financeRouter } from './modules/finance/finance.routes';
 import { inventoryRouter } from './modules/inventory/inventory.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { auditRouter } from './modules/audit/audit.routes';
+import { patientsRouter, remindersRouter } from './modules/patients/patients.routes';
 
 export function createApp() {
   const app = express();
 
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN }));
-  // Limite padrão do Express (100kb) é apertado para o upload de extrato
-  // OFX (POST /finance/bank/import, conteúdo do arquivo inteiro como JSON) —
-  // um extrato de alguns meses de uma clínica pequena passa fácil disso.
-  app.use(express.json({ limit: '5mb' }));
+  // Limite padrão do Express (100kb) é apertado para o upload de extrato OFX
+  // (POST /finance/bank/import) e, agora, para fotos de paciente em base64
+  // (POST /patients/:id/photos, ver patients.service.ts) — uma foto de
+  // celular comprimida passa de 5mb com alguma folga.
+  app.use(express.json({ limit: '10mb' }));
   app.use(pinoHttp());
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -48,6 +50,8 @@ export function createApp() {
   app.use('/inventory', inventoryRouter);
   app.use('/dashboard', dashboardRouter);
   app.use('/audit', auditRouter);
+  app.use('/patients', patientsRouter);
+  app.use('/reminders', remindersRouter);
 
   app.use(errorHandler);
 

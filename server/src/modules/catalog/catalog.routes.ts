@@ -54,6 +54,10 @@ const serviceInputSchema = z.object({
   // o caso comum de asset local sem ganhar nada em validação real.
   imageUrl: z.string().min(1).nullable().optional(),
   sortOrder: z.number().int().optional(),
+  // Módulo de acompanhamento de pacientes: dias após o procedimento em que
+  // cada retorno deve ser lembrado (ex.: [15, 122] para Botox). Vazio =
+  // nenhum retorno automático.
+  returnOffsetDays: z.array(z.number().int().min(1).max(3650)).max(10).optional(),
 });
 
 const serviceUpdateSchema = serviceInputSchema.partial().extend({

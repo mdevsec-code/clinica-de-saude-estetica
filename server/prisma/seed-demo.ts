@@ -1,5 +1,6 @@
 import { AppointmentStatus, BankTransactionStatus, ExpenseCategory, ExpenseStatus, PrismaClient } from '@prisma/client';
 import 'dotenv/config';
+import { createProcedureRecordForAppointment } from '../src/modules/patients/procedures.service';
 
 const prisma = new PrismaClient();
 
@@ -10,10 +11,14 @@ const prisma = new PrismaClient();
 // agendamentos, despesas, transações bancárias e log de auditoria são
 // sempre criados do zero a cada execução — rodar duas vezes duplica esses.
 
-const CUSTOMERS = [
-  { name: 'Ana Beatriz Souza', whatsapp: '5571991234501' },
-  { name: 'Camila Ferreira Lima', whatsapp: '5571991234502' },
-  { name: 'Juliana Alves Costa', whatsapp: '5571991234503' },
+const CUSTOMERS: { name: string; whatsapp: string; birthDate?: string }[] = [
+  // birthDate em só 3 clientes, de propósito: dá pra ver o lembrete de
+  // aniversário funcionando no painel/agenda sem poluir a lista toda com
+  // dado que ninguém pediu de verdade (os demais ficam sem, igual um
+  // cadastro real onde nem todo cliente informa a data de nascimento).
+  { name: 'Ana Beatriz Souza', whatsapp: '5571991234501', birthDate: '1990-09-10' },
+  { name: 'Camila Ferreira Lima', whatsapp: '5571991234502', birthDate: '1988-09-20' },
+  { name: 'Juliana Alves Costa', whatsapp: '5571991234503', birthDate: '1995-09-25' },
   { name: 'Patrícia Nascimento', whatsapp: '5571991234504' },
   { name: 'Fernanda Oliveira Reis', whatsapp: '5571991234505' },
   { name: 'Larissa Santos Cruz', whatsapp: '5571991234506' },
@@ -111,7 +116,7 @@ async function main() {
   const customers = [];
   for (const c of CUSTOMERS) {
     const customer = await prisma.customer.create({
-      data: { tenantId: tenant.id, name: c.name, whatsapp: c.whatsapp },
+      data: { tenantId: tenant.id, name: c.name, whatsapp: c.whatsapp, birthDate: c.birthDate ? new Date(c.birthDate) : undefined },
     });
     customers.push(customer);
   }
@@ -173,10 +178,28 @@ async function main() {
     }
   }
 
+  let proceduresCreated = 0;
   for (const data of appointmentsData) {
-    await prisma.appointment.create({ data });
+    const appointment = await prisma.appointment.create({ data });
+
+    // Mesmo gatilho de produção (updateAppointmentStatus em
+    // appointments.service.ts): todo agendamento concluído vira um
+    // ProcedureRecord + retornos automáticos (ver Service.returnOffsetDays).
+    // Fazer isso aqui também é o que faz o módulo de pacientes aparecer com
+    // dado de verdade na demonstração, em vez de só a ficha vazia.
+    if (appointment.status === 'COMPLETED') {
+      await createProcedureRecordForAppointment(prisma, {
+        tenantId: tenant.id,
+        appointmentId: appointment.id,
+        customerId: appointment.customerId,
+        serviceId: appointment.serviceId,
+        performedAt: appointment.startAt,
+      });
+      proceduresCreated += 1;
+    }
   }
   console.log(`Agendamentos criados: ${appointmentsData.length}`);
+  console.log(`Procedimentos concluídos (com retornos automáticos quando configurado): ${proceduresCreated}`);
 
   // --- Estoque (upsert por nome) ---
   for (const item of INVENTORY_ITEMS) {

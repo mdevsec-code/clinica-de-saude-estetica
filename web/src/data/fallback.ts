@@ -24,11 +24,19 @@ export const FALLBACK_SETTINGS: PublicSettings = {
 
 export const FALLBACK_CATEGORIES: ServiceCategory[] = [
   {
-    id: 'fallback-harmonizacao-facial-corporal',
-    name: 'Harmonização Facial e Corporal',
-    slug: 'harmonizacao-facial-corporal',
-    imageUrl: '/services/harmonizacao-facial-corporal.jpg',
+    id: 'fallback-harmonizacao-facial',
+    name: 'Harmonização Facial',
+    slug: 'harmonizacao-facial',
+    imageUrl: '/services/harmonizacao-facial.jpg',
     featured: true,
+    services: [],
+  },
+  {
+    id: 'fallback-harmonizacao-corporal',
+    name: 'Harmonização Corporal',
+    slug: 'harmonizacao-corporal',
+    imageUrl: '/services/harmonizacao-corporal.jpg',
+    featured: false,
     services: [],
   },
   {
@@ -68,6 +76,14 @@ export const FALLBACK_CATEGORIES: ServiceCategory[] = [
     name: 'Micropigmentação',
     slug: 'micropigmentacao',
     imageUrl: '/services/micropigmentacao.jpg',
+    featured: false,
+    services: [],
+  },
+  {
+    id: 'fallback-nutricao',
+    name: 'Nutrição',
+    slug: 'nutricao',
+    imageUrl: '/services/nutricao.jpg',
     featured: false,
     services: [],
   },

@@ -12,13 +12,8 @@ interface TokenPayload {
   name: string;
 }
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const header = req.header('authorization');
-  const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-
-  if (!token) {
-    return next(new UnauthorizedError('Autenticação necessária.'));
-  }
+function authenticateToken(req: Request, token: string | undefined): boolean {
+  if (!token) return false;
 
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as TokenPayload;
@@ -29,15 +24,39 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     // sobre dados de outro — nunca deixar passar, mesmo hoje com um único
     // tenant em produção (item 7 do escopo: isolamento nunca pode depender
     // apenas de "não ter mais de um tenant ainda").
-    if (payload.tenantId !== req.tenant.id) {
-      return next(new UnauthorizedError('Sessão inválida ou expirada.'));
-    }
+    if (payload.tenantId !== req.tenant.id) return false;
 
     req.user = { id: payload.sub, tenantId: payload.tenantId, role: payload.role, email: payload.email, name: payload.name };
-    next();
+    return true;
   } catch {
-    next(new UnauthorizedError('Sessão inválida ou expirada.'));
+    return false;
   }
+}
+
+export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+  const header = req.header('authorization');
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+
+  if (!authenticateToken(req, token)) {
+    return next(new UnauthorizedError('Sessão inválida ou expirada.'));
+  }
+  next();
+}
+
+// Único uso: servir a foto de um paciente via <img src="...">, que não
+// consegue mandar um header Authorization — aceita o token também por query
+// string SÓ aqui (ver patients.routes.ts), nunca no resto da API. O corpo da
+// verificação é o mesmo requireAuth de sempre, então não há enfraquecimento
+// nenhum de segurança, só um segundo lugar de onde o token pode vir.
+export function requireAuthFromHeaderOrQuery(req: Request, _res: Response, next: NextFunction) {
+  const header = req.header('authorization');
+  const headerToken = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+
+  if (!authenticateToken(req, headerToken ?? queryToken)) {
+    return next(new UnauthorizedError('Sessão inválida ou expirada.'));
+  }
+  next();
 }
 
 export function requireRole(...roles: UserRole[]) {

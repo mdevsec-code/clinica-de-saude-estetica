@@ -400,7 +400,12 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
           </div>
         </div>
         <LoadingState v-if="revenueLoading" label="Carregando histórico…" />
-        <BarChart v-else-if="revenueHistory" :data="revenueChartData" color="var(--chart-seq-500)" />
+        <BarChart
+          v-else-if="revenueHistory"
+          :data="revenueChartData"
+          color="var(--chart-seq-500)"
+          :value-formatter="(v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })"
+        />
       </div>
 
       <form class="admin-card admin-finance__form" @submit.prevent="onCreate">

@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import { fetchAppointments } from '@/services/admin-appointments.service';
 import { fetchCategories } from '@/services/catalog.service';
-import type { AdminAppointment, AppointmentStatus, ServiceCategory } from '@/types';
+import { fetchReminders } from '@/services/admin-reminders.service';
+import type { AdminAppointment, AppointmentStatus, ServiceCategory, UnifiedReminder } from '@/types';
 import {
   addDays,
   addMonths,
@@ -104,6 +105,24 @@ async function load() {
 
 onMounted(load);
 watch([viewMode, referenceDate], load);
+
+// Lembretes de retorno/aniversário (mesmo feed do dashboard, ver
+// reminders.service.ts no backend) — janela mais larga aqui (14 dias) que no
+// dashboard (7): a agenda é onde a recepção efetivamente organiza a semana,
+// faz sentido enxergar um pouco mais à frente.
+const reminders = ref<UnifiedReminder[]>([]);
+onMounted(async () => {
+  try {
+    const { reminders: data } = await fetchReminders(14);
+    reminders.value = data;
+  } catch {
+    reminders.value = [];
+  }
+});
+
+function formatReminderDate(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'UTC' });
+}
 
 function goToday() {
   referenceDate.value = new Date();
@@ -213,6 +232,20 @@ function onAppointmentCreated() {
         Serviço
         <AdminSelect v-model="serviceFilter" :options="serviceOptions" />
       </label>
+    </div>
+
+    <div v-if="reminders.length" class="admin-agenda__reminders">
+      <span class="admin-agenda__reminders-label">Lembretes (14 dias):</span>
+      <button
+        v-for="reminder in reminders"
+        :key="`${reminder.kind}-${reminder.returnReminderId ?? reminder.customerId}`"
+        type="button"
+        class="admin-agenda__reminder-pill"
+        :class="{ 'admin-agenda__reminder-pill--birthday': reminder.kind === 'BIRTHDAY' }"
+        @click="router.push({ name: 'admin-patient-detail', params: { id: reminder.customerId } })"
+      >
+        {{ reminder.kind === 'BIRTHDAY' ? '🎂' : '🔁' }} {{ formatReminderDate(reminder.date) }} · {{ reminder.customerName }}
+      </button>
     </div>
 
     <Transition name="fade-swap">
@@ -342,6 +375,42 @@ function onAppointmentCreated() {
 
 .admin-agenda__view-btn {
   transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.admin-agenda__reminders {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.admin-agenda__reminders-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-ink-muted);
+}
+
+.admin-agenda__reminder-pill {
+  background: var(--color-rose-100);
+  border: 1px solid var(--color-rose-300);
+  color: var(--color-rose-700);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.admin-agenda__reminder-pill:hover {
+  transform: translateY(-1px);
+}
+
+.admin-agenda__reminder-pill--birthday {
+  background: var(--color-gold-100);
+  border-color: var(--color-gold-500);
+  color: var(--color-gold-700);
 }
 
 .admin-agenda__view-btn--active {

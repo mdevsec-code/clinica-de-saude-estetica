@@ -9,8 +9,9 @@ const props = withDefaults(
   defineProps<{
     data: { label: string; value: number }[];
     color?: string;
+    valueFormatter?: (value: number) => string;
   }>(),
-  { color: 'var(--chart-seq-500)' },
+  { color: 'var(--chart-seq-500)', valueFormatter: (v: number) => String(v) },
 );
 
 const max = computed(() => Math.max(1, ...props.data.map((d) => d.value)));
@@ -35,6 +36,51 @@ const labelStep = computed(() => Math.max(1, Math.ceil(props.data.length / 14)))
 function showLabel(i: number) {
   return i === props.data.length - 1 || i % labelStep.value === 0;
 }
+
+// A pílula do tooltip compartilhado (ver [data-tooltip] em global.css) é
+// sempre centralizada no gatilho — perfeito na maioria dos casos, mas aqui
+// as colunas legitimamente colam nas duas bordas do card (a primeira e a
+// última SÃO a borda, por design), então a pílula centralizada estourava
+// pra fora do card e o próprio card (overflow:hidden, cantos arredondados)
+// cortava ela na hora. Em telas com muitos dias (30/60/90, ver needsScroll)
+// isso também acontecia no MEIO da lista, não só nas pontas — qualquer
+// coluna perto da borda VISÍVEL do scroll, dependendo de onde a pessoa
+// rolou. Por isso o cálculo é em JS, no hover de cada coluna (não dá pra
+// prever isso só com CSS: precisa da posição real, já rolada, no momento).
+// --tooltip-shift (lida por global.css) empurra só a PÍLULA pra dentro dos
+// limites; a seta (::before) fica sempre centrada no gatilho de propósito,
+// senão pareceria apontar pro lugar errado.
+function onColHover(event: MouseEvent) {
+  const col = event.currentTarget as HTMLElement;
+  const scrollEl = col.closest<HTMLElement>('.bar-chart__scroll');
+  if (!scrollEl) return;
+
+  const pillWidthRaw = getComputedStyle(col, '::after').width;
+  const pillWidth = parseFloat(pillWidthRaw);
+  if (!pillWidth || Number.isNaN(pillWidth)) {
+    col.style.removeProperty('--tooltip-shift');
+    return;
+  }
+
+  const colRect = col.getBoundingClientRect();
+  const scrollRect = scrollEl.getBoundingClientRect();
+  const colCenter = colRect.left + colRect.width / 2;
+  const halfPill = pillWidth / 2;
+  const margin = 6; // respiro mínimo até a borda, pra não colar exatamente nela
+
+  const pillLeft = colCenter - halfPill;
+  const pillRight = colCenter + halfPill;
+
+  let shift = 0;
+  if (pillLeft < scrollRect.left + margin) {
+    shift = scrollRect.left + margin - pillLeft;
+  } else if (pillRight > scrollRect.right - margin) {
+    shift = scrollRect.right - margin - pillRight;
+  }
+
+  if (shift) col.style.setProperty('--tooltip-shift', `${shift}px`);
+  else col.style.removeProperty('--tooltip-shift');
+}
 </script>
 
 <template>
@@ -46,10 +92,10 @@ function showLabel(i: number) {
             v-for="(d, i) in data"
             :key="i"
             class="bar-chart__col"
-            :data-tooltip="`${d.label}: ${d.value}`"
+            :data-tooltip="valueFormatter(d.value)"
             :style="colWidthPx ? { flex: `0 0 ${colWidthPx}px` } : undefined"
+            @mouseenter="onColHover"
           >
-            <span class="bar-chart__value">{{ d.value }}</span>
             <div
               class="bar-chart__bar"
               :class="{ 'bar-chart__bar--today': i === data.length - 1 }"
@@ -81,15 +127,26 @@ function showLabel(i: number) {
 
 .bar-chart__scroll {
   overflow-x: auto;
-  /* overflow-x:auto força overflow-y a computar como auto também (regra do
+  /* Havia também um rótulo de valor separado (.bar-chart__value) aparecendo
+     no hover, empilhado quase no mesmo lugar do tooltip — os dois
+     competindo visualmente liam como um bug ("valor cortado/duplicado").
+     Removido: o tooltip compartilhado (data-tooltip) já é a única fonte do
+     valor no hover agora, formatado por quem usa o gráfico (valueFormatter).
+     overflow-x:auto força overflow-y a computar como auto também (regra do
      próprio CSS: os dois eixos só ficam "visible" se AMBOS forem visible) —
      ou seja, este container também recorta verticalmente, mesmo sem
      precisar de scroll vertical nenhum. O tooltip de cada coluna (ver
      data-tooltip em .bar-chart__col) aparece ACIMA da coluna inteira
      (sempre a mesma altura, não só acima da barra), e a barra do maior
      valor do período sempre toca o topo do plot (100% de altura) — sem
-     este respiro, o tooltip dela ficaria cortado bem no topo. */
-  padding-top: 46px;
+     este respiro, o tooltip dela ficaria cortado bem no topo. 46px bastava
+     pro tamanho antigo da pílula (fundo escuro sólido, menor) — a pílula
+     rosé com brilho é mais alta (padding maior, fonte maior) E a entrada
+     usa um easing com "estouro" (cubic-bezier overshoot, ver global.css),
+     que ultrapassa brevemente o tamanho final durante a animação. 46px
+     ficava curto pra esse pico, cortando o topo da pílula bem no momento
+     do hover — daí a margem maior aqui. */
+  padding-top: 62px;
 }
 
 .bar-chart__scroll--active {
@@ -118,21 +175,6 @@ function showLabel(i: number) {
   justify-content: flex-end;
   height: 100%;
   min-width: 0;
-}
-
-.bar-chart__value {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--color-ink-muted);
-  opacity: 0;
-  transform: translateY(2px);
-  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
-  margin-bottom: 2px;
-}
-
-.bar-chart__col:hover .bar-chart__value {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .bar-chart__bar {

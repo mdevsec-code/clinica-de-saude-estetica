@@ -81,6 +81,7 @@ export interface AdminService {
   imageUrl: string | null;
   active: boolean;
   sortOrder: number;
+  returnOffsetDays: number[];
 }
 
 export interface AdminCategory {
@@ -200,6 +201,105 @@ export interface InventoryItem {
   updatedAt: string;
 }
 
+// --- Pacientes (módulo de acompanhamento) ---
+export interface PatientListItem {
+  id: string;
+  name: string;
+  whatsapp: string;
+  phone: string | null;
+  email: string | null;
+  birthDate: string | null;
+  profilePhotoUrl: string | null;
+  appointmentCount: number;
+  procedureCount: number;
+}
+
+export type ReturnReminderStatus = 'PENDING' | 'NOTIFIED' | 'DONE' | 'DISMISSED';
+
+export interface ReturnReminder {
+  id: string;
+  offsetDays: number;
+  dueAt: string;
+  status: ReturnReminderStatus;
+  notifiedAt: string | null;
+}
+
+export interface ProcedureRecord {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  performedAt: string;
+  notes: string | null;
+  returnReminders: ReturnReminder[];
+}
+
+export type PatientPhotoCategory = 'BEFORE' | 'AFTER' | 'EVOLUTION' | 'OTHER';
+
+export interface PatientPhoto {
+  id: string;
+  category: PatientPhotoCategory;
+  notes: string | null;
+  takenAt: string;
+  mimeType: string;
+  createdAt: string;
+  procedureRecordId: string | null;
+}
+
+export interface FichaField {
+  label: string;
+  value: string;
+}
+
+export interface PatientFicha {
+  id: string;
+  type: string;
+  fields: FichaField[];
+  notes: string | null;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientDetail {
+  id: string;
+  name: string;
+  whatsapp: string;
+  phone: string | null;
+  email: string | null;
+  birthDate: string | null;
+  profilePhotoUrl: string | null;
+  notes: string | null;
+  createdAt: string;
+  appointments: {
+    id: string;
+    startAt: string;
+    endAt: string;
+    status: AppointmentStatus;
+    notes: string | null;
+    service: { id: string; name: string; priceCents: number | null };
+  }[];
+  procedureRecords: ProcedureRecord[];
+  photos: PatientPhoto[];
+  financial: {
+    records: { appointmentId: string; date: string; serviceName: string; amountCents: number }[];
+    totalSpentCents: number;
+  };
+}
+
+export type UnifiedReminderKind = 'RETURN' | 'BIRTHDAY';
+
+export interface UnifiedReminder {
+  kind: UnifiedReminderKind;
+  date: string;
+  daysUntil: number;
+  customerId: string;
+  customerName: string;
+  customerWhatsapp: string;
+  returnReminderId?: string;
+  serviceName?: string;
+  offsetDays?: number;
+}
+
 export interface DashboardStats {
   appointmentsToday: number;
   appointmentsThisMonth: number;
@@ -218,4 +318,5 @@ export interface DashboardStats {
   lowStockCount: number;
   upcomingAppointments: { id: string; startAt: string; customerName: string; serviceName: string }[];
   topServices: { id: string; name: string; count: number }[];
+  upcomingReminders: UnifiedReminder[];
 }

@@ -192,7 +192,10 @@ const steps = [
       <DecorativeDots :count="10" />
       <div class="container">
         <div class="specialties__heading">
-          <p class="specialties__eyebrow" data-reveal>O que oferecemos</p>
+          <p class="specialties__eyebrow" data-reveal>
+            <span class="specialties__eyebrow-line" aria-hidden="true" />
+            O que oferecemos
+          </p>
           <h2 data-split>Especialidades</h2>
           <p class="specialties__lead" data-reveal>
             Um procedimento para cada etapa do seu cuidado — da limpeza de pele à micropigmentação,
@@ -743,12 +746,46 @@ const steps = [
 }
 
 .specialties__eyebrow {
+  /* Fica sempre no topo da seção, ainda dentro do trecho escuro da
+     transição de .section--muted (ver comentário lá) — rose-700 (pensado
+     pra fundo claro, como em .page-hero__eyebrow) ficava pouco legível
+     nessa faixa ainda escura. Gold-500 é o tom já usado pros acentos sobre
+     fundo escuro no resto do site (ex.: selo "Destaque"), com bom contraste
+     aqui; o h2 logo abaixo já cai no trecho claro do gradiente e mantém a
+     cor padrão. Text-shadow reforça a leitura bem no início da faixa escura
+     (logo abaixo do padding-top), onde o gradiente ainda não clareou nada;
+     a linha decorativa dá peso visual ao invés de deixar o texto flutuando
+     sozinho no vazio escuro. */
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-size: 0.9rem;
-  color: var(--color-rose-700);
+  color: var(--color-gold-500);
   font-weight: 700;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  text-shadow: 0 1px 16px rgba(200, 164, 101, 0.5);
+}
+
+.specialties__eyebrow-line {
+  width: 26px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, transparent, var(--color-gold-500));
+}
+
+.specialties__heading h2 {
+  /* rose-900 (cor padrão de h1-h4, igual aos outros títulos da página)
+     some no meio-termo do gradiente de .section--muted: mesmo mais abaixo
+     que o eyebrow, o h2 ainda cai numa faixa só parcialmente clareada
+     (~50-65% em direção ao creme, não o creme quase puro do restante da
+     seção), e cor escura sobre fundo médio-escuro dá contraste fraco. Em
+     vez de mudar a cor (o que destoaria dos outros títulos da página, todos
+     rose-900), um halo claro correndo por trás do texto resolve o
+     contraste sem depender da mistura exata do gradiente naquele ponto —
+     igual à técnica de sombra clara usada em texto sobre foto. */
+  text-shadow: 0 2px 30px rgba(244, 233, 227, 0.95), 0 1px 4px rgba(244, 233, 227, 0.7);
 }
 
 .specialties__lead {

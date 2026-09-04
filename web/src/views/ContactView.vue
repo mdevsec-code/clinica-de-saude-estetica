@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { RouterLink } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
 import { instagramLink, whatsappLink } from '@/services/settings.service';
 import { applyStaggerReveal } from '@/composables/useStaggerReveal';
@@ -47,13 +48,33 @@ watch(
 const weekdayLabels = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const weekdayLabelsLower = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const weekdayShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-const hours = computed(() =>
-  (settings.data?.businessHours ?? []).map((bh) => ({
-    label: weekdayLabels[bh.weekday],
-    range: `${bh.opensAt} – ${bh.closesAt}`,
-    weekday: bh.weekday,
-  })),
-);
+// Antes só listava os dias com atendimento (terça a sábado) — a lista
+// terminava bem antes do fim do card, deixando um vazio embaixo enquanto os
+// outros cards do grid (WhatsApp, Instagram) usam a altura toda. Incluir
+// TODOS os 7 dias (domingo/segunda como "Fechado") não é só preenchimento
+// visual: responde de cara "vocês abrem domingo?" sem a pessoa precisar
+// concluir isso por ausência — e casa com a tira de 7 dias (week-strip) logo
+// acima, que já mostrava a semana inteira. Um dia pode ter mais de uma faixa
+// (manhã e tarde separadas, ver BusinessHour no schema) — junta todas as do
+// mesmo dia num "range" só (ex.: "09:00–12:00, 14:00–18:00") em vez de uma
+// linha por faixa, pra continuar sendo uma linha por dia da semana.
+const hours = computed(() => {
+  const byWeekday = new Map<number, { opensAt: string; closesAt: string }[]>();
+  for (const bh of settings.data?.businessHours ?? []) {
+    const list = byWeekday.get(bh.weekday) ?? [];
+    list.push(bh);
+    byWeekday.set(bh.weekday, list);
+  }
+  return weekdayLabels.map((label, weekday) => {
+    const ranges = byWeekday.get(weekday);
+    return {
+      label,
+      range: ranges?.length ? ranges.map((r) => `${r.opensAt} – ${r.closesAt}`).join(', ') : 'Fechado',
+      weekday,
+      closed: !ranges?.length,
+    };
+  });
+});
 
 const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings.data.instagram) : null));
 
@@ -126,14 +147,23 @@ const liveStatus = computed(() => {
 // uma conversa real acontecendo. prefers-reduced-motion pula
 // direto pro estado final (as duas mensagens já visíveis, sem animação).
 const chatBubbleState = ref<'hidden' | 'customer' | 'typing' | 'shown'>('hidden');
+// Ticks de "enviado/entregue/lido" na bolha da cliente — o mesmo detalhe que
+// torna um print de WhatsApp reconhecível à primeira vista. Evolui em
+// paralelo a chatBubbleState, não em função dela: os ticks de leitura só
+// fazem sentido DEPOIS que a "resposta" chega, reforçando que a mensagem
+// anterior foi lida antes de ser respondida.
+const receiptState = ref<'sent' | 'delivered' | 'read'>('sent');
 onMounted(() => {
   if (prefersReducedMotion()) {
     chatBubbleState.value = 'shown';
+    receiptState.value = 'read';
     return;
   }
   setTimeout(() => (chatBubbleState.value = 'customer'), 500);
+  setTimeout(() => (receiptState.value = 'delivered'), 950);
   setTimeout(() => (chatBubbleState.value = 'typing'), 1700);
   setTimeout(() => (chatBubbleState.value = 'shown'), 3100);
+  setTimeout(() => (receiptState.value = 'read'), 3350);
 });
 
 // Print real da grade do perfil (@noelycerqueira) — arquivo estático em
@@ -187,8 +217,21 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
           <div class="whatsapp-thread">
             <Transition name="chat-bubble">
               <div v-if="chatBubbleState !== 'hidden'" class="whatsapp-preview whatsapp-preview--customer">
-                <div class="whatsapp-preview__bubble whatsapp-preview__bubble--customer">
-                  Oi! Gostaria de agendar um horário 💆‍♀️
+                <div class="whatsapp-preview__bubble-col whatsapp-preview__bubble-col--customer">
+                  <div class="whatsapp-preview__bubble whatsapp-preview__bubble--customer">
+                    Oi! Gostaria de agendar um horário 💆‍♀️
+                  </div>
+                  <!-- Ticks de leitura: cinza (enviado) -> cinza duplo (entregue) ->
+                       azul duplo (lido), exatamente a progressão real do WhatsApp.
+                       Um <Transition> por estado em vez de só trocar a classe: o
+                       segundo tick "desenha" ao entregar, e a cor muda com uma
+                       transição suave em vez de um corte seco pra azul. -->
+                  <span class="whatsapp-preview__receipt" :class="`is-${receiptState}`" aria-hidden="true">
+                    <svg viewBox="0 0 18 12" width="15" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6.5 4.5 10 11 2" /></svg>
+                    <Transition name="tick-pop">
+                      <svg v-if="receiptState !== 'sent'" viewBox="0 0 18 12" width="15" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="whatsapp-preview__receipt-second"><path d="M1 6.5 4.5 10 11 2" /></svg>
+                    </Transition>
+                  </span>
                 </div>
               </div>
             </Transition>
@@ -196,10 +239,16 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
               <div v-if="chatBubbleState === 'typing' || chatBubbleState === 'shown'" class="whatsapp-preview">
                 <span class="whatsapp-preview__avatar" aria-hidden="true">NC</span>
                 <div class="whatsapp-preview__bubble">
-                  <span v-if="chatBubbleState === 'typing'" class="whatsapp-preview__typing" aria-hidden="true">
-                    <span /><span /><span />
-                  </span>
-                  <span v-else>Olá! 😊 Me conta qual procedimento você tem interesse!</span>
+                  <!-- mode="out-in": sem isso, os pontinhos de "digitando" eram
+                       substituídos pelo texto da resposta de um corte só, a
+                       bolha esticando de repente sem transição nenhuma — lia
+                       como um bug, não como uma mensagem chegando. -->
+                  <Transition name="typing-swap" mode="out-in">
+                    <span v-if="chatBubbleState === 'typing'" key="typing" class="whatsapp-preview__typing" aria-hidden="true">
+                      <span /><span /><span />
+                    </span>
+                    <span v-else key="text">Olá! 😊 Me conta qual procedimento você tem interesse!</span>
+                  </Transition>
                 </div>
               </div>
             </Transition>
@@ -275,11 +324,18 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
             <p
               v-for="h in hours"
               :key="h.label"
-              :class="{ 'contact-card__hours-row--today': h.weekday === nowClock.weekday }"
+              :class="{
+                'contact-card__hours-row--today': h.weekday === nowClock.weekday,
+                'contact-card__hours-row--closed': h.closed,
+              }"
             >
               <span class="contact-card__day">{{ h.label }}</span> {{ h.range }}
             </p>
           </div>
+
+          <RouterLink :to="{ name: 'booking' }" class="contact-card__cta">
+            Agendar horário <span class="contact-card__cta-arrow" aria-hidden="true">→</span>
+          </RouterLink>
         </div>
       </div>
 
@@ -443,10 +499,49 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   justify-content: flex-end;
 }
 
+.whatsapp-preview__bubble-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 85%;
+}
+
+.whatsapp-preview__bubble-col--customer {
+  align-items: flex-end;
+}
+
 .whatsapp-preview__bubble--customer {
   background: color-mix(in srgb, var(--color-gold-500) 32%, white 68%);
   color: var(--color-rose-900);
   border-radius: var(--radius-md) var(--radius-md) 4px var(--radius-md);
+}
+
+/* Ticks de "enviado -> entregue -> lido": cinza translúcido nos dois
+   primeiros estados, azul do WhatsApp assim que "lido" — cor com transição
+   suave (não um corte), pra parecer a mensagem sendo lida em tempo real. */
+.whatsapp-preview__receipt {
+  display: inline-flex;
+  align-items: center;
+  padding-right: 4px;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color var(--duration-base) var(--ease-standard);
+}
+
+.whatsapp-preview__receipt.is-read {
+  color: #53bdeb;
+}
+
+.whatsapp-preview__receipt-second {
+  margin-left: -7px;
+}
+
+.tick-pop-enter-active {
+  transition: opacity var(--duration-fast) var(--ease-premium), transform var(--duration-fast) var(--ease-premium);
+}
+
+.tick-pop-enter-from {
+  opacity: 0;
+  transform: scale(0.4);
 }
 
 .whatsapp-preview__avatar {
@@ -514,7 +609,25 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 
 .chat-bubble-enter-from {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(6px) scale(0.94);
+}
+
+/* Crossfade entre "digitando…" e o texto final dentro da MESMA bolha (mode
+   "out-in" no <Transition>, ver template) — troca com um leve movimento
+   vertical em vez do corte seco que existia antes. */
+.typing-swap-enter-active,
+.typing-swap-leave-active {
+  transition: opacity var(--duration-fast) var(--ease-premium), transform var(--duration-fast) var(--ease-premium);
+}
+
+.typing-swap-enter-from {
+  opacity: 0;
+  transform: translateY(3px);
+}
+
+.typing-swap-leave-to {
+  opacity: 0;
+  transform: translateY(-3px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -522,7 +635,11 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
     animation: none;
     opacity: 1;
   }
-  .chat-bubble-enter-active {
+  .chat-bubble-enter-active,
+  .typing-swap-enter-active,
+  .typing-swap-leave-active,
+  .tick-pop-enter-active,
+  .whatsapp-preview__receipt {
     transition: none;
   }
 }
@@ -616,6 +733,19 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   color: var(--color-gold-100);
   font-weight: 700;
   font-size: 0.85rem;
+}
+
+/* .contact-card--hours tem fundo claro (branco), diferente do gradiente
+   escuro do WhatsApp/Instagram — gold-100 (quase branco, pensado pra
+   contrastar com fundo escuro) ficaria ilegível aqui. */
+.contact-card--hours .contact-card__cta {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  color: var(--color-rose-700);
+}
+
+.contact-card--hours .contact-card__cta:hover .contact-card__cta-arrow {
+  transform: translateX(4px);
 }
 
 .contact-card__cta-arrow {
@@ -881,6 +1011,18 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 
 .contact-card__hours-row--today .contact-card__day {
   color: var(--color-rose-900);
+}
+
+/* Domingo/Segunda (fechado) — texto mais apagado que os dias de
+   atendimento, pra ficar claro que é uma informação secundária ("também
+   respondo isso, mas não é o foco da lista") sem sumir por completo. */
+.contact-card__hours-row--closed {
+  color: var(--color-ink-soft);
+}
+
+.contact-card__hours-row--closed .contact-card__day {
+  color: var(--color-ink-soft);
+  font-weight: 600;
 }
 
 .contact-map {

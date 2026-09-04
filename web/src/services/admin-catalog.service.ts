@@ -34,6 +34,7 @@ export interface ServicePayload {
   priceCents?: number | null;
   imageUrl?: string | null;
   sortOrder?: number;
+  returnOffsetDays?: number[];
 }
 
 export function createService(categoryId: string, payload: ServicePayload) {

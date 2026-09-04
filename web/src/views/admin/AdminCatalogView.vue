@@ -168,9 +168,23 @@ async function setFeatured(category: AdminCategory) {
   }
 }
 
+// Módulo de acompanhamento de pacientes: "15, 122" -> [15, 122]. Vazio =
+// nenhum retorno automático pra esse serviço (a maioria hoje, até a clínica
+// definir o protocolo de cada procedimento).
+function parseOffsetsInput(raw: string): number[] {
+  return raw
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
+}
+
+function offsetsToInputValue(offsets: number[]): string {
+  return offsets.join(', ');
+}
+
 // --- Novo serviço ---
 const openNewServiceFor = ref<string | null>(null);
-const newService = reactive({ name: '', durationMinutes: 30, priceInput: '', description: '' });
+const newService = reactive({ name: '', durationMinutes: 30, priceInput: '', description: '', returnOffsetsInput: '' });
 const creatingService = ref(false);
 const newServiceError = ref<string | null>(null);
 
@@ -180,6 +194,7 @@ function openServiceForm(categoryId: string) {
   newService.durationMinutes = 30;
   newService.priceInput = '';
   newService.description = '';
+  newService.returnOffsetsInput = '';
   newServiceError.value = null;
 }
 
@@ -193,6 +208,7 @@ async function submitNewService(category: AdminCategory) {
       durationMinutes: newService.durationMinutes,
       priceCents: parsePriceToCents(newService.priceInput),
       description: newService.description.trim() || null,
+      returnOffsetDays: parseOffsetsInput(newService.returnOffsetsInput),
     });
     category.services.push(service);
     openNewServiceFor.value = null;
@@ -205,7 +221,7 @@ async function submitNewService(category: AdminCategory) {
 
 // --- Editar serviço ---
 const editingServiceId = ref<string | null>(null);
-const editServiceForm = reactive({ name: '', durationMinutes: 30, priceInput: '', description: '' });
+const editServiceForm = reactive({ name: '', durationMinutes: 30, priceInput: '', description: '', returnOffsetsInput: '' });
 
 function startEditService(service: AdminService) {
   editingServiceId.value = service.id;
@@ -213,6 +229,7 @@ function startEditService(service: AdminService) {
   editServiceForm.durationMinutes = service.durationMinutes;
   editServiceForm.priceInput = priceToInputValue(service.priceCents);
   editServiceForm.description = service.description ?? '';
+  editServiceForm.returnOffsetsInput = offsetsToInputValue(service.returnOffsetDays);
 }
 
 function cancelEditService() {
@@ -228,6 +245,7 @@ async function saveEditService(service: AdminService) {
       durationMinutes: editServiceForm.durationMinutes,
       priceCents: parsePriceToCents(editServiceForm.priceInput),
       description: editServiceForm.description.trim() || null,
+      returnOffsetDays: parseOffsetsInput(editServiceForm.returnOffsetsInput),
     });
     Object.assign(service, updated);
     editingServiceId.value = null;
@@ -368,6 +386,10 @@ async function toggleServiceActive(service: AdminService) {
                   Descrição (opcional)
                   <input v-model="editServiceForm.description" type="text" />
                 </label>
+                <label class="admin-field admin-field--wide" data-tooltip="Dias após o procedimento para lembrar o retorno — ex.: 15, 122">
+                  Retornos automáticos (dias, separados por vírgula)
+                  <input v-model="editServiceForm.returnOffsetsInput" type="text" placeholder="Ex.: 15, 122" />
+                </label>
                 <div class="admin-form-row">
                   <button type="button" class="admin-chip-btn admin-chip-btn--primary" @click="saveEditService(service)">Salvar</button>
                   <button type="button" class="admin-chip-btn" @click="cancelEditService">Cancelar</button>
@@ -397,6 +419,14 @@ async function toggleServiceActive(service: AdminService) {
                   </span>
                   <span class="admin-service__price" :class="{ 'admin-service__price--placeholder': service.priceCents == null }">
                     {{ formatPrice(service.priceCents) }}
+                  </span>
+                  <span
+                    v-if="service.returnOffsetDays.length"
+                    class="admin-service__meta-pill"
+                    data-tooltip="Retorno automático gerado ao concluir o atendimento"
+                  >
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.1 21 6l-4 3.9M3 11.5a9 9 0 0 1 15-6.7L21 6M7 21.9 3 18l4-3.9M21 12.5a9 9 0 0 1-15 6.7L3 18" /></svg>
+                    Retorno em {{ service.returnOffsetDays.join('/') }}d
                   </span>
                 </span>
               </div>
@@ -431,6 +461,10 @@ async function toggleServiceActive(service: AdminService) {
           <label class="admin-field">
             Descrição (opcional)
             <input v-model="newService.description" type="text" />
+          </label>
+          <label class="admin-field" data-tooltip="Dias após o procedimento para lembrar o retorno — ex.: 15, 122">
+            Retornos automáticos (dias, separados por vírgula)
+            <input v-model="newService.returnOffsetsInput" type="text" placeholder="Ex.: 15, 122" />
           </label>
           <p v-if="newServiceError" class="admin-error">{{ newServiceError }}</p>
           <div class="admin-form-row">

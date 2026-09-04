@@ -1,5 +1,6 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { prisma } from '../../lib/prisma';
+import { getUpcomingReminders } from '../patients/reminders.service';
 
 // Todo número aqui vem de dado real cadastrado — nenhuma projeção/estimativa
 // inventada. "Receita do mês" soma só atendimentos já marcados como
@@ -53,6 +54,7 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
     prevExpensesAgg,
     upcomingAppointmentsRaw,
     serviceCountAppointments,
+    upcomingReminders,
   ] = await Promise.all([
     prisma.appointment.count({
       where: { tenantId, status: 'CONFIRMED', startAt: { gte: todayStart, lte: todayEnd } },
@@ -99,6 +101,10 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
       where: { tenantId, startAt: { gte: monthStart, lte: monthEnd }, status: { not: 'CANCELLED' } },
       select: { service: { select: { id: true, name: true } } },
     }),
+    // Janela curta (7 dias) de propósito: o dashboard mostra só o que é
+    // urgente "de relance"; a lista completa (30/90 dias) fica na tela
+    // dedicada de pacientes/lembretes.
+    getUpcomingReminders(tenantId, 7),
   ]);
 
   const revenueThisMonthCents = completedThisMonth.reduce((sum, appt) => sum + (appt.service.priceCents ?? 0), 0);
@@ -175,5 +181,6 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
     lowStockCount: lowStockItems.length,
     upcomingAppointments,
     topServices,
+    upcomingReminders,
   };
 }

@@ -19,7 +19,7 @@ Cerqueira como primeiro tenant real.
 O projeto é dividido em duas aplicações independentes que conversam por API:
 um **site público** com agendamento online self-service, e um **painel
 administrativo** completo para a equipe da clínica gerenciar catálogo,
-agenda, financeiro, estoque e usuários.
+agenda, pacientes, financeiro, estoque e usuários.
 
 ---
 
@@ -54,7 +54,6 @@ clinica-de-saude-estetica/
 server/src/
 ├── app.ts                      # bootstrap do Express (middlewares, rotas)
 ├── config/env.ts                # validação de env vars com zod
-├── lib/prisma.ts                # client Prisma singleton
 ├── middleware/
 │   ├── audit.middleware.ts      # captura mutações da API e grava log de auditoria
 │   ├── error-handler.ts         # tradução de erros em respostas HTTP consistentes
@@ -70,12 +69,18 @@ server/src/
 │   ├── dashboard/                # métricas agregadas do painel
 │   ├── finance/                  # despesas, DRE e conciliação bancária (OFX)
 │   ├── inventory/                # estoque
+│   ├── patients/                  # ficha do paciente, fotos, fichas clínicas,
+│   │                               # retornos automáticos, lembretes e WhatsApp
 │   └── settings/                 # configurações públicas do tenant
+├── lib/
+│   ├── prisma.ts                 # client Prisma singleton
+│   ├── file-storage.ts            # fotos de paciente em disco (fora do /public)
+│   └── whatsapp-client.ts         # cliente da WhatsApp Cloud API (Meta)
 └── utils/                       # async-handler, erros tipados, slugify
 
 web/src/
 ├── views/                       # Home, Serviços, Agendar, Contato, 404
-├── views/admin/                  # Login, Dashboard, Catálogo, Agenda,
+├── views/admin/                  # Login, Dashboard, Catálogo, Agenda, Pacientes,
 │                                  # Financeiro, Estoque, Usuários, Auditoria
 ├── components/                   # componentes de UI do site público
 ├── components/admin/              # gráficos, calendário, modais, seletor,
@@ -92,9 +97,9 @@ web/src/
 
 | Camada | Tecnologias |
 |---|---|
-| **Backend** | Node.js · TypeScript · Express · Prisma ORM · PostgreSQL 16 · Zod · JWT · bcryptjs · Helmet · Pino |
+| **Backend** | Node.js · TypeScript · Express · Prisma ORM · PostgreSQL 16+ · Zod · JWT · bcryptjs · Helmet · Pino |
 | **Frontend** | Vue 3 (Composition API) · TypeScript · Vite · Pinia · Vue Router · GSAP (ScrollTrigger, SplitText, Flip) |
-| **Infra local** | Docker Compose (PostgreSQL) |
+| **Integrações** | WhatsApp Cloud API (Meta) — lembretes de retorno e aniversário |
 
 ## ✨ Funcionalidades
 
@@ -115,12 +120,24 @@ com **Ctrl/Cmd+K** (paleta de comandos) além dos atalhos de menu.
 | Rota | Tela | Descrição |
 |---|---|---|
 | `/admin` | Dashboard | Métricas agregadas (agendamentos, receita, ocupação), números com contagem animada (GSAP) ao carregar |
-| `/admin/servicos` | Catálogo | CRUD de categorias e serviços, com banners e destaque de "mais agendado" |
-| `/admin/agenda` | Agenda | Visão de calendário dos agendamentos, criação manual |
+| `/admin/servicos` | Catálogo | CRUD de categorias e serviços, com banners, destaque de "mais agendado" e retornos automáticos configuráveis por serviço |
+| `/admin/agenda` | Agenda | Visão de calendário dos agendamentos, criação manual, lembretes de retorno/aniversário dos próximos 14 dias |
+| `/admin/pacientes` | Pacientes | Ficha individual por paciente: histórico de atendimentos, fichas clínicas (anamnese, por procedimento…), galeria de fotos antes/depois/evolução com comparação lado a lado, retornos automáticos e resumo financeiro |
 | `/admin/financeiro` | Financeiro | Despesas por status (pendente/pago/atrasado), vencimentos e recebimentos do dia, histórico de faturamento diário, DRE e conciliação bancária via importação de extrato OFX |
 | `/admin/estoque` | Estoque | Itens, quantidade mínima, ajuste de saldo |
 | `/admin/usuarios` | Usuários | Gestão de contas da equipe — **somente ADMIN** |
 | `/admin/auditoria` | Auditoria | Histórico de tudo que a equipe criou/alterou/excluiu no painel — **somente ADMIN** |
+
+#### Módulo de acompanhamento de pacientes
+
+Integrado com agenda e financeiro, não uma tela isolada:
+
+- **Automático ao concluir um atendimento**: marcar um agendamento como "Concluído" na Agenda gera sozinho um registro de procedimento na ficha do paciente e, se o serviço tiver retornos configurados (ex.: Botox → +15 e +122 dias), os lembretes de retorno correspondentes — sem passo manual nenhum.
+- **Lembretes automáticos** de retorno e aniversário, agregados num só feed e exibidos tanto no Dashboard (7 dias) quanto na Agenda (14 dias), com envio manual por WhatsApp direto do lembrete.
+- **Fichas clínicas** (anamnese, ficha por procedimento — ex.: bioestimulador de colágeno) com modelos de campos de partida, editáveis livremente; pensadas para evoluir conforme as fichas reais em papel forem digitalizadas.
+- **Galeria de fotos** antes/depois/evolução, com data e comparação lado a lado — armazenada fora de `/public`, servida só por rota autenticada (nunca um link público).
+- **Acesso restrito por papel**: `RECEPTION` vê uma versão da ficha sem notas clínicas nem fotos; fichas clínicas e fotos exigem `ADMIN`. Toda *visualização* de ficha ou de fichas clínicas gera um registro de auditoria próprio (não só as alterações) — rastreabilidade de quem acessou dado sensível, item de LGPD.
+- **WhatsApp Cloud API** (Meta) para o envio dos lembretes — client próprio em `server/src/lib/whatsapp-client.ts`, disparo sempre manual (não há worker/cron no projeto), com erro claro se as credenciais não estiverem configuradas em vez de falhar silenciosamente.
 
 ### API (`server/`)
 
@@ -138,15 +155,19 @@ Schema Prisma multi-tenant-ready — toda tabela relevante carrega `tenantId`:
 ```
 Tenant ──┬── User (ADMIN | RECEPTION)
          ├── TenantSettings (contato, regras de agendamento)
-         ├── Customer
-         ├── ServiceCategory ── Service
+         ├── Customer (nome, whatsapp, telefone, nascimento, foto, notas)
+         │     ├── Appointment (CONFIRMED | CANCELLED | COMPLETED | NO_SHOW)
+         │     ├── ProcedureRecord (gerado ao concluir um Appointment)
+         │     │     └── ReturnReminder (PENDING | NOTIFIED | DONE | DISMISSED)
+         │     ├── PatientPhoto (BEFORE | AFTER | EVOLUTION | OTHER)
+         │     └── PatientFicha (anamnese, ficha por procedimento — campos livres em JSON)
+         ├── ServiceCategory ── Service (returnOffsetDays: retornos automáticos)
          ├── BusinessHour (horário recorrente por dia da semana)
          ├── BlockedTime (folgas, feriados, eventos externos)
-         ├── Appointment (CONFIRMED | CANCELLED | COMPLETED | NO_SHOW)
          ├── Expense (PENDING | PAID | OVERDUE — vencimento, pagamento, categoria)
          ├── BankTransaction (extrato OFX importado, conciliado com Expense)
          ├── InventoryItem (controle de estoque)
-         └── AuditLog (histórico de ações administrativas)
+         └── AuditLog (histórico de ações administrativas, inclui VIEW de dado sensível)
 ```
 
 Migrations em `server/prisma/migrations/`. A constraint anti-overlap vive fora
@@ -162,6 +183,8 @@ nativamente) em `server/prisma/manual-sql/001_appointment_no_overlap.sql`.
 - Senhas de usuário são armazenadas com hash (`bcrypt`), nunca em texto puro.
 - Rate limiting no login (força bruta) e na criação pública de agendamentos (spam/abuso) — `server/src/middleware/rate-limit.ts`.
 - Respostas da API são minimizadas: o endpoint público de agendamento nunca devolve ids internos de tenant/cliente, só o necessário para a tela de confirmação (minimização de dados, item de LGPD do escopo).
+- **Fotos de paciente nunca ficam em diretório público estático** — vivem fora de `web/public`, servidas por uma rota autenticada (`GET /patients/:id/photos/:photoId/file`) que confere tenant + papel do usuário antes de ler o arquivo do disco.
+- **Fichas clínicas e fotos exigem papel `ADMIN`**; `RECEPTION` recebe uma versão da ficha do paciente sem notas nem fotos. Toda *leitura* de ficha/ficha clínica (não só escrita) grava um registro de auditoria próprio — rastro de quem consultou dado de saúde, não só de quem alterou.
 - Erros técnicos nunca são expostos ao cliente final — apenas mensagens compreensíveis; detalhes completos vão para o log do servidor.
 - Toda validação de entrada é feita no backend (`zod`), independentemente do que o frontend valida.
 - Cabeçalhos de segurança via `helmet` (CSP, HSTS, X-Frame-Options, etc.) e CORS restrito à origem do frontend.
@@ -171,7 +194,7 @@ nativamente) em `server/prisma/manual-sql/001_appointment_no_overlap.sql`.
 ### Pré-requisitos
 
 - **Node.js 20+**
-- **PostgreSQL 16+** rodando localmente, ou via `docker compose up -d` dentro de `server/` (requer Docker Desktop)
+- **PostgreSQL 16+** — instalação local (nativa) ou qualquer instância acessível via `DATABASE_URL`
 
 ### 1. Backend (`server/`)
 
@@ -180,8 +203,8 @@ cd server
 cp .env.example .env   # ajuste DATABASE_URL, JWT_SECRET e ADMIN_SEED_PASSWORD
 npm install
 
-# aplica as migrations
-npx prisma migrate dev --name init
+# aplica todas as migrations já existentes no repositório
+npx prisma migrate deploy
 
 # aplica a EXCLUDE CONSTRAINT anti-double-booking (fora do fluxo padrão do Prisma)
 npx prisma db execute --file prisma/manual-sql/001_appointment_no_overlap.sql --schema prisma/schema.prisma
@@ -191,6 +214,13 @@ npm run seed
 
 npm run dev
 ```
+
+> ⚠️ **Sempre `migrate deploy`, nunca `migrate dev`, neste projeto**:
+> `migrate dev` roda interativamente e pode **resetar o banco inteiro**
+> (apagar todos os dados) se detectar qualquer divergência de histórico —
+> já aconteceu neste projeto. Pra criar uma migration nova, gere o SQL com
+> `prisma migrate diff` e aplique com `migrate deploy` (ver migrations
+> existentes em `server/prisma/migrations/` como exemplo).
 
 A API sobe em **http://localhost:3333**.
 
@@ -226,6 +256,9 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `ADMIN_SEED_EMAIL` | ✅* | E-mail do admin criado pelo `npm run seed` (\*só obrigatório para rodar o seed) |
 | `ADMIN_SEED_PASSWORD` | ✅* | Senha do admin criado pelo `npm run seed` (\*só obrigatório para rodar o seed) |
 | `TENANT_TIMEZONE` | — | Fuso horário do tenant (padrão `America/Bahia`) |
+| `WHATSAPP_CLOUD_API_TOKEN` | — | Token de acesso da WhatsApp Cloud API (Meta) — sem ele, o envio de lembretes por WhatsApp fica indisponível, mas o resto do painel funciona normalmente |
+| `WHATSAPP_PHONE_NUMBER_ID` | — | Phone Number ID configurado na Cloud API |
+| `WHATSAPP_API_VERSION` | — | Versão da Graph API (padrão `v21.0`) |
 
 ### `web/.env`
 
@@ -245,7 +278,7 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `npm run seed` | Popula o banco com tenant, categorias/serviços reais, horários e admin |
 | `npm run seed:demo` | Opcional — adiciona clientes, agendamentos, despesas e estoque fictícios por cima do `seed`, útil para demonstração/gravação de tela |
 | `npm run prisma:studio` | Abre o Prisma Studio (explorador visual do banco) |
-| `npm run prisma:migrate` | Cria/aplica uma nova migration |
+| `npm run prisma:migrate` | Roda `prisma migrate dev` (interativo) — ver aviso na seção "Como rodar localmente" antes de usar |
 
 **`web/`**
 
@@ -261,8 +294,11 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 Fora de escopo desta fase, planejado para depois:
 
 - [ ] Integração com Google Calendar (sincronização de bloqueios)
-- [ ] Integração com Meta WhatsApp Cloud API (hoje o contato público é só via link `wa.me`)
+- [ ] Envio automático (worker/cron) dos lembretes de retorno e aniversário — hoje o lembrete aparece sozinho no painel, mas o envio por WhatsApp é sempre um clique manual, já que o projeto não tem job em background
+- [ ] Redesenho dos campos das fichas clínicas (anamnese, por procedimento) a partir das fichas reais em papel que a clínica usa — a versão atual é um ponto de partida editável, não o formulário final
 - [ ] Multi-tenant real (hoje a resolução de tenant já existe e é usada em toda query, mas só há um tenant em produção)
+
+**Concluído nesta fase** (fora do roadmap original): módulo completo de acompanhamento de pacientes — fichas, galeria de fotos, retornos automáticos, lembretes e integração com a WhatsApp Cloud API (client pronto; só falta configurar credenciais reais em produção).
 
 ---
 

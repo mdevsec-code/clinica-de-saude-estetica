@@ -50,6 +50,16 @@ export const router = createRouter({
           component: () => import('@/views/admin/AdminCatalogView.vue'),
         },
         {
+          path: 'pacientes',
+          name: 'admin-patients',
+          component: () => import('@/views/admin/AdminPatientsView.vue'),
+        },
+        {
+          path: 'pacientes/:id',
+          name: 'admin-patient-detail',
+          component: () => import('@/views/admin/AdminPatientDetailView.vue'),
+        },
+        {
           path: 'agenda',
           name: 'admin-agenda',
           component: () => import('@/views/admin/AdminAgendaView.vue'),
