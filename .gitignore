@@ -10,4 +10,5 @@ build/
 Thumbs.db
 coverage/
 .claude/
+server/uploads/
 *.timestamp-*.mjs

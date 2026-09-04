@@ -28,6 +28,10 @@ model Tenant {
   inventoryItems    InventoryItem[]
   bankTransactions  BankTransaction[]
   auditLogs         AuditLog[]
+  procedureRecords  ProcedureRecord[]
+  returnReminders   ReturnReminder[]
+  patientPhotos     PatientPhoto[]
+  patientFichas     PatientFicha[]
 }
 
 enum UserRole {
@@ -55,6 +59,11 @@ enum AuditAction {
   CREATE
   UPDATE
   DELETE
+  // Só usado para leitura de dado sensível (ficha de paciente) — LGPD pede
+  // rastro de QUEM acessou um dado pessoal sensível, não só quem o alterou.
+  // Todo o resto do sistema continua sem logar GET normal de propósito (ver
+  // auditLogger em audit.middleware.ts): isso é uma exceção deliberada.
+  VIEW
 }
 
 // Trilha de auditoria (Fase 3): um registro por ação de escrita feita por um
@@ -108,19 +117,141 @@ model TenantSettings {
 }
 
 model Customer {
-  id        String    @id @default(cuid())
-  tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
-  name      String
-  whatsapp  String
-  email     String?
-  birthDate DateTime? @db.Date
-  notes     String?
-  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  name            String
+  // whatsapp continua sendo o identificador de deduplicação (findOrCreateCustomer
+  // casa por ele) — phone é um campo à parte só pra quando o contato
+  // telefônico "de verdade" (linha fixa, outro número) difere do WhatsApp
+  // usado pra agendar, pedido explícito da ficha de paciente.
+  whatsapp        String
+  phone           String?
+  email           String?
+  birthDate       DateTime? @db.Date
+  profilePhotoUrl String?
+  notes           String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
 
-  appointments Appointment[]
+  appointments     Appointment[]
+  procedureRecords ProcedureRecord[]
+  photos           PatientPhoto[]
+  returnReminders  ReturnReminder[]
+  fichas           PatientFicha[]
 
   @@index([tenantId, whatsapp])
+  @@index([tenantId, birthDate])
+}
+
+// Ficha de acompanhamento clínico (anamnese, ficha de bioestimulador de
+// colágeno etc.) — o registro em papel que a Noely já preenche com cada
+// paciente, agora digitalizado. "type" é texto livre de propósito, não um
+// enum: os tipos de ficha (um por procedimento/protocolo) vão crescer com o
+// tempo, e cadastrar um tipo novo não pode depender de uma migração de
+// banco. "fields" é uma lista flexível de {label, value} — o formulário real
+// de cada tipo de ficha ainda vai ser definido com a Noely (rótulos,
+// obrigatoriedade, formato); até lá, cada campo é editável livremente pelo
+// admin, com alguns modelos de partida sugeridos só no frontend (ver
+// AdminPatientDetailView.vue) pra não começar de uma tela em branco.
+model PatientFicha {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  type            String
+  fields          Json
+  notes           String?
+  createdByUserId String
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([tenantId, customerId])
+}
+
+// Registro criado automaticamente quando um agendamento é marcado como
+// COMPLETED (ver updateAppointmentStatus em appointments.service.ts) — a
+// "ficha" de cada procedimento realizado, base do histórico de atendimentos
+// e da geração automática de lembretes de retorno.
+model ProcedureRecord {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  serviceId     String
+  service       Service  @relation(fields: [serviceId], references: [id])
+  appointmentId String   @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  performedAt   DateTime @db.Date
+  notes         String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  returnReminders ReturnReminder[]
+  photos          PatientPhoto[]
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, performedAt])
+}
+
+enum ReturnReminderStatus {
+  PENDING
+  NOTIFIED
+  DONE
+  DISMISSED
+}
+
+// Um retorno = uma data calculada a partir de Service.returnOffsetDays no
+// momento em que o procedimento foi concluído (ex.: Botox com [15, 122] gera
+// dois destes). offsetDays fica congelado aqui mesmo que a configuração do
+// serviço mude depois — o retorno já criado não deve mudar de data
+// retroativamente.
+model ReturnReminder {
+  id                String                @id @default(cuid())
+  tenantId          String
+  tenant            Tenant                @relation(fields: [tenantId], references: [id])
+  customerId        String
+  customer          Customer              @relation(fields: [customerId], references: [id])
+  procedureRecordId String
+  procedureRecord   ProcedureRecord       @relation(fields: [procedureRecordId], references: [id])
+  offsetDays        Int
+  dueAt             DateTime              @db.Date
+  status            ReturnReminderStatus  @default(PENDING)
+  notifiedAt        DateTime?             @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, dueAt])
+  @@index([tenantId, status])
+  @@index([tenantId, customerId])
+}
+
+enum PatientPhotoCategory {
+  BEFORE
+  AFTER
+  EVOLUTION
+  OTHER
+}
+
+// Arquivo em si fica em disco (server/uploads/patients/<customerId>/...) —
+// storageKey é o caminho relativo usado pra servir via rota autenticada
+// (nunca um diretório público estático: são fotos de paciente, LGPD).
+model PatientPhoto {
+  id                String               @id @default(cuid())
+  tenantId          String
+  tenant            Tenant               @relation(fields: [tenantId], references: [id])
+  customerId        String
+  customer          Customer             @relation(fields: [customerId], references: [id])
+  procedureRecordId String?
+  procedureRecord   ProcedureRecord?     @relation(fields: [procedureRecordId], references: [id])
+  storageKey        String
+  mimeType          String
+  category          PatientPhotoCategory @default(OTHER)
+  notes             String?
+  takenAt           DateTime             @db.Date
+  uploadedByUserId  String
+  createdAt         DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, customerId])
 }
 
 model ServiceCategory {
@@ -157,8 +288,14 @@ model Service {
   imageUrl        String?
   active          Boolean         @default(true)
   sortOrder       Int             @default(0)
+  // Configurável por serviço (pedido explícito do módulo de acompanhamento
+  // de pacientes): dias a partir da data do procedimento em que um retorno
+  // deve ser lembrado. Ex.: Botox = [15, 122] gera um retorno em +15 dias e
+  // outro em +122 dias. Vazio = nenhum retorno automático pra esse serviço.
+  returnOffsetDays Int[]          @default([])
 
-  appointments Appointment[]
+  appointments     Appointment[]
+  procedureRecords ProcedureRecord[]
 
   @@unique([tenantId, slug])
 }
@@ -225,6 +362,8 @@ model Appointment {
   notes       String?
   createdAt   DateTime          @default(now()) @db.Timestamptz(3)
   cancelledAt DateTime?         @db.Timestamptz(3)
+
+  procedureRecord ProcedureRecord?
 
   // A prevenção definitiva de double-booking (item 26 do escopo) NÃO depende só
   // desta constraint do Prisma: uma EXCLUDE constraint via btree_gist é aplicada

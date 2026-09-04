@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { AppError, ConflictError, NotFoundError } from '../../utils/errors';
 import { findOrCreateCustomer } from '../customers/customers.service';
 import { computeAvailableSlots } from '../availability/availability.service';
+import { createProcedureRecordForAppointment } from '../patients/procedures.service';
 
 interface CreateAppointmentInput {
   tenantId: string;
@@ -159,7 +160,7 @@ export async function updateAppointmentStatus(
     throw new NotFoundError('Agendamento não encontrado.');
   }
 
-  return prisma.appointment.update({
+  const updated = await prisma.appointment.update({
     where: { id: appointment.id },
     data: {
       status,
@@ -170,4 +171,22 @@ export async function updateAppointmentStatus(
       service: { select: { id: true, name: true, durationMinutes: true } },
     },
   });
+
+  // Ficha de paciente (módulo de acompanhamento): todo atendimento concluído
+  // vira um ProcedureRecord + retornos automáticos, configurados por serviço
+  // (Service.returnOffsetDays). Roda fora da transação de update do
+  // agendamento de propósito — se isso falhar, a mudança de status (a ação
+  // que a recepção pediu) já foi salva; não faz sentido derrubar ela por
+  // causa de um efeito colateral.
+  if (status === 'COMPLETED') {
+    await createProcedureRecordForAppointment(prisma, {
+      tenantId,
+      appointmentId: updated.id,
+      customerId: updated.customerId,
+      serviceId: updated.serviceId,
+      performedAt: updated.startAt,
+    }).catch((err) => console.error('Falha ao gerar registro de procedimento/retornos:', err));
+  }
+
+  return updated;
 }

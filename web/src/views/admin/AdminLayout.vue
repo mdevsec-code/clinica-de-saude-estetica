@@ -68,7 +68,7 @@ const indicator = ref<HTMLElement | null>(null);
 // estivesse "adiante" na fila); indo para uma mais à esquerda, entra vindo
 // da esquerda. Sem isso, toda troca de aba tinha a mesma animação genérica
 // independente de para onde o usuário estava realmente navegando.
-const NAV_ORDER = ['admin-dashboard', 'admin-catalog', 'admin-agenda', 'admin-finance', 'admin-inventory', 'admin-users', 'admin-audit'];
+const NAV_ORDER = ['admin-dashboard', 'admin-catalog', 'admin-agenda', 'admin-patients', 'admin-patient-detail', 'admin-finance', 'admin-inventory', 'admin-users', 'admin-audit'];
 const transitionName = ref<'admin-tab-forward' | 'admin-tab-back'>('admin-tab-forward');
 watch(
   () => route.name,
@@ -87,9 +87,23 @@ function moveIndicatorTo(link: HTMLElement | null) {
   const navRect = nav.value.getBoundingClientRect();
   const state = Flip.getState(indicator.value);
   const linkRect = link.getBoundingClientRect();
+  // A pílula é position:absolute DENTRO da própria nav (que tem
+  // overflow-x:auto) — ou seja, ela rola junto com o conteúdo, igual ao
+  // link. getBoundingClientRect() já vem líquido do scroll atual (é
+  // relativo ao viewport), então "linkRect.left - navRect.left" dá só o
+  // deslocamento visível NAQUELE instante, não a posição real dentro do
+  // conteúdo rolável. Resultado: toda vez que a nav já estava rolada no
+  // momento do cálculo (ou seja, sempre a partir da 2ª sincronização em
+  // diante — troca de aba, resize, rotação de tela), o scroll era
+  // descontado uma segunda vez na hora de renderizar (a pílula também rola
+  // com o conteúdo), e o desvio ia se acumulando a cada recálculo. Somar
+  // nav.scrollLeft de volta devolve a posição verdadeira dentro do
+  // conteúdo, que é o que o transform precisa carregar.
+  const x = linkRect.left - navRect.left + nav.value.scrollLeft;
+  const y = linkRect.top - navRect.top;
   indicator.value.style.width = `${linkRect.width}px`;
   indicator.value.style.height = `${linkRect.height}px`;
-  indicator.value.style.transform = `translate(${linkRect.left - navRect.left}px, ${linkRect.top - navRect.top}px)`;
+  indicator.value.style.transform = `translate(${x}px, ${y}px)`;
 
   if (prefersReducedMotion()) return;
   Flip.from(state, { duration: 0.45, ease: 'premium-out' });
@@ -115,6 +129,19 @@ async function syncIndicator() {
 }
 
 watch(() => route.path, syncIndicator);
+
+// A pílula ativa é posicionada com um transform em pixels calculado uma vez
+// (na troca de rota) — sem isso, ela fica "grudada" nas coordenadas antigas
+// sempre que o layout da nav muda de tamanho sem trocar de rota: rotação de
+// tela no celular, teclado abrindo/fechando, ou a barra de endereço do
+// navegador mobile recolhendo/expandindo ao rolar (todos comuns, nenhum
+// dispara o watch de rota) — resultado visto em produção era a pílula
+// aparecer "quebrada", flutuando sobre uma aba errada. ResizeObserver na nav
+// resolve isso recalculando sempre que as dimensões dela mudam, não só
+// quando a rota muda.
+let resizeObserver: ResizeObserver | null = null;
+let resizeDebounce: ReturnType<typeof setTimeout> | undefined;
+
 onMounted(() => {
   syncIndicator();
   // Mesma cautela do AppHeader.vue contra o carregamento "a frio": garante
@@ -125,7 +152,22 @@ onMounted(() => {
   prefetchOtherTabs();
   loadQuickStats();
   playTopbarIntro();
+
+  if (nav.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      // Debounced: rotação de tela e a barra do navegador mobile recolhendo
+      // costumam disparar várias entradas do ResizeObserver em sequência
+      // rápida — sem isso, cada uma tocaria a animação Flip da pílula de
+      // novo, um efeito visual estranho de "tremida" em vez de um
+      // reposicionamento único e suave.
+      clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(syncIndicator, 120);
+    });
+    resizeObserver.observe(nav.value);
+  }
 });
+
+onUnmounted(() => resizeObserver?.disconnect());
 
 // Entrada do topo inteiro na primeira vez que o painel monta — só na
 // primeira vez mesmo: graças ao fix de :key em App.vue (a rota-mãe /admin é
@@ -162,6 +204,7 @@ function prefetchOtherTabs() {
   import('@/views/admin/AdminDashboardView.vue');
   import('@/views/admin/AdminCatalogView.vue');
   import('@/views/admin/AdminAgendaView.vue');
+  import('@/views/admin/AdminPatientsView.vue');
   import('@/views/admin/AdminFinanceView.vue');
   import('@/views/admin/AdminInventoryView.vue');
   if (auth.user?.role === 'ADMIN') {
@@ -279,6 +322,10 @@ function onLogout() {
         <RouterLink :to="{ name: 'admin-agenda' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
           Agenda
+        </RouterLink>
+        <RouterLink :to="{ name: 'admin-patients' }">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" /></svg>
+          Pacientes
         </RouterLink>
         <RouterLink :to="{ name: 'admin-finance' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="13" rx="2" /><path d="M2.5 10h19M6 15h4" /></svg>

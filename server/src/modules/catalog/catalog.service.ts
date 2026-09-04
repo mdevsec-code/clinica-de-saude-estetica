@@ -47,6 +47,7 @@ function serializeService(service: {
     description: service.description,
     durationMinutes: service.durationMinutes,
     price: service.priceCents != null ? service.priceCents / 100 : null,
+    imageUrl: service.imageUrl,
   };
 }
 
@@ -68,6 +69,7 @@ function serializeServiceAdmin(service: {
   imageUrl: string | null;
   active: boolean;
   sortOrder: number;
+  returnOffsetDays: number[];
 }) {
   return {
     id: service.id,
@@ -81,6 +83,7 @@ function serializeServiceAdmin(service: {
     imageUrl: service.imageUrl,
     active: service.active,
     sortOrder: service.sortOrder,
+    returnOffsetDays: service.returnOffsetDays,
   };
 }
 
@@ -174,6 +177,10 @@ interface ServiceInput {
   imageUrl?: string | null;
   sortOrder?: number;
   active?: boolean;
+  // Módulo de acompanhamento de pacientes (ver ProcedureRecord no schema):
+  // dias após o procedimento em que um retorno deve ser lembrado
+  // automaticamente. [] = nenhum retorno automático pra esse serviço.
+  returnOffsetDays?: number[];
 }
 
 export async function createService(tenantId: string, categoryId: string, input: ServiceInput) {
@@ -197,6 +204,7 @@ export async function createService(tenantId: string, categoryId: string, input:
       priceCents: input.priceCents ?? null,
       imageUrl: input.imageUrl ?? null,
       sortOrder: input.sortOrder ?? 0,
+      returnOffsetDays: input.returnOffsetDays ?? [],
     },
   });
 }
@@ -222,6 +230,7 @@ export async function updateService(tenantId: string, id: string, input: Partial
       imageUrl: input.imageUrl === undefined ? undefined : input.imageUrl,
       sortOrder: input.sortOrder ?? undefined,
       active: input.active ?? undefined,
+      returnOffsetDays: input.returnOffsetDays ?? undefined,
     },
   });
 }

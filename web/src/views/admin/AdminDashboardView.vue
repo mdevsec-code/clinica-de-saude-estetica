@@ -439,7 +439,11 @@ function formatUpcoming(iso: string) {
               </button>
             </div>
           </div>
-          <BarChart :data="chartData" :class="{ 'is-loading': chartLoading }" />
+          <BarChart
+            :data="chartData"
+            :class="{ 'is-loading': chartLoading }"
+            :value-formatter="(v) => `${v} agendamento${v === 1 ? '' : 's'}`"
+          />
         </div>
 
         <div class="admin-card admin-card--feature">
@@ -581,6 +585,37 @@ function formatUpcoming(iso: string) {
               <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l2-5h14l2 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M9 13h6" /></svg>
             </span>
             <p>Nenhum agendamento confirmado pela frente.</p>
+          </div>
+        </div>
+
+        <div class="admin-card admin-card--list">
+          <h2>
+            <span class="admin-card__icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+            </span>
+            Lembretes (7 dias)
+          </h2>
+          <ul v-if="stats.upcomingReminders.length" class="upcoming-list">
+            <li
+              v-for="reminder in stats.upcomingReminders"
+              :key="`${reminder.kind}-${reminder.returnReminderId ?? reminder.customerId}`"
+              class="upcoming-list__row upcoming-list__row--clickable"
+              @click="router.push({ name: 'admin-patient-detail', params: { id: reminder.customerId } })"
+            >
+              <span class="upcoming-list__when">{{ reminder.kind === 'BIRTHDAY' ? '🎂' : '🔁' }} {{ formatUpcoming(reminder.date) }}</span>
+              <span class="upcoming-list__info">
+                <span class="upcoming-list__name">{{ reminder.customerName }}</span>
+                <span class="upcoming-list__service">
+                  {{ reminder.kind === 'BIRTHDAY' ? 'Aniversário' : `Retorno · ${reminder.serviceName}` }}
+                </span>
+              </span>
+            </li>
+          </ul>
+          <div v-else class="admin-card__empty admin-card__empty--success">
+            <span class="admin-card__empty-icon admin-card__empty-icon--success">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 5-5" /></svg>
+            </span>
+            <p>Nenhum lembrete de retorno ou aniversário nos próximos 7 dias.</p>
           </div>
         </div>
 
@@ -1256,6 +1291,16 @@ a.kpi-card {
   gap: var(--space-3);
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-border);
+}
+
+.upcoming-list__row--clickable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.upcoming-list__row--clickable:hover {
+  background: var(--color-surface-muted);
 }
 
 .upcoming-list__row:last-child {
