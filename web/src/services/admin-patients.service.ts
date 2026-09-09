@@ -72,10 +72,19 @@ export function fetchFichas(patientId: string) {
   return apiRequest<{ fichas: PatientFicha[] }>(`/patients/${patientId}/fichas`);
 }
 
+export interface FichaFilePayload {
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp';
+  base64Data: string;
+  fileName: string;
+}
+
 export interface FichaPayload {
   type: string;
   fields: FichaField[];
   notes?: string | null;
+  // Ficha digitalizada (upload de PDF/foto de um formulário preenchido em
+  // papel) em vez de registro manual dos campos.
+  file?: FichaFilePayload | null;
 }
 
 export function createFicha(patientId: string, payload: FichaPayload) {
@@ -83,6 +92,14 @@ export function createFicha(patientId: string, payload: FichaPayload) {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+// Mesmo padrão de token-na-URL de patientPhotoUrl acima (só pra abrir/
+// imprimir o arquivo direto num link, que não manda header Authorization).
+export function fichaFileUrl(patientId: string, fichaId: string): string {
+  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
+  const token = localStorage.getItem('noely_admin_token') ?? '';
+  return `${API_URL}/patients/${patientId}/fichas/${fichaId}/file?token=${encodeURIComponent(token)}`;
 }
 
 export function updateFicha(patientId: string, fichaId: string, payload: Partial<FichaPayload>) {

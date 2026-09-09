@@ -5,6 +5,13 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Neon (banco recomendado em produção — ver DEPLOY.md) usa uma conexão
+  // via pooler (PgBouncer) para a aplicação em runtime, mas migrations
+  // (DDL) precisam de conexão direta — via pooler elas falham ou dão
+  // comportamento inconsistente. directUrl é opcional: se DIRECT_DATABASE_URL
+  // não existir (caso do Postgres local, sem pooler), o Prisma usa a mesma
+  // url acima para tudo, sem diferença de comportamento.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // Cada linha relevante do sistema carrega tenantId: isolamento de dados
@@ -160,8 +167,19 @@ model PatientFicha {
   customerId      String
   customer        Customer @relation(fields: [customerId], references: [id])
   type            String
-  fields          Json
+  // Vazio ([]) quando a ficha é um upload de arquivo digitalizado (ver
+  // fileStorageKey) em vez de preenchida campo a campo — as duas formas
+  // coexistem na mesma tabela porque continuam sendo "uma ficha do tipo X"
+  // para todo o resto do sistema (listagem, impressão, auditoria).
+  fields          Json     @default("[]")
   notes           String?
+  // Preenchidos juntos quando a ficha vem de upload (arquivo digitalizado de
+  // um formulário já preenchido em papel) em vez de registro manual dos
+  // campos — ver saveFichaFile em lib/file-storage.ts. Os três são nulos
+  // numa ficha registrada manualmente.
+  fileStorageKey  String?
+  fileMimeType    String?
+  fileName        String?
   createdByUserId String
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime @updatedAt @db.Timestamptz(3)

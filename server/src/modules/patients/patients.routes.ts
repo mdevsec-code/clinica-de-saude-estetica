@@ -14,7 +14,7 @@ import {
 } from './patients.service';
 import { getUpcomingReminders, markReturnReminderStatus } from './reminders.service';
 import { sendBirthdayWhatsapp, sendReturnReminderWhatsapp } from './notifications.service';
-import { createFicha, deleteFicha, listFichas, updateFicha } from './fichas.service';
+import { createFicha, deleteFicha, getFichaFile, listFichas, updateFicha } from './fichas.service';
 
 export const patientsRouter = Router();
 
@@ -32,6 +32,24 @@ patientsRouter.get(
     const { buffer, mimeType } = await getPatientPhotoFile(req.tenant.id, req.params.photoId);
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
+  }),
+);
+
+// Mesma justificativa de ordem/auth da rota de foto acima: abrir/imprimir
+// direto num <a target="_blank"> não manda header Authorization.
+patientsRouter.get(
+  '/:id/fichas/:fichaId/file',
+  requireAuthFromHeaderOrQuery,
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await getFichaFile(
+      { tenantId: req.tenant.id, patientId: req.params.id },
+      req.params.fichaId,
+    );
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    if (fileName) res.setHeader('Content-Disposition', `inline; filename="${fileName.replace(/"/g, '')}"`);
     res.send(buffer);
   }),
 );
@@ -162,11 +180,22 @@ patientsRouter.post(
 // numa versão restrita). Toda leitura E escrita gera auditoria própria — o
 // resto do sistema só audita escrita (ver audit.middleware.ts), mas dado
 // clínico pede rastro também de quem CONSULTOU, não só de quem alterou.
-const fichaFieldSchema = z.object({ label: z.string().min(1).max(200), value: z.string().max(4000) });
+const fichaFieldSchema = z.object({
+  label: z.string().min(1).max(200),
+  value: z.string().max(4000),
+  section: z.string().max(160).nullable().optional(),
+});
+const fichaFileSchema = z.object({
+  mimeType: z.enum(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']),
+  base64Data: z.string().min(1),
+  fileName: z.string().min(1).max(200),
+});
 const fichaInputSchema = z.object({
   type: z.string().min(1).max(120),
-  fields: z.array(fichaFieldSchema).max(60),
+  fields: z.array(fichaFieldSchema).max(60).default([]),
   notes: z.string().max(4000).nullable().optional(),
+  // Ficha digitalizada (upload) — ver comentário em fichas.service.ts.
+  file: fichaFileSchema.nullable().optional(),
 });
 
 patientsRouter.get(

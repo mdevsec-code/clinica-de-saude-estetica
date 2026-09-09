@@ -1,15 +1,25 @@
 <script setup lang="ts">
 // Cortina de abertura: cobre a tela inteira no primeiro carregamento real da
-// página (App.vue monta este componente uma única vez por sessão de SPA — ele
-// nunca reaparece em trocas de rota), com o monograma da marca surgindo e
-// dando lugar ao site com um wipe. Existe por dois motivos: (1) é a
-// "apresentação" da marca que a Home merece no primeiro contato, em vez de um
-// fade genérico; (2) de brinde, esconde qualquer instabilidade de layout dos
-// primeiros instantes (fontes carregando, imagens do hero ainda chegando)
-// atrás de uma superfície sólida em vez de deixar o usuário ver o reflow.
+// página, com o monograma da marca surgindo e dando lugar ao site com um
+// wipe. Existe por dois motivos: (1) é a "apresentação" da marca que a Home
+// merece no primeiro contato, em vez de um fade genérico; (2) de brinde,
+// esconde qualquer instabilidade de layout dos primeiros instantes (fontes
+// carregando, imagens do hero ainda chegando) atrás de uma superfície sólida
+// em vez de deixar o usuário ver o reflow.
+//
+// "Uma vez por sessão" precisa ser sessionStorage, não só um estado do
+// componente: um F5/recarregamento cria uma sessão de JS inteiramente nova
+// (o módulo é reavaliado do zero), então uma flag em memória nunca
+// sobreviveria de um reload pro outro — a cortina reaparecia (com o conteúdo
+// de trás ainda travado, dado que rotas são lazy-loaded) em TODO reload, não
+// só na primeira visita de verdade. sessionStorage sobrevive a reloads da
+// mesma aba e some ao fechá-la — exatamente "uma vez por sessão de
+// navegador", que era a intenção original.
 import { onMounted, onUnmounted, ref } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { markAppIntroReady } from '@/composables/useAppIntro';
+
+const INTRO_SESSION_KEY = 'noely_intro_shown';
 
 const visible = ref(true);
 const root = ref<HTMLElement | null>(null);
@@ -19,11 +29,34 @@ function unlockScroll() {
   document.documentElement.style.removeProperty('overflow');
 }
 
+function alreadyShownThisSession(): boolean {
+  try {
+    return sessionStorage.getItem(INTRO_SESSION_KEY) === '1';
+  } catch {
+    // Navegação privada em alguns navegadores pode bloquear sessionStorage —
+    // nesse caso a cortina volta a tocar em todo reload (degrada pro
+    // comportamento antigo em vez de quebrar a página).
+    return false;
+  }
+}
+
 onMounted(() => {
-  if (prefersReducedMotion()) {
+  // Reforço do scrollTo(0,0) já feito o mais cedo possível em index.html —
+  // cobre a janela entre aquele script e este ponto (ex.: reflow por fontes
+  // carregando), onde o navegador ainda poderia reimpor uma posição de
+  // rolagem antiga por baixo da cortina antes dela revelar a página.
+  window.scrollTo(0, 0);
+
+  if (prefersReducedMotion() || alreadyShownThisSession()) {
     visible.value = false;
     markAppIntroReady();
     return;
+  }
+  try {
+    sessionStorage.setItem(INTRO_SESSION_KEY, '1');
+  } catch {
+    // Sem sessionStorage disponível — segue exibindo a cortina desta vez
+    // (ver alreadyShownThisSession acima), só não persiste pra próxima.
   }
 
   // Trava o scroll nativo enquanto a cortina cobre a tela — o

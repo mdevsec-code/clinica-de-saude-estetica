@@ -248,6 +248,10 @@ export interface PatientPhoto {
 export interface FichaField {
   label: string;
   value: string;
+  // Seção do documento original (ex.: "B — Avaliação pré-procedimento") —
+  // ver web/src/data/ficha-templates.ts. Opcional: campos de fichas "Outro
+  // tipo" criadas do zero pelo admin não têm seção.
+  section?: string | null;
 }
 
 export interface PatientFicha {
@@ -255,6 +259,11 @@ export interface PatientFicha {
   type: string;
   fields: FichaField[];
   notes: string | null;
+  // Preenchidos só quando a ficha é um upload de arquivo digitalizado (ver
+  // web/src/data/ficha-templates.ts e AdminPatientDetailView.vue) — nulos
+  // numa ficha registrada manualmente pelos campos.
+  fileMimeType: string | null;
+  fileName: string | null;
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;

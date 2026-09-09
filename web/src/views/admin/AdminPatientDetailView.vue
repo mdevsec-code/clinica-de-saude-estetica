@@ -8,16 +8,20 @@ import {
   deleteFicha as deleteFichaApi,
   fetchFichas,
   fetchPatient,
+  fichaFileUrl,
   notifyBirthday,
   patientPhotoUrl,
   removePatientPhoto,
   updatePatient,
+  type FichaFilePayload,
 } from '@/services/admin-patients.service';
 import { notifyReturnReminder, setReminderStatus } from '@/services/admin-reminders.service';
 import { useAuthStore } from '@/stores/auth';
+import { FICHA_BLANK_PDF, FICHA_PRESETS, fichaPresetNames } from '@/data/ficha-templates';
 import type { FichaField, PatientDetail, PatientFicha, PatientPhotoCategory } from '@/types';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import AdminFichaPrintModal from '@/components/admin/AdminFichaPrintModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -231,32 +235,11 @@ const comparePhotos = computed(() => {
 });
 
 // --- Fichas de acompanhamento clínico ---
-// Modelos de partida por tipo — SÓ preenchem o rascunho inicial (o admin
-// edita/apaga campos livremente antes de salvar). Ainda não é o formulário
-// real que a Noely usa em papel: ela vai passar as fichas de verdade depois
-// e a gente redesenha os campos junto (rótulos certos, obrigatoriedade,
-// LGPD) — isso aqui existe pra já ter onde registrar hoje, sem esperar esse
-// redesenho pra começar a digitalizar o que ela já preenche à mão.
-const FICHA_PRESETS: Record<string, FichaField[]> = {
-  Anamnese: [
-    { label: 'Alergias', value: '' },
-    { label: 'Medicações em uso', value: '' },
-    { label: 'Condições de saúde preexistentes', value: '' },
-    { label: 'Cirurgias anteriores', value: '' },
-    { label: 'Gestante / lactante', value: '' },
-    { label: 'Observações gerais', value: '' },
-  ],
-  'Bioestimulador de Colágeno': [
-    { label: 'Produto utilizado', value: '' },
-    { label: 'Lote', value: '' },
-    { label: 'Área tratada', value: '' },
-    { label: 'Quantidade aplicada', value: '' },
-    { label: 'Reações / observações', value: '' },
-  ],
-};
-const fichaPresetNames = Object.keys(FICHA_PRESETS);
-
+// Modelos de partida por tipo (ver web/src/data/ficha-templates.ts) —
+// preenchem o rascunho inicial ao clicar em "+ Ficha de X"; o admin ainda
+// edita e apaga campos livremente antes de salvar.
 const fichas = ref<PatientFicha[]>([]);
+const printModal = ref<{ type: string; ficha: PatientFicha } | null>(null);
 const fichasLoading = ref(false);
 const fichasError = ref<string | null>(null);
 
@@ -332,6 +315,70 @@ async function removeFicha(fichaId: string) {
   if (!patient.value) return;
   await deleteFichaApi(patient.value.id, fichaId).catch(() => undefined);
   fichas.value = fichas.value.filter((f) => f.id !== fichaId);
+}
+
+// --- Subir ficha digitalizada (PDF/foto de um formulário já preenchido em
+// papel) — alternativa ao registro manual acima: em vez de retranscrever
+// campo a campo, anexa o arquivo original direto ao paciente. ---
+const FICHA_UPLOAD_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+const showFichaUpload = ref(false);
+const fichaUploadForm = reactive<{ type: string; customType: string; notes: string }>({ type: '', customType: '', notes: '' });
+const fichaUploadFile = ref<File | null>(null);
+const fichaUploadFileInput = ref<HTMLInputElement | null>(null);
+const uploadingFicha = ref(false);
+const fichaUploadError = ref<string | null>(null);
+
+function startFichaUpload() {
+  showFichaUpload.value = true;
+  showFichaForm.value = false;
+  fichaUploadError.value = null;
+  fichaUploadForm.type = '';
+  fichaUploadForm.customType = '';
+  fichaUploadForm.notes = '';
+  fichaUploadFile.value = null;
+}
+
+function onFichaFileChosen(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+  fichaUploadError.value = null;
+  if (file && !FICHA_UPLOAD_MIME_TYPES.includes(file.type as (typeof FICHA_UPLOAD_MIME_TYPES)[number])) {
+    fichaUploadError.value = 'Use um arquivo PDF, JPEG, PNG ou WebP.';
+    fichaUploadFile.value = null;
+    if (fichaUploadFileInput.value) fichaUploadFileInput.value.value = '';
+    return;
+  }
+  fichaUploadFile.value = file;
+}
+
+async function saveFichaUpload() {
+  if (!patient.value) return;
+  const type = (fichaUploadForm.type === '' ? fichaUploadForm.customType : fichaUploadForm.type).trim();
+  if (!type) {
+    fichaUploadError.value = 'Informe o tipo de ficha.';
+    return;
+  }
+  if (!fichaUploadFile.value) {
+    fichaUploadError.value = 'Escolha um arquivo para enviar.';
+    return;
+  }
+  uploadingFicha.value = true;
+  fichaUploadError.value = null;
+  try {
+    const { mime, data } = await fileToBase64(fichaUploadFile.value);
+    const { ficha } = await createFichaApi(patient.value.id, {
+      type,
+      fields: [],
+      notes: fichaUploadForm.notes.trim() || null,
+      file: { mimeType: mime as FichaFilePayload['mimeType'], base64Data: data, fileName: fichaUploadFile.value.name },
+    });
+    fichas.value.unshift(ficha);
+    showFichaUpload.value = false;
+  } catch (err) {
+    fichaUploadError.value = err instanceof ApiError ? err.message : 'Não foi possível enviar a ficha.';
+  } finally {
+    uploadingFicha.value = false;
+    if (fichaUploadFileInput.value) fichaUploadFileInput.value.value = '';
+  }
 }
 </script>
 
@@ -531,22 +578,67 @@ async function removeFicha(fichaId: string) {
         <!-- Fichas de acompanhamento clínico -->
         <div v-else-if="tab === 'fichas' && !restricted" class="patient-detail__panel">
           <p class="patient-detail__fichas-intro">
-            Fichas de anamnese, protocolos por procedimento etc. — os campos abaixo são um ponto de partida editável;
-            o formulário definitivo de cada tipo ainda vai ser desenhado a partir das fichas reais que a Noely usa.
+            Fichas de anamnese, protocolos por procedimento e termos de consentimento, transcritos dos
+            formulários reais em papel da clínica — os campos de cada modelo são um ponto de partida editável.
           </p>
 
           <div class="patient-detail__ficha-presets">
-            <button
-              v-for="name in fichaPresetNames"
-              :key="name"
-              type="button"
-              class="button button--ghost"
-              @click="startNewFicha(name)"
-            >
-              + Ficha de {{ name }}
-            </button>
+            <div v-for="name in fichaPresetNames" :key="name" class="patient-detail__ficha-preset-group">
+              <button type="button" class="button button--ghost" @click="startNewFicha(name)">
+                + Ficha de {{ name }}
+              </button>
+              <a
+                :href="FICHA_BLANK_PDF[name]"
+                target="_blank"
+                class="admin-link-btn patient-detail__ficha-blank-print"
+                data-tooltip="Abrir o formulário original em PDF, pra imprimir e preencher à mão"
+              >
+                🖨️
+              </a>
+            </div>
             <button type="button" class="button button--ghost" @click="startNewFicha(null)">+ Outro tipo de ficha</button>
+            <button type="button" class="button button--primary" @click="startFichaUpload">📎 Subir ficha</button>
           </div>
+
+          <form v-if="showFichaUpload" class="admin-card patient-detail__ficha-form" @submit.prevent="saveFichaUpload">
+            <p class="patient-detail__fichas-intro" style="margin: 0 0 var(--space-2)">
+              Envie o PDF ou a foto de uma ficha já preenchida em papel — fica anexada ao paciente do jeito que foi
+              assinada, sem precisar retranscrever os campos.
+            </p>
+            <label class="admin-field">
+              Tipo de ficha
+              <select v-model="fichaUploadForm.type">
+                <option value="">Outro tipo…</option>
+                <option v-for="name in fichaPresetNames" :key="name" :value="name">{{ name }}</option>
+              </select>
+            </label>
+            <label v-if="!fichaUploadForm.type" class="admin-field">
+              Especifique o tipo
+              <input v-model="fichaUploadForm.customType" type="text" placeholder="Ex.: Ficha de Peeling Químico" />
+            </label>
+
+            <div class="admin-field">
+              Arquivo (PDF, JPEG, PNG ou WebP)
+              <div class="patient-detail__file-picker">
+                <label class="button button--ghost patient-detail__upload-btn">
+                  Escolher arquivo
+                  <input ref="fichaUploadFileInput" type="file" hidden accept="application/pdf,image/jpeg,image/png,image/webp" @change="onFichaFileChosen" />
+                </label>
+                <span class="patient-detail__file-name">{{ fichaUploadFile?.name ?? 'Nenhum arquivo escolhido' }}</span>
+              </div>
+            </div>
+
+            <label class="admin-field">
+              Observações
+              <textarea v-model="fichaUploadForm.notes" rows="3" placeholder="Observações gerais sobre esta ficha…" />
+            </label>
+
+            <p v-if="fichaUploadError" class="admin-error">{{ fichaUploadError }}</p>
+            <div class="patient-detail__edit-actions">
+              <button type="button" class="button button--ghost" @click="showFichaUpload = false">Cancelar</button>
+              <button type="submit" class="button button--primary" :disabled="uploadingFicha">{{ uploadingFicha ? 'Enviando…' : 'Enviar ficha' }}</button>
+            </div>
+          </form>
 
           <form v-if="showFichaForm" class="admin-card patient-detail__ficha-form" @submit.prevent="saveFicha">
             <label v-if="!fichaForm.type" class="admin-field">
@@ -558,7 +650,7 @@ async function removeFicha(fichaId: string) {
             <div class="patient-detail__ficha-fields">
               <div v-for="(field, i) in fichaForm.fields" :key="i" class="patient-detail__ficha-field-row">
                 <input v-model="field.label" type="text" placeholder="Nome do campo" class="patient-detail__ficha-field-label" />
-                <input v-model="field.value" type="text" placeholder="Resposta / valor" />
+                <textarea v-model="field.value" rows="1" placeholder="Resposta / valor" />
                 <button type="button" class="patient-detail__ficha-field-remove" title="Remover campo" @click="removeFichaField(i)">✕</button>
               </div>
               <button type="button" class="admin-link-btn" @click="addFichaField">+ Adicionar campo</button>
@@ -583,10 +675,29 @@ async function removeFicha(fichaId: string) {
             <li v-for="f in fichas" :key="f.id" class="admin-card">
               <div class="patient-detail__ficha-head">
                 <strong>{{ f.type }}</strong>
+                <span v-if="f.fileName" class="admin-badge">📎 arquivo</span>
                 <span>{{ formatDate(f.createdAt) }}</span>
-                <button type="button" class="patient-detail__photo-delete patient-detail__ficha-delete" title="Remover" @click="removeFicha(f.id)">✕</button>
+                <a
+                  v-if="f.fileName"
+                  :href="fichaFileUrl(patient!.id, f.id)"
+                  target="_blank"
+                  class="admin-link-btn patient-detail__ficha-print"
+                  data-tooltip="Ver / imprimir o arquivo enviado"
+                >
+                  📎 Ver arquivo
+                </a>
+                <button
+                  v-else
+                  type="button"
+                  class="admin-link-btn patient-detail__ficha-print"
+                  data-tooltip="Imprimir esta ficha"
+                  @click="printModal = { type: f.type, ficha: f }"
+                >
+                  🖨️ Imprimir
+                </button>
+                <button type="button" class="patient-detail__photo-delete patient-detail__ficha-delete" data-tooltip="Remover" @click="removeFicha(f.id)">✕</button>
               </div>
-              <dl class="patient-detail__ficha-data">
+              <dl v-if="f.fields.length" class="patient-detail__ficha-data">
                 <template v-for="field in f.fields" :key="field.label">
                   <dt>{{ field.label }}</dt>
                   <dd>{{ field.value || '—' }}</dd>
@@ -614,6 +725,14 @@ async function removeFicha(fichaId: string) {
         </div>
       </div>
     </Transition>
+
+    <AdminFichaPrintModal
+      v-if="printModal && patient"
+      :patient="patient"
+      :type="printModal.type"
+      :ficha="printModal.ficha"
+      @close="printModal = null"
+    />
   </div>
 </template>
 
@@ -891,6 +1010,18 @@ async function removeFicha(fichaId: string) {
   cursor: pointer;
 }
 
+.patient-detail__file-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.patient-detail__file-name {
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
 .patient-detail__photo-filters {
   display: flex;
   flex-wrap: wrap;
@@ -1004,8 +1135,21 @@ async function removeFicha(fichaId: string) {
 .patient-detail__ficha-presets {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
+}
+
+.patient-detail__ficha-preset-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.patient-detail__ficha-blank-print {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
 }
 
 .patient-detail__ficha-form {
@@ -1038,10 +1182,11 @@ async function removeFicha(fichaId: string) {
 .patient-detail__ficha-field-row {
   display: flex;
   gap: var(--space-2);
-  align-items: center;
+  align-items: flex-start;
 }
 
-.patient-detail__ficha-field-row input {
+.patient-detail__ficha-field-row input,
+.patient-detail__ficha-field-row textarea {
   flex: 1;
   min-width: 0;
   font-family: inherit;
@@ -1050,6 +1195,15 @@ async function removeFicha(fichaId: string) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
+}
+
+.patient-detail__ficha-field-row textarea {
+  resize: vertical;
+  min-height: 38px;
+}
+
+.patient-detail__ficha-field-row input.patient-detail__ficha-field-label {
+  min-height: 38px;
 }
 
 .patient-detail__ficha-field-label {
@@ -1091,6 +1245,12 @@ async function removeFicha(fichaId: string) {
 .patient-detail__ficha-head span {
   font-size: 0.8rem;
   color: var(--color-ink-muted);
+  margin-right: auto;
+}
+
+.patient-detail__ficha-print {
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .patient-detail__ficha-delete {
@@ -1118,6 +1278,7 @@ async function removeFicha(fichaId: string) {
   margin: 0;
   font-size: 0.9rem;
   color: var(--color-ink);
+  white-space: pre-wrap;
 }
 
 .patient-detail__ficha-notes {

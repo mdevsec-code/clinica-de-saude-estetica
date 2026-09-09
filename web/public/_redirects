@@ -1,0 +1,8 @@
+# Cloudflare Pages (e qualquer host de arquivos estáticos): sem isto, abrir
+# uma URL direto (ex.: recarregar a página em /servicos, ou compartilhar um
+# link de /agendar) dá 404 — o host tenta achar um arquivo físico
+# "/servicos", que não existe (é uma rota do Vue Router, resolvida só depois
+# do JavaScript carregar). Esta regra manda toda rota desconhecida pro
+# index.html, que aí sim inicializa o Vue Router, que lê a URL real do
+# navegador e renderiza a view certa.
+/*  /index.html  200

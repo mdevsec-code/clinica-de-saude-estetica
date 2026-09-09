@@ -34,6 +34,10 @@ export const router = createRouter({
       name: 'admin-login',
       component: () => import('@/views/admin/AdminLoginView.vue'),
     },
+    // Impressão de ficha (preenchida ou modelo em branco) é um modal, não
+    // uma rota própria — ver AdminFichaPrintModal.vue, aberto direto de
+    // dentro de AdminPatientDetailView.vue. Evita tirar o admin do contexto
+    // do paciente (e de uma aba nova) só pra imprimir.
     {
       path: '/admin',
       component: () => import('@/views/admin/AdminLayout.vue'),

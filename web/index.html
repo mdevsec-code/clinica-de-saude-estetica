@@ -17,6 +17,12 @@
       if ('scrollRestoration' in history) {
         history.scrollRestoration = 'manual';
       }
+      // Alguns navegadores preservam a posição de rolagem de antes do reload
+      // por conta própria, à parte da History API acima — sem isto, essa
+      // posição antiga (ex.: perto do rodapé) fica visível por um instante
+      // ao recarregar, antes da cortina de abertura (AppIntroLoader.vue)
+      // terminar de revelar a página já no topo.
+      window.scrollTo(0, 0);
     </script>
     <meta
       name="description"

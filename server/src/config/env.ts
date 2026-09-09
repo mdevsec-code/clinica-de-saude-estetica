@@ -17,6 +17,16 @@ const envSchema = z.object({
   WHATSAPP_CLOUD_API_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
+  // Armazenamento de arquivo (fotos de paciente, fichas digitalizadas) —
+  // opcionais pelo mesmo motivo do WhatsApp acima: sem as 4 variáveis,
+  // lib/file-storage.ts cai para disco local (comportamento de sempre, bom
+  // para desenvolvimento). Só ficam obrigatórias de fato em produção numa
+  // hospedagem com disco efêmero (Railway, Render etc.) — ver DEPLOY.md.
+  // R2 é compatível com a API S3, então o mesmo client atende os dois.
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

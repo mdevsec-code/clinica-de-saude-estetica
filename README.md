@@ -33,6 +33,7 @@ agenda, pacientes, financeiro, estoque e usuários.
 - [Como rodar localmente](#-como-rodar-localmente)
 - [Variáveis de ambiente](#-variáveis-de-ambiente)
 - [Scripts disponíveis](#-scripts-disponíveis)
+- [Deploy em produção](#-deploy-em-produção)
 - [Roadmap](#-roadmap)
 
 ---
@@ -74,7 +75,7 @@ server/src/
 │   └── settings/                 # configurações públicas do tenant
 ├── lib/
 │   ├── prisma.ts                 # client Prisma singleton
-│   ├── file-storage.ts            # fotos de paciente em disco (fora do /public)
+│   ├── file-storage.ts            # fotos/fichas — disco local (dev) ou R2 (produção, ver DEPLOY.md)
 │   └── whatsapp-client.ts         # cliente da WhatsApp Cloud API (Meta)
 └── utils/                       # async-handler, erros tipados, slugify
 
@@ -134,7 +135,7 @@ Integrado com agenda e financeiro, não uma tela isolada:
 
 - **Automático ao concluir um atendimento**: marcar um agendamento como "Concluído" na Agenda gera sozinho um registro de procedimento na ficha do paciente e, se o serviço tiver retornos configurados (ex.: Botox → +15 e +122 dias), os lembretes de retorno correspondentes — sem passo manual nenhum.
 - **Lembretes automáticos** de retorno e aniversário, agregados num só feed e exibidos tanto no Dashboard (7 dias) quanto na Agenda (14 dias), com envio manual por WhatsApp direto do lembrete.
-- **Fichas clínicas** (anamnese, ficha por procedimento — ex.: bioestimulador de colágeno) com modelos de campos de partida, editáveis livremente; pensadas para evoluir conforme as fichas reais em papel forem digitalizadas.
+- **Fichas clínicas** com os 7 modelos reais em papel da clínica transcritos (anamnese, toxina botulínica, preenchimento, tirzepatida, PEIM, autorização de imagem, termo de consentimento — ver `web/src/data/ficha-templates.ts`), agrupados nas mesmas seções do documento original. Duas formas de registrar: preencher os campos digitalmente, ou **subir o PDF/foto de uma ficha já preenchida em papel**. Para preencher à mão durante o atendimento, o botão de impressão de cada modelo abre o **PDF original** (`web/public/fichas-modelos/`) — não uma recriação em HTML; uma ficha já preenchida no sistema é impressa numa tela própria (seções, Sim/Não, dados do paciente), já que os PDFs não têm campo de formulário preenchível.
 - **Galeria de fotos** antes/depois/evolução, com data e comparação lado a lado — armazenada fora de `/public`, servida só por rota autenticada (nunca um link público).
 - **Acesso restrito por papel**: `RECEPTION` vê uma versão da ficha sem notas clínicas nem fotos; fichas clínicas e fotos exigem `ADMIN`. Toda *visualização* de ficha ou de fichas clínicas gera um registro de auditoria próprio (não só as alterações) — rastreabilidade de quem acessou dado sensível, item de LGPD.
 - **WhatsApp Cloud API** (Meta) para o envio dos lembretes — client próprio em `server/src/lib/whatsapp-client.ts`, disparo sempre manual (não há worker/cron no projeto), com erro claro se as credenciais não estiverem configuradas em vez de falhar silenciosamente.
@@ -248,7 +249,8 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 
 | Variável | Obrigatória | Descrição |
 |---|:---:|---|
-| `DATABASE_URL` | ✅ | String de conexão do PostgreSQL |
+| `DATABASE_URL` | ✅ | String de conexão do PostgreSQL (pooled, em produção com Neon) |
+| `DIRECT_DATABASE_URL` | ✅ | Conexão direta, sem pooler — usada só pelas migrations (ver [Deploy em produção](#-deploy-em-produção)); local, sem pooler, é igual à `DATABASE_URL` |
 | `PORT` | — | Porta da API (padrão `3333`) |
 | `JWT_SECRET` | ✅ | Segredo para assinatura dos tokens (mín. 32 caracteres) |
 | `JWT_EXPIRES_IN` | — | Validade do token (padrão `8h`) |
@@ -259,6 +261,7 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `WHATSAPP_CLOUD_API_TOKEN` | — | Token de acesso da WhatsApp Cloud API (Meta) — sem ele, o envio de lembretes por WhatsApp fica indisponível, mas o resto do painel funciona normalmente |
 | `WHATSAPP_PHONE_NUMBER_ID` | — | Phone Number ID configurado na Cloud API |
 | `WHATSAPP_API_VERSION` | — | Versão da Graph API (padrão `v21.0`) |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | — | Object storage (Cloudflare R2) para fotos/fichas — sem elas, cai para disco local (dev); **obrigatório em produção** numa hospedagem com disco efêmero, ver [Deploy em produção](#-deploy-em-produção) |
 
 ### `web/.env`
 
@@ -289,16 +292,32 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `npm run preview` | Serve o build de produção localmente |
 | `npm run type-check` | Só o type-check, sem build |
 
+## 📦 Deploy em produção
+
+Guia completo (contas, variáveis de ambiente, custo estimado) em
+**[DEPLOY.md](DEPLOY.md)**. Stack recomendada: Railway (API) + Cloudflare
+Pages (site) + Neon (Postgres) + Cloudflare R2 (fotos/fichas). O código já
+está preparado para essa stack — `directUrl` no schema do Prisma, R2
+automático em `lib/file-storage.ts` quando configurado, e roteamento SPA
+(`web/public/_redirects`) — falta só criar as contas e configurar as
+variáveis descritas lá.
+
 ## 🗺️ Roadmap
 
 Fora de escopo desta fase, planejado para depois:
 
 - [ ] Integração com Google Calendar (sincronização de bloqueios)
 - [ ] Envio automático (worker/cron) dos lembretes de retorno e aniversário — hoje o lembrete aparece sozinho no painel, mas o envio por WhatsApp é sempre um clique manual, já que o projeto não tem job em background
-- [ ] Redesenho dos campos das fichas clínicas (anamnese, por procedimento) a partir das fichas reais em papel que a clínica usa — a versão atual é um ponto de partida editável, não o formulário final
 - [ ] Multi-tenant real (hoje a resolução de tenant já existe e é usada em toda query, mas só há um tenant em produção)
+- [ ] Sobrepor os dados de uma ficha preenchida em cima do PDF original (hoje é uma tela em HTML) — os formulários não têm campo de formulário preenchível, exigiria calibrar a posição de cada campo manualmente; ver comentário em `AdminFichaPrintModal.vue`
 
-**Concluído nesta fase** (fora do roadmap original): módulo completo de acompanhamento de pacientes — fichas, galeria de fotos, retornos automáticos, lembretes e integração com a WhatsApp Cloud API (client pronto; só falta configurar credenciais reais em produção).
+**Concluído nesta fase** (fora do roadmap original): módulo completo de
+acompanhamento de pacientes — fichas com os 7 modelos reais da clínica
+(campo a campo ou upload do PDF/foto já preenchido), impressão do PDF
+original em branco, galeria de fotos, retornos automáticos, lembretes e
+integração com a WhatsApp Cloud API (client pronto; só falta configurar
+credenciais reais em produção); preparação completa do código para deploy
+em produção (ver seção acima).
 
 ---
 
