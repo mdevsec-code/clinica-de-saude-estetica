@@ -17,6 +17,11 @@ O código já está preparado para essa stack (ver "O que já está pronto"
 abaixo) — falta só criar as contas, os recursos, e configurar as variáveis
 de ambiente descritas aqui.
 
+> ⚠️ **Repositório privado**: ao conectar o Railway e o Cloudflare Pages ao
+> GitHub (seções 3 e 5), a tela de autorização do GitHub vai pedir acesso
+> explícito a este repositório especificamente (repos privados não aparecem
+> por padrão) — normal, só confirme o acesso pelo dono da conta do GitHub.
+
 ## 1. Banco de dados (Neon)
 
 1. Crie uma conta em [neon.tech](https://neon.tech) e um projeto novo.

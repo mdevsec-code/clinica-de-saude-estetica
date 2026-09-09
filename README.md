@@ -9,7 +9,12 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
   <img src="https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/status-em%20desenvolvimento-yellow" alt="Status: em desenvolvimento" />
+  <img src="https://img.shields.io/badge/repositório-privado-lightgrey?logo=github" alt="Repositório privado" />
 </p>
+
+> 🔒 **Repositório privado — software proprietário.** Desenvolvido
+> especificamente para a Clínica Noely Cerqueira; não é software livre nem
+> aberto a contribuições externas.
 
 Plataforma de gestão e site público da clínica de estética e micropigmentação
 da Noely Cerqueira (Camaçari, BA) — construída desde o início como a base de
