@@ -50,3 +50,38 @@ export async function sendBirthdayWhatsapp(tenantId: string, customerId: string)
 
   return sendWhatsappMessage({ to: customer.whatsapp, body });
 }
+
+interface AppointmentWhatsappInput {
+  whatsapp: string;
+  customerName: string;
+  serviceName: string;
+  startAt: Date;
+  timezone: string;
+}
+
+// Diferente das duas funções acima (lembrete de retorno e aniversário, ação
+// manual de um ADMIN clicando num botão — ver comentário no topo do
+// arquivo): estas duas são efeito colateral automático de criar/cancelar um
+// agendamento (ver appointments.service.ts), sem ninguém decidindo o
+// momento do envio. Por isso nunca lançam erro quando o WhatsApp não está
+// configurado — silenciam (retornam sem enviar) em vez de derrubar a ação
+// principal (agendar/cancelar) por causa de uma notificação secundária.
+export async function sendBookingConfirmationWhatsapp(input: AppointmentWhatsappInput): Promise<void> {
+  if (!isWhatsappConfigured()) return;
+
+  const firstName = input.customerName.trim().split(/\s+/)[0];
+  const whenStr = formatInTimeZone(input.startAt, input.timezone, "dd/MM/yyyy 'às' HH:mm");
+  const body = `Oi, ${firstName}! Seu agendamento de ${input.serviceName} está confirmado para ${whenStr}. Qualquer imprevisto, é só chamar por aqui. Até lá! 💛`;
+
+  await sendWhatsappMessage({ to: input.whatsapp, body });
+}
+
+export async function sendCancellationWhatsapp(input: AppointmentWhatsappInput): Promise<void> {
+  if (!isWhatsappConfigured()) return;
+
+  const firstName = input.customerName.trim().split(/\s+/)[0];
+  const whenStr = formatInTimeZone(input.startAt, input.timezone, "dd/MM/yyyy 'às' HH:mm");
+  const body = `Oi, ${firstName}. Seu agendamento de ${input.serviceName} em ${whenStr} foi cancelado. Quer marcar um novo horário? É só chamar por aqui. 😊`;
+
+  await sendWhatsappMessage({ to: input.whatsapp, body });
+}

@@ -5,6 +5,7 @@ import { AppError, ConflictError, NotFoundError } from '../../utils/errors';
 import { findOrCreateCustomer } from '../customers/customers.service';
 import { computeAvailableSlots } from '../availability/availability.service';
 import { createProcedureRecordForAppointment } from '../patients/procedures.service';
+import { sendBookingConfirmationWhatsapp, sendCancellationWhatsapp } from '../patients/notifications.service';
 
 interface CreateAppointmentInput {
   tenantId: string;
@@ -53,7 +54,7 @@ export async function createAppointment(input: CreateAppointmentInput) {
   const MAX_ATTEMPTS = 2;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await prisma.$transaction(
+      const result = await prisma.$transaction(
         async (tx) => {
           const overlap = await tx.appointment.findFirst({
             where: {
@@ -94,6 +95,20 @@ export async function createAppointment(input: CreateAppointmentInput) {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
+
+      // Fora da transação de propósito (mesmo raciocínio do ProcedureRecord
+      // em updateAppointmentStatus): o agendamento em si já está confirmado
+      // e salvo — uma falha aqui (WhatsApp fora do ar, credencial errada)
+      // não pode derrubar a reserva que o cliente acabou de fazer.
+      await sendBookingConfirmationWhatsapp({
+        whatsapp: input.customer.whatsapp,
+        customerName: input.customer.name,
+        serviceName: service.name,
+        startAt,
+        timezone: tenant.timezone,
+      }).catch((err) => console.error('Falha ao enviar confirmação de agendamento por WhatsApp:', err));
+
+      return result;
     } catch (err) {
       const isSerializationConflict =
         err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';
@@ -160,6 +175,8 @@ export async function updateAppointmentStatus(
     throw new NotFoundError('Agendamento não encontrado.');
   }
 
+  const previousStatus = appointment.status;
+
   const updated = await prisma.appointment.update({
     where: { id: appointment.id },
     data: {
@@ -186,6 +203,20 @@ export async function updateAppointmentStatus(
       serviceId: updated.serviceId,
       performedAt: updated.startAt,
     }).catch((err) => console.error('Falha ao gerar registro de procedimento/retornos:', err));
+  }
+
+  // previousStatus !== 'CANCELLED': evita reenviar o aviso se a rota for
+  // chamada de novo com o mesmo status (idempotência), já que o cliente já
+  // foi avisado da primeira vez.
+  if (status === 'CANCELLED' && previousStatus !== 'CANCELLED') {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    await sendCancellationWhatsapp({
+      whatsapp: updated.customer.whatsapp,
+      customerName: updated.customer.name,
+      serviceName: updated.service.name,
+      startAt: updated.startAt,
+      timezone: tenant.timezone,
+    }).catch((err) => console.error('Falha ao enviar aviso de cancelamento por WhatsApp:', err));
   }
 
   return updated;

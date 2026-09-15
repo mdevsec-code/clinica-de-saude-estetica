@@ -1,0 +1,416 @@
+<title>Documentação Técnica — Clínica Noely Cerqueira</title>
+<style>
+  :root {
+    --paper: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f5f7fa;
+    --line: #d7dde6;
+    --ink: #131c2e;
+    --ink-soft: #55647d;
+    --ink-faint: #8493ab;
+    --accent: #2454c7;
+    --accent-soft: #e4ecfc;
+    --warm: #a8571c;
+    --warm-soft: #fbeadd;
+    --good: #0f8a6b;
+    --shadow: 0 1px 2px rgba(19,28,46,0.06), 0 8px 24px -12px rgba(19,28,46,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0d1220; --surface: #141b2c; --surface-2: #182035; --line: #29334a;
+      --ink: #e8ecf5; --ink-soft: #a7b2c8; --ink-faint: #6d7893;
+      --accent: #6c93ff; --accent-soft: #1c2740; --warm: #e0965a; --warm-soft: #2c2113; --good: #4fd3a8;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0d1220; --surface: #141b2c; --surface-2: #182035; --line: #29334a;
+    --ink: #e8ecf5; --ink-soft: #a7b2c8; --ink-faint: #6d7893;
+    --accent: #6c93ff; --accent-soft: #1c2740; --warm: #e0965a; --warm-soft: #2c2113; --good: #4fd3a8;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--paper); color: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; line-height: 1.6; }
+  h1, h2, h3, h4, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  h1, h2, h3 { text-wrap: balance; color: var(--ink); }
+  code { font-family: "IBM Plex Mono", monospace; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 0.88em; }
+
+  .shell { display: grid; grid-template-columns: 250px minmax(0,1fr); max-width: 1220px; margin: 0 auto; align-items: start; }
+  aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 28px 18px 28px 28px; border-right: 1px solid var(--line); }
+  .brand { font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint); }
+  .brand strong { display: block; font-size: 0.92rem; letter-spacing: 0.02em; color: var(--accent); margin-top: 4px; }
+  nav.toc { margin-top: 28px; display: flex; flex-direction: column; gap: 2px; }
+  nav.toc a { display: flex; gap: 8px; align-items: baseline; padding: 6px 10px; border-radius: 6px; color: var(--ink-soft); text-decoration: none; font-size: 0.82rem; }
+  nav.toc a:hover { background: var(--surface-2); color: var(--ink); }
+  nav.toc .tag { font-size: 0.68rem; color: var(--ink-faint); min-width: 20px; }
+  .xlink { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 0.78rem; }
+  .xlink a { color: var(--accent); }
+
+  main { padding: 40px 40px 120px; min-width: 0; }
+  .doc-kicker { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 1.9rem; margin: 6px 0 10px; font-weight: 700; }
+  .doc-meta { display: flex; flex-wrap: wrap; gap: 18px; font-size: 0.78rem; color: var(--ink-faint); padding-bottom: 24px; border-bottom: 1px solid var(--line); margin-bottom: 32px; }
+  .doc-meta span strong { color: var(--ink-soft); }
+
+  section.intro p { max-width: 70ch; color: var(--ink-soft); margin: 0 0 14px; }
+  section.intro p:first-of-type { color: var(--ink); }
+
+  .sec { margin-top: 52px; scroll-margin-top: 24px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); margin-bottom: 18px; }
+  .sec-num { font-size: 0.78rem; color: var(--accent); font-weight: 700; }
+  .sec-head h2 { font-size: 1.24rem; margin: 0; }
+  .sec p { max-width: 74ch; color: var(--ink-soft); }
+  .sec p strong { color: var(--ink); }
+
+  figure { margin: 24px 0 32px; }
+  figure .frame { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; box-shadow: var(--shadow); overflow-x: auto; }
+  figure svg { display: block; width: 100%; height: auto; color: var(--ink-soft); }
+  figure pre.mermaid { margin: 0; display: flex; justify-content: center; }
+  figcaption { margin-top: 10px; font-size: 0.8rem; color: var(--ink-faint); max-width: 74ch; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); font-size: 0.86rem; }
+  .table-wrap { overflow-x: auto; margin: 18px 0 28px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--surface-2); font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
+  tr:last-child td { border-bottom: none; }
+  td.mono, th.mono { font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+  td .pill { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  td .pill.warm { background: var(--warm-soft); color: var(--warm); }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--surface); border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 18px 0; box-shadow: var(--shadow); }
+  .callout p { margin: 0; color: var(--ink-soft); }
+  .callout .k { font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); display: block; margin-bottom: 6px; }
+  .callout.warn { border-color: var(--warm); }
+  .callout.warn .k { color: var(--warm); }
+
+  ul.plain { margin: 0; padding-left: 20px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 6px; }
+  ul.plain strong { color: var(--ink); }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    main { padding: 28px 20px 100px; }
+  }
+  ::selection { background: var(--accent-soft); }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<div class="shell">
+  <aside>
+    <div class="brand">Documento técnico<strong>Clínica Noely Cerqueira</strong></div>
+    <nav class="toc">
+      <a href="#visao-geral"><span class="tag">—</span> Visão geral</a>
+      <a href="#s1"><span class="tag">01</span> Arquitetura da solução</a>
+      <a href="#s2"><span class="tag">02</span> Stack tecnológica</a>
+      <a href="#s3"><span class="tag">03</span> Modelo de dados</a>
+      <a href="#s4"><span class="tag">04</span> Módulos da API</a>
+      <a href="#s5"><span class="tag">05</span> Autenticação e autorização</a>
+      <a href="#s6"><span class="tag">06</span> Multi-tenancy</a>
+      <a href="#s7"><span class="tag">07</span> Concorrência na agenda</a>
+      <a href="#s8"><span class="tag">08</span> Armazenamento de arquivo</a>
+      <a href="#s9"><span class="tag">09</span> Auditoria e LGPD</a>
+      <a href="#s10"><span class="tag">10</span> Frontend</a>
+      <a href="#s11"><span class="tag">11</span> Deploy e hospedagem</a>
+    </nav>
+    <div class="xlink">Ver também: <a href="https://claude.ai/code/artifact/1a8e7bbe-bd57-4445-ba76-8187c52cac8b" target="_blank" rel="noopener">Casos de Uso (UML) →</a></div>
+  </aside>
+
+  <main>
+    <div id="visao-geral">
+      <div class="doc-kicker">Documentação técnica de arquitetura</div>
+      <h1>Sistema de Gestão — Clínica Noely Cerqueira</h1>
+    </div>
+    <div class="doc-meta">
+      <span><strong>Node.js / Express / Prisma</strong> API</span>
+      <span><strong>Vue 3 / Vite</strong> site e painel</span>
+      <span><strong>PostgreSQL</strong> banco de dados</span>
+      <span>Multi-tenant ready — hoje 1 tenant em produção</span>
+    </div>
+
+    <section class="intro">
+      <p>Este documento descreve como o sistema é construído por dentro — arquitetura, modelo de dados, módulos, autenticação e decisões técnicas notáveis — para qualquer desenvolvedor que precise dar manutenção ou continuar o projeto sem ter acompanhado sua construção.</p>
+      <p>O sistema tem duas metades independentes que só se falam por HTTP/JSON: uma <strong>API</strong> (<code>server/</code>) que concentra toda regra de negócio e acesso ao banco, e um <strong>site</strong> (<code>web/</code>) que é uma SPA (Single Page Application) consumindo essa API — tanto para o site público de agendamento quanto para o painel administrativo interno.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s1">
+      <div class="sec-head"><span class="sec-num">01</span><h2>Arquitetura da solução</h2></div>
+      <p>Em produção, cada peça vive num provedor diferente, escolhidos por custo-benefício (detalhes de contas e variáveis em <code>DEPLOY.md</code>). A API nunca escreve em disco de forma persistente — tanto o banco quanto os arquivos de upload ficam em serviços gerenciados externos, porque a hospedagem da API (Railway) tem disco efêmero: qualquer arquivo local desaparece a cada novo deploy.</p>
+
+      <figure>
+        <div class="frame">
+          <pre class="mermaid">
+flowchart LR
+  U["Navegador do usuário"] -->|"HTTPS · HTML/JS/CSS"| WEB["Site — SPA Vue 3\n(Netlify)"]
+  U -->|"HTTPS · JSON"| API["API — Express\n(Railway)"]
+  WEB -->|"fetch() · JSON"| API
+  API -->|"SQL via Prisma\n(pooled em runtime)"| DB[("PostgreSQL\n(Neon)")]
+  API -->|"API S3\nfoto/ficha"| ST[("Object Storage\n(Supabase Storage)")]
+  API -->|"HTTPS API"| WA["WhatsApp Cloud API\n(Meta) — opcional"]
+          </pre>
+        </div>
+        <figcaption>Topologia de produção. O navegador fala com o site estático (Netlify) e diretamente com a API (Railway) via <code>VITE_API_URL</code>; a API é o único componente com acesso ao banco e ao storage — o navegador nunca toca Neon ou Supabase Storage diretamente.</figcaption>
+      </figure>
+
+      <div class="callout">
+        <span class="k">Por que separar site e API assim</span>
+        <p>Desacopla o custo e o ciclo de deploy de cada metade — um pico de acesso ao site (CDN da Netlify, praticamente grátis) não pressiona o mesmo processo que roda a lógica de negócio, e vice-versa. Também é o motivo do banco (Neon) e do storage (Supabase) serem serviços gerenciados externos: Railway não garante disco persistente entre deploys.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s2">
+      <div class="sec-head"><span class="sec-num">02</span><h2>Stack tecnológica</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Camada</th><th>Tecnologia</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Runtime API</strong></td><td class="mono">Node.js + Express</td><td>Simples, maduro, e toda a equipe já domina JS/TS de ponta a ponta.</td></tr>
+          <tr><td><strong>Linguagem</strong></td><td class="mono">TypeScript</td><td>Tipagem end-to-end (schema Prisma → tipos do client → tipos do frontend).</td></tr>
+          <tr><td><strong>ORM</strong></td><td class="mono">Prisma</td><td>Migrations versionadas, client tipado gerado do schema, suporte a <code>directUrl</code> para o padrão pooled/direct do Neon.</td></tr>
+          <tr><td><strong>Banco de dados</strong></td><td class="mono">PostgreSQL</td><td>Recursos usados de propósito: <code>EXCLUDE CONSTRAINT</code> (seção 07), <code>timestamptz</code>, arrays nativos (<code>returnOffsetDays</code>).</td></tr>
+          <tr><td><strong>Validação</strong></td><td class="mono">Zod</td><td>Schema de validação de entrada em toda rota, com mensagens em português já amigáveis ao usuário final.</td></tr>
+          <tr><td><strong>Autenticação</strong></td><td class="mono">JWT (jsonwebtoken) + bcryptjs</td><td>Sem sessão em servidor — token stateless, simples de escalar horizontalmente.</td></tr>
+          <tr><td><strong>Frontend</strong></td><td class="mono">Vue 3 (Composition API) + Vite</td><td>Build rápido, sintaxe reativa concisa, ecossistema maduro.</td></tr>
+          <tr><td><strong>Estado global</strong></td><td class="mono">Pinia</td><td>Store oficial do Vue 3 (sucessor do Vuex) — usado para sessão de autenticação.</td></tr>
+          <tr><td><strong>Animação</strong></td><td class="mono">GSAP + ScrollSmoother</td><td>Transições e scroll suavizado do site público (seção 10).</td></tr>
+          <tr><td><strong>Storage de arquivo</strong></td><td class="mono">@aws-sdk/client-s3</td><td>Protocolo S3 é o padrão de fato — atende Supabase Storage, R2, ou qualquer outro provedor compatível sem trocar código (seção 08).</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s3">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Modelo de dados</h2></div>
+      <p>Toda tabela relevante carrega <code>tenantId</code>: o isolamento entre clínicas é sempre um filtro explícito nas consultas, nunca implícito — o schema já está pronto para múltiplos tenants, mesmo que hoje exista apenas um (<code>noely-cerqueira</code>) em produção.</p>
+
+      <figure>
+        <div class="frame">
+          <pre class="mermaid">
+erDiagram
+  TENANT ||--o{ USER : possui
+  TENANT ||--o{ CUSTOMER : possui
+  TENANT ||--o{ SERVICE_CATEGORY : possui
+  TENANT ||--o{ APPOINTMENT : possui
+  TENANT ||--o{ EXPENSE : possui
+
+  SERVICE_CATEGORY ||--o{ SERVICE : agrupa
+  CUSTOMER ||--o{ APPOINTMENT : agenda
+  SERVICE ||--o{ APPOINTMENT : "é reservado em"
+  APPOINTMENT ||--o| PROCEDURE_RECORD : "gera ao concluir"
+  CUSTOMER ||--o{ PROCEDURE_RECORD : historico
+  PROCEDURE_RECORD ||--o{ RETURN_REMINDER : "agenda retorno"
+  PROCEDURE_RECORD ||--o{ PATIENT_PHOTO : "fotos do procedimento"
+  CUSTOMER ||--o{ PATIENT_PHOTO : "fotos do paciente"
+  CUSTOMER ||--o{ PATIENT_FICHA : "fichas clínicas"
+  EXPENSE ||--o{ BANK_TRANSACTION : concilia
+  USER ||--o{ AUDIT_LOG : registra
+
+  TENANT {
+    string slug UK
+    string timezone
+  }
+  USER {
+    string email UK
+    enum role "ADMIN | RECEPTION"
+    boolean active
+  }
+  CUSTOMER {
+    string whatsapp
+    date birthDate
+  }
+  SERVICE {
+    int priceCents
+    int durationMinutes
+    int[] returnOffsetDays
+  }
+  APPOINTMENT {
+    timestamptz startAt
+    timestamptz endAt
+    enum status "CONFIRMED|CANCELLED|COMPLETED|NO_SHOW"
+    enum source "PUBLIC_SITE|INTERNAL"
+  }
+  EXPENSE {
+    enum category
+    int amountCents
+    enum status "PENDING|PAID"
+  }
+  PATIENT_FICHA {
+    string type
+    json fields
+    string fileStorageKey
+  }
+          </pre>
+        </div>
+        <figcaption>Entidades centrais e suas relações (versão simplificada — <code>BusinessHour</code>, <code>BlockedTime</code> e <code>InventoryItem</code> existem no schema mas não têm relação direta com este núcleo, por isso ficaram fora do diagrama). Todas herdam <code>tenantId</code> de <code>Tenant</code>.</figcaption>
+      </figure>
+
+      <div class="callout">
+        <span class="k">Decisão notável</span>
+        <p><code>PatientFicha.fields</code> é um <code>Json</code> livre (lista de <code>{"{"}label, value{"}"}</code>), não colunas fixas — os tipos de ficha clínica (um por procedimento/protocolo) crescem com o tempo, e cadastrar um tipo novo não pode depender de uma migração de banco. Uma ficha pode ser preenchida campo a campo, ou ser só um upload de arquivo digitalizado (<code>fileStorageKey</code>), ou as duas formas juntas.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s4">
+      <div class="sec-head"><span class="sec-num">04</span><h2>Módulos da API</h2></div>
+      <p>Cada módulo em <code>server/src/modules/</code> segue o mesmo padrão de três arquivos: <code>*.routes.ts</code> (validação Zod + autorização), <code>*.service.ts</code> (regra de negócio e acesso ao Prisma) e, quando precisa, um parser/cliente auxiliar dedicado.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Módulo</th><th>Responsabilidade</th><th>Acesso</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">auth</td><td>Login, sessão, CRUD de contas do painel (usuários)</td><td><span class="pill warm">ADMIN</span> gerencia contas</td></tr>
+          <tr><td class="mono">catalog</td><td>Categorias e serviços — leitura pública, gestão restrita</td><td>Público lê · <span class="pill warm">ADMIN</span> gerencia</td></tr>
+          <tr><td class="mono">availability</td><td>Cálculo de horários livres (cruza funcionamento, duração, agenda, bloqueios)</td><td>Público</td></tr>
+          <tr><td class="mono">appointments</td><td>Criação pública de agendamento, agenda interna, mudança de status</td><td>Público cria · <span class="pill">ADMIN/RECEPTION</span> gerencia</td></tr>
+          <tr><td class="mono">patients</td><td>Cadastro, fichas clínicas, fotos, lembretes de retorno, WhatsApp</td><td><span class="pill">ADMIN/RECEPTION</span> — fichas e fotos só <span class="pill warm">ADMIN</span></td></tr>
+          <tr><td class="mono">finance</td><td>Gastos, resumo diário, DRE, conciliação bancária (OFX)</td><td><span class="pill">ADMIN/RECEPTION</span> — conciliação só <span class="pill warm">ADMIN</span></td></tr>
+          <tr><td class="mono">inventory</td><td>Itens de estoque e ajuste de quantidade</td><td><span class="pill">ADMIN/RECEPTION</span></td></tr>
+          <tr><td class="mono">dashboard</td><td>Agregação de indicadores para a tela inicial do painel</td><td><span class="pill">ADMIN/RECEPTION</span></td></tr>
+          <tr><td class="mono">audit</td><td>Consulta ao histórico de ações administrativas</td><td><span class="pill warm">ADMIN</span></td></tr>
+          <tr><td class="mono">settings</td><td>Configurações públicas da clínica (contato, horário)</td><td>Público (leitura)</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s5">
+      <div class="sec-head"><span class="sec-num">05</span><h2>Autenticação e autorização</h2></div>
+      <p>Sem sessão em servidor: o login emite um <strong>JWT</strong> (válido 8h) que carrega id, papel e tenant do usuário. Toda rota protegida decodifica esse token via middleware antes de tocar em qualquer regra de negócio.</p>
+
+      <figure>
+        <div class="frame">
+          <pre class="mermaid">
+sequenceDiagram
+  participant P as Painel (Vue)
+  participant A as API — requireAuth
+  participant S as Serviço de negócio
+  participant D as PostgreSQL
+
+  P->>A: POST /auth/login (e-mail, senha)
+  A->>D: busca usuário por tenant+e-mail
+  D-->>A: hash da senha
+  A->>A: bcrypt.compare()
+  A-->>P: 200 + JWT (id, role, tenantId)
+
+  Note over P: token guardado no cliente
+
+  P->>A: GET /patients (Authorization: Bearer JWT)
+  A->>A: verifica assinatura e validade do JWT
+  A->>A: requireRole('ADMIN','RECEPTION')
+  alt papel autorizado
+    A->>S: encaminha a requisição
+    S->>D: consulta filtrada por tenantId
+    D-->>S: dados
+    S-->>P: 200 + JSON
+  else papel não autorizado
+    A-->>P: 403 Forbidden
+  end
+          </pre>
+        </div>
+        <figcaption>Fluxo de autenticação e autorização por papel. <code>requireRole</code> é composável — cada rota declara explicitamente quais papéis aceita (ex.: fichas clínicas exigem <code>ADMIN</code>; agenda aceita <code>ADMIN</code> e <code>RECEPTION</code>).</figcaption>
+      </figure>
+
+      <div class="callout warn">
+        <span class="k">Caso especial</span>
+        <p><code>requireAuthFromHeaderOrQuery</code> existe porque uma tag <code>&lt;img src&gt;</code> ou <code>&lt;a target="_blank"&gt;</code> do navegador não envia o cabeçalho <code>Authorization</code> — usado nas duas rotas que servem arquivo direto (foto de paciente, arquivo de ficha), aceitando o token também via query string da própria URL.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s6">
+      <div class="sec-head"><span class="sec-num">06</span><h2>Multi-tenancy</h2></div>
+      <p>Todo request passa por <code>resolveTenant</code> antes de qualquer rota de negócio: ele lê o header <code>x-tenant-slug</code> (ou usa <code>noely-cerqueira</code> como padrão, já que hoje só existe um tenant) e carrega o registro correspondente, disponibilizando-o como <code>req.tenant</code> para o resto da cadeia.</p>
+      <p>Isso significa que <strong>nenhuma query do sistema assume um id fixo de clínica</strong> — toda consulta ao Prisma filtra por <code>tenantId</code> explicitamente. Adicionar uma segunda clínica no futuro não exige tocar em nenhuma rota existente, só em como o slug é resolvido (hoje fixo, poderia virar subdomínio ou header vindo de um proxy).</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s7">
+      <div class="sec-head"><span class="sec-num">07</span><h2>Concorrência na agenda</h2></div>
+      <p>Impedir dois agendamentos sobrepostos não pode depender só de "checar antes de inserir" na aplicação — sob concorrência real (duas pessoas confirmando o mesmo horário quase ao mesmo tempo), essa checagem tem uma janela de corrida. A garantia definitiva vive no próprio banco: uma <code>EXCLUDE CONSTRAINT</code> via <code>btree_gist</code> (SQL manual, fora do fluxo normal de migrations do Prisma — ver <code>prisma/manual-sql/001_appointment_no_overlap.sql</code>) rejeita, a nível de banco, qualquer inserção cujo intervalo <code>[startAt, endAt)</code> sobreponha outro agendamento confirmado do mesmo tenant.</p>
+
+      <figure>
+        <div class="frame">
+          <svg viewBox="0 0 860 230" role="img" aria-label="Diagrama mostrando duas requisições de agendamento chegando quase ao mesmo tempo para o mesmo horário: a primeira insere com sucesso, a segunda é rejeitada pela exclude constraint do banco antes mesmo de a aplicação verificar de novo.">
+            <defs>
+              <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="12">
+              <text x="20" y="24" fill="currentColor" font-weight="700">t</text>
+              <line x1="40" y1="20" x2="820" y2="20" stroke="currentColor" stroke-width="1.4" marker-end="url(#arr2)"/>
+
+              <!-- Request A -->
+              <line x1="90" y1="70" x2="90" y2="20" stroke="var(--good)" stroke-width="1.4" stroke-dasharray="2 3"/>
+              <text x="90" y="90" text-anchor="middle" fill="var(--good)" font-weight="700">Req. A</text>
+              <text x="90" y="106" text-anchor="middle" fill="currentColor" opacity="0.7">14:00–14:30</text>
+              <rect x="30" y="120" width="120" height="26" rx="4" fill="none" stroke="var(--good)" stroke-width="1.6"/>
+              <text x="90" y="137" text-anchor="middle" fill="var(--good)" font-size="11">INSERT — ok</text>
+
+              <!-- Request B, arriving 40ms later, same slot -->
+              <line x1="140" y1="70" x2="140" y2="20" stroke="var(--warm)" stroke-width="1.4" stroke-dasharray="2 3"/>
+              <text x="140" y="90" text-anchor="middle" fill="var(--warm)" font-weight="700">Req. B (+40ms)</text>
+              <text x="140" y="106" text-anchor="middle" fill="currentColor" opacity="0.7">14:00–14:30</text>
+              <rect x="180" y="120" width="200" height="26" rx="4" fill="none" stroke="var(--warm)" stroke-width="1.6"/>
+              <text x="280" y="137" text-anchor="middle" fill="var(--warm)" font-size="11">INSERT — bloqueado pelo banco</text>
+
+              <text x="30" y="180" fill="currentColor" opacity="0.8" font-size="11.5">EXCLUDE CONSTRAINT (tstzrange, btree_gist)</text>
+              <line x1="30" y1="190" x2="450" y2="190" stroke="currentColor" stroke-width="1" stroke-dasharray="1 4" opacity="0.5"/>
+              <text x="30" y="212" fill="var(--warm)" font-size="11.5">→ 409 Conflict para o visitante B, sem duplicar o horário</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>Duas confirmações de agendamento chegando quase simultaneamente para o mesmo horário. A segunda é rejeitada pelo próprio PostgreSQL — não pela aplicação — porque a garantia vive no schema do banco, imune a race condition entre processos ou réplicas da API.</figcaption>
+      </figure>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s8">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Armazenamento de arquivo</h2></div>
+      <p>Fotos de paciente e fichas digitalizadas nunca ficam em diretório público estático — são dado sensível (LGPD), sempre servidas por rota autenticada que busca o arquivo sob demanda. <code>lib/file-storage.ts</code> abstrai duas implementações atrás da mesma <code>storageKey</code> (um caminho relativo, nunca absoluto):</p>
+      <ul class="plain">
+        <li><strong>Disco local</strong> (padrão, sem variáveis configuradas) — usado em desenvolvimento, em <code>server/uploads/</code>.</li>
+        <li><strong>Storage S3-compatível</strong> (quando <code>S3_ENDPOINT</code> está definido) — obrigatório em produção, já que o disco do Railway é efêmero. O client (<code>@aws-sdk/client-s3</code>) e o endpoint/região são genéricos de propósito: atende Supabase Storage (provedor em uso hoje), Cloudflare R2 ou qualquer outro compatível com a API S3, sem alterar uma linha de código — só variáveis de ambiente.</li>
+      </ul>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s9">
+      <div class="sec-head"><span class="sec-num">09</span><h2>Auditoria e LGPD</h2></div>
+      <p>Duas camadas de rastreabilidade coexistem:</p>
+      <ul class="plain">
+        <li><strong>Escrita</strong> — <code>auditLogger</code> (middleware transversal) grava toda ação <code>CREATE</code>/<code>UPDATE</code>/<code>DELETE</code> feita por um usuário autenticado do painel: quem, o quê, quando, e o corpo da requisição com campos sensíveis (senha etc.) removidos antes de salvar.</li>
+        <li><strong>Leitura de dado sensível</strong> — abrir a ficha de um paciente ou suas fichas clínicas gera um registro próprio de ação <code>VIEW</code>, único caso em todo o sistema onde uma simples consulta (GET) é auditada. Reflete a exigência da LGPD de rastrear <em>quem acessou</em> um dado pessoal sensível, não só quem o alterou.</li>
+      </ul>
+      <p>Controle de acesso por papel reforça a mesma lógica: <code>RECEPTION</code> nunca vê notas clínicas nem a galeria de fotos de um paciente (só o essencial para atender/agendar), e fichas clínicas completas exigem <code>ADMIN</code> em toda rota, sem exceção.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s10">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Frontend</h2></div>
+      <p>Vue 3 com Composition API, roteado por Vue Router e com estado de sessão em Pinia. Duas áreas dentro do mesmo build:</p>
+      <ul class="plain">
+        <li><strong>Site público</strong> (<code>/</code>, <code>/servicos</code>, <code>/agendar</code>, <code>/contato</code>) — vitrine institucional com animações GSAP/ScrollSmoother, consumindo <code>catalog</code>, <code>availability</code>, <code>settings</code> e criando agendamentos.</li>
+        <li><strong>Painel administrativo</strong> (<code>/admin/*</code>) — protegido por login, telas de agenda, pacientes, financeiro, estoque, catálogo (gestão), usuários e auditoria, uma por módulo da API.</li>
+      </ul>
+      <p>Build único via Vite (<code>npm run build</code> → <code>dist/</code>), servido como site estático — todo roteamento de rota profunda (ex. recarregar <code>/admin/pacientes</code> direto) depende do redirect SPA configurado no host (<code>web/netlify.toml</code>).</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sec" id="s11">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Deploy e hospedagem</h2></div>
+      <p>Passo a passo completo de contas, variáveis de ambiente e custo estimado em <code>DEPLOY.md</code>, na raiz do repositório. Resumo da stack de produção:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Peça</th><th>Serviço</th></tr></thead>
+        <tbody>
+          <tr><td>API (<code>server/</code>)</td><td>Railway — deploy via git, HTTPS automático</td></tr>
+          <tr><td>Site (<code>web/</code>)</td><td>Netlify — CDN global, domínio próprio grátis</td></tr>
+          <tr><td>Banco de dados</td><td>Neon — Postgres serverless, pooled + direct connection</td></tr>
+          <tr><td>Arquivos (fotos/fichas)</td><td>Supabase Storage — compatível com S3, free tier permanente</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+  </main>
+</div>

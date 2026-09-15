@@ -80,7 +80,7 @@ server/src/
 │   └── settings/                 # configurações públicas do tenant
 ├── lib/
 │   ├── prisma.ts                 # client Prisma singleton
-│   ├── file-storage.ts            # fotos/fichas — disco local (dev) ou R2 (produção, ver DEPLOY.md)
+│   ├── file-storage.ts            # fotos/fichas — disco local (dev) ou S3-compatível (produção, ver DEPLOY.md)
 │   └── whatsapp-client.ts         # cliente da WhatsApp Cloud API (Meta)
 └── utils/                       # async-handler, erros tipados, slugify
 
@@ -266,7 +266,7 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `WHATSAPP_CLOUD_API_TOKEN` | — | Token de acesso da WhatsApp Cloud API (Meta) — sem ele, o envio de lembretes por WhatsApp fica indisponível, mas o resto do painel funciona normalmente |
 | `WHATSAPP_PHONE_NUMBER_ID` | — | Phone Number ID configurado na Cloud API |
 | `WHATSAPP_API_VERSION` | — | Versão da Graph API (padrão `v21.0`) |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | — | Object storage (Cloudflare R2) para fotos/fichas — sem elas, cai para disco local (dev); **obrigatório em produção** numa hospedagem com disco efêmero, ver [Deploy em produção](#-deploy-em-produção) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` | — | Object storage S3-compatível (Supabase Storage recomendado) para fotos/fichas — sem elas, cai para disco local (dev); **obrigatório em produção** numa hospedagem com disco efêmero, ver [Deploy em produção](#-deploy-em-produção) |
 
 ### `web/.env`
 
@@ -300,12 +300,12 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 ## 📦 Deploy em produção
 
 Guia completo (contas, variáveis de ambiente, custo estimado) em
-**[DEPLOY.md](DEPLOY.md)**. Stack recomendada: Railway (API) + Cloudflare
-Pages (site) + Neon (Postgres) + Cloudflare R2 (fotos/fichas). O código já
-está preparado para essa stack — `directUrl` no schema do Prisma, R2
-automático em `lib/file-storage.ts` quando configurado, e roteamento SPA
-(`web/public/_redirects`) — falta só criar as contas e configurar as
-variáveis descritas lá.
+**[DEPLOY.md](DEPLOY.md)**. Stack recomendada: Railway (API) + Netlify
+(site) + Neon (Postgres) + Supabase Storage (fotos/fichas). O código já
+está preparado para essa stack — `directUrl` no schema do Prisma, storage
+S3-compatível automático em `lib/file-storage.ts` quando configurado, e
+roteamento SPA (`web/netlify.toml`) — falta só criar as contas e configurar
+as variáveis descritas lá.
 
 ## 🗺️ Roadmap
 

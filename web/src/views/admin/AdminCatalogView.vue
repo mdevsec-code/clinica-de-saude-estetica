@@ -531,15 +531,16 @@ async function toggleServiceActive(service: AdminService) {
 
 .admin-card {
   position: relative;
-  /* clip (não hidden) + overflow-clip-margin: continua recortando a faixa
-     de destaque (::before) e o banner de foto (.admin-category__header--photo,
-     ver comentário mais abaixo) rente à borda arredondada do card, mas dá
-     respiro suficiente pros tooltips dos botões de ação (Editar/Destaque/
-     Desativar, ver data-tooltip em .admin-icon-btn) escaparem sem serem
-     cortados — o padding do card (24px) sozinho não é suficiente pra caber
-     a pilha inteira do tooltip acima/abaixo do botão. */
-  overflow: clip;
-  overflow-clip-margin: 60px;
+  /* overflow permanece visível de propósito, pros tooltips dos botões de
+     ação (Editar/Destaque/Desativar, ver data-tooltip em .admin-icon-btn)
+     escaparem sem serem cortados — um overflow:clip aqui, mesmo com
+     overflow-clip-margin generoso, faz o Chromium tratar os cantos do card
+     como retos dentro dessa margem (o raio da borda é bem menor que a folga
+     que os tooltips precisam), o que vazava a faixa de destaque (::before) e
+     o banner de foto (.admin-category__header--photo) para fora do canto
+     arredondado. Por isso esses dois elementos agora se auto-arredondam e
+     se auto-recortam (ver border-radius/overflow neles), em vez de depender
+     do recorte do card pai. */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -555,6 +556,7 @@ async function toggleServiceActive(service: AdminService) {
   left: 0;
   right: 0;
   height: 3px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: linear-gradient(90deg, var(--color-rose-700), var(--color-gold-500));
   opacity: 0;
   transition: opacity var(--duration-base) var(--ease-premium);
@@ -761,11 +763,14 @@ async function toggleServiceActive(service: AdminService) {
    (mesma linguagem visual dos cards de especialidade da home —
    .specialty-card--photo — só que como banner horizontal em vez de card 3:4,
    por ser uma tela de gestão densa e não uma vitrine). O sangramento até a
-   borda do card funciona porque .admin-card já tem overflow:hidden + o
-   mesmo border-radius, então a margem negativa é recortada certinho pelo
-   pai sem precisar repetir o raio aqui. */
+   borda do card é auto-contido aqui (overflow:hidden + border-radius nos
+   cantos de cima, batendo com --radius-md do .admin-card) em vez de
+   depender do recorte do card pai — ver comentário em .admin-card sobre por
+   que isso não pode mais vir do pai. */
 .admin-category__header--photo {
   position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-4);
   padding: var(--space-4) var(--space-5) var(--space-3);
   min-height: 108px;

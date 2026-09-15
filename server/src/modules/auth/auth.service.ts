@@ -85,3 +85,48 @@ export async function setUserActive(tenantId: string, userId: string, active: bo
 
   return prisma.user.update({ where: { id: user.id }, data: { active }, select: userSelect });
 }
+
+interface UpdateUserInput {
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+// Mesma lógica de proteção do setUserActive acima, mas para função: sem
+// isso, um ADMIN sozinho poderia se rebaixar para RECEPTION sem querer e
+// ficar sem acesso a esta própria tela pra reverter.
+export async function updateUser(tenantId: string, userId: string, input: UpdateUserInput, requestingUserId: string) {
+  const user = await prisma.user.findFirst({ where: { id: userId, tenantId } });
+  if (!user) {
+    throw new NotFoundError('Usuário não encontrado.');
+  }
+  if (user.id === requestingUserId && user.role === 'ADMIN' && input.role !== 'ADMIN') {
+    throw new ForbiddenError('Você não pode remover sua própria função de administrador.');
+  }
+  if (input.email !== user.email) {
+    const existing = await prisma.user.findUnique({
+      where: { tenantId_email: { tenantId, email: input.email } },
+    });
+    if (existing) {
+      throw new ConflictError('Já existe uma conta com este e-mail.');
+    }
+  }
+
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { name: input.name, email: input.email, role: input.role },
+    select: userSelect,
+  });
+}
+
+// Redefinição de senha pelo ADMIN — caso a recepção esqueça a própria senha
+// (fluxo interno, sem e-mail de recuperação: são poucas contas e o ADMIN já
+// tem acesso a este painel).
+export async function resetUserPassword(tenantId: string, userId: string, password: string) {
+  const user = await prisma.user.findFirst({ where: { id: userId, tenantId } });
+  if (!user) {
+    throw new NotFoundError('Usuário não encontrado.');
+  }
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+}

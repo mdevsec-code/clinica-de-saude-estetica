@@ -14,21 +14,22 @@ import { env } from '../config/env';
 // portabilidade entre ambientes/máquinas/provedores):
 //   - Disco local (padrão): usado em desenvolvimento. server/uploads/, fora
 //     do diretório versionado por padrão, .gitignore cobre "uploads/".
-//   - R2/S3 (quando R2_* está configurado — ver config/env.ts): obrigatório
-//     em produção numa hospedagem com disco efêmero (Railway, Render etc.),
-//     onde qualquer arquivo salvo em disco desaparece no próximo deploy. R2
-//     é compatível com a API S3, então o mesmo client (@aws-sdk/client-s3)
-//     atende os dois — só o endpoint muda. Ver DEPLOY.md para o passo a
-//     passo de criar o bucket e as credenciais.
+//   - Storage S3-compatível (quando S3_ENDPOINT está configurado — ver
+//     config/env.ts): obrigatório em produção numa hospedagem com disco
+//     efêmero (Railway, Render etc.), onde qualquer arquivo salvo em disco
+//     desaparece no próximo deploy. Genérico de propósito — endpoint/região
+//     configuráveis, não hardcoded pra um provedor específico — atende
+//     Supabase Storage (recomendado, ver DEPLOY.md), Cloudflare R2 ou
+//     qualquer outro compatível com a API S3, sem trocar código aqui.
 const UPLOADS_ROOT = path.resolve(__dirname, '../../uploads');
 
-const s3Client = env.R2_ACCOUNT_ID
+const s3Client = env.S3_ENDPOINT
   ? new S3Client({
-      region: 'auto',
-      endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      region: env.S3_REGION,
+      endpoint: env.S3_ENDPOINT,
       credentials: {
-        accessKeyId: env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
+        accessKeyId: env.S3_ACCESS_KEY_ID!,
+        secretAccessKey: env.S3_SECRET_ACCESS_KEY!,
       },
     })
   : null;
@@ -38,7 +39,7 @@ function assertSafeKey(storageKey: string) {
   // input do usuário) — mesmo assim, confirma que o caminho resolvido
   // continua dentro de UPLOADS_ROOT antes de ler/apagar do disco, como
   // segunda camada contra path traversal caso esse invariante seja quebrado
-  // no futuro. Não se aplica ao caminho R2 (não há sistema de arquivos ali).
+  // no futuro. Não se aplica ao caminho S3 (não há sistema de arquivos ali).
   const resolved = path.resolve(UPLOADS_ROOT, storageKey);
   if (!resolved.startsWith(UPLOADS_ROOT + path.sep)) {
     throw new Error('Caminho de arquivo inválido.');
@@ -49,7 +50,7 @@ function assertSafeKey(storageKey: string) {
 async function writeStoredFile(storageKey: string, mimeType: string, buffer: Buffer): Promise<void> {
   if (s3Client) {
     await s3Client.send(
-      new PutObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: storageKey, Body: buffer, ContentType: mimeType }),
+      new PutObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: storageKey, Body: buffer, ContentType: mimeType }),
     );
     return;
   }
@@ -60,7 +61,7 @@ async function writeStoredFile(storageKey: string, mimeType: string, buffer: Buf
 
 async function readStoredFile(storageKey: string): Promise<Buffer> {
   if (s3Client) {
-    const result = await s3Client.send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: storageKey }));
+    const result = await s3Client.send(new GetObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: storageKey }));
     const bytes = await result.Body?.transformToByteArray();
     if (!bytes) throw new Error('Arquivo vazio ou não encontrado no armazenamento.');
     return Buffer.from(bytes);
@@ -70,7 +71,7 @@ async function readStoredFile(storageKey: string): Promise<Buffer> {
 
 async function deleteStoredFile(storageKey: string): Promise<void> {
   if (s3Client) {
-    await s3Client.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: storageKey })).catch(() => undefined);
+    await s3Client.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: storageKey })).catch(() => undefined);
     return;
   }
   await unlink(assertSafeKey(storageKey)).catch(() => undefined);

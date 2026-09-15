@@ -6,21 +6,22 @@ crescer conforme o volume de pacientes aumenta):
 | Peça | Serviço | Por quê |
 |---|---|---|
 | API (`server/`) | [Railway](https://railway.app) | Deploy via git, HTTPS automático, sem DevOps |
-| Site (`web/`) | [Cloudflare Pages](https://pages.cloudflare.com) | CDN global, grátis, desacoplado do custo da API |
+| Site (`web/`) | [Netlify](https://netlify.com) | CDN global, grátis, desacoplado do custo da API, domínio próprio com HTTPS automático |
 | Banco de dados | [Neon](https://neon.tech) | Postgres serverless, separa storage de computação, branching para testar migrations com segurança |
-| Fotos de paciente e fichas digitalizadas | [Cloudflare R2](https://developers.cloudflare.com/r2/) | Compatível com S3, sem taxa de saída — resolve o problema do disco local, que é apagado a cada deploy no Railway |
+| Fotos de paciente e fichas digitalizadas | [Supabase Storage](https://supabase.com/storage) | Free tier permanente (não expira), compatível com S3 — resolve o problema do disco local, que é apagado a cada deploy no Railway |
 
-Custo estimado para começar: ~R$30–65/mês, crescendo só conforme o uso real
-(nenhum desses serviços cobra por capacidade não usada nos planos iniciais).
+Custo estimado para começar: ~R$0–65/mês (Supabase Storage e o plano
+gratuito da Netlify cobrem bem o volume inicial), crescendo só conforme o
+uso real.
 
 O código já está preparado para essa stack (ver "O que já está pronto"
 abaixo) — falta só criar as contas, os recursos, e configurar as variáveis
 de ambiente descritas aqui.
 
-> ⚠️ **Repositório privado**: ao conectar o Railway e o Cloudflare Pages ao
-> GitHub (seções 3 e 5), a tela de autorização do GitHub vai pedir acesso
-> explícito a este repositório especificamente (repos privados não aparecem
-> por padrão) — normal, só confirme o acesso pelo dono da conta do GitHub.
+> ⚠️ **Repositório privado**: ao conectar o Railway e a Netlify ao GitHub
+> (seções 3 e 5), a tela de autorização do GitHub vai pedir acesso explícito
+> a este repositório especificamente (repos privados não aparecem por
+> padrão) — normal, só confirme o acesso pelo dono da conta do GitHub.
 
 ## 1. Banco de dados (Neon)
 
@@ -41,19 +42,27 @@ de ambiente descritas aqui.
    npm run seed
    ```
 
-## 2. Armazenamento de arquivo (Cloudflare R2)
+## 2. Armazenamento de arquivo (Supabase Storage)
 
 Fotos de paciente e fichas digitalizadas hoje ficam em `server/uploads/` —
 isso funciona em desenvolvimento, mas **desaparece a cada deploy** em
 qualquer hospedagem com disco efêmero (Railway incluso). `lib/file-storage.ts`
-já sabe usar R2 automaticamente quando configurado (compatível com a API S3,
-usa `@aws-sdk/client-s3`) — sem essas variáveis, continua caindo para disco
-local sem quebrar nada.
+já sabe usar um storage S3-compatível automaticamente quando configurado
+(usa `@aws-sdk/client-s3`, endpoint/região genéricos) — sem essas variáveis,
+continua caindo para disco local sem quebrar nada.
 
-1. No painel da Cloudflare, crie um bucket R2 (ex.: `noely-cerqueira-uploads`).
-2. Em **R2 > Manage API Tokens**, crie um token com permissão de leitura e
-   escrita nesse bucket. Anote: Account ID, Access Key ID, Secret Access Key.
-3. Configure as 4 variáveis descritas em `server/.env.example` (seção R2).
+1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo
+   (o projeto também sobe um Postgres próprio — ignore-o, o banco desta
+   aplicação continua sendo o Neon da seção 1).
+2. No painel do projeto, vá em **Storage** e crie um bucket (ex.:
+   `noely-cerqueira-uploads`). Deixe como **privado** (não público) — o
+   acesso aos arquivos é sempre por rota autenticada da própria API, nunca
+   direto do storage.
+3. Vá em **Project Settings > Storage > S3 Connection** e gere um par de
+   credenciais S3 (Access Key ID / Secret Access Key) — são diferentes das
+   chaves `anon`/`service_role` do resto do Supabase. Anote também o
+   **Endpoint** e a **Region** mostrados nessa mesma tela.
+4. Configure as 5 variáveis descritas em `server/.env.example` (seção S3).
 
 ## 3. API (Railway)
 
@@ -74,32 +83,41 @@ muda em relação ao `.env` local:
 | `DATABASE_URL` | Connection string **pooled** do Neon |
 | `DIRECT_DATABASE_URL` | Connection string **direta** do Neon |
 | `JWT_SECRET` | Novo valor aleatório (não reaproveitar o de dev) — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `WEB_ORIGIN` | URL pública do site no Cloudflare Pages (ex.: `https://noelycerqueira.com.br`) |
+| `WEB_ORIGIN` | URL pública do site na Netlify (ex.: `https://noelycerqueira.com.br`) |
 | `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` | Credenciais reais do admin (senha forte, não a de dev) |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | Do bucket criado na seção 2 |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` | Do bucket criado na seção 2 (Supabase Storage) |
 | `WHATSAPP_CLOUD_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Se for usar lembretes por WhatsApp — opcional |
 
-## 5. Site (Cloudflare Pages)
+## 5. Site (Netlify)
 
-1. Crie um projeto no Cloudflare Pages conectado ao mesmo repositório.
-2. Root directory: `web/` · Build command: `npm run build` · Output
-   directory: `dist`.
-3. Variável de ambiente de build: `VITE_API_URL` = URL pública da API no
-   Railway (ex.: `https://noely-cerqueira-api.up.railway.app`).
-4. `web/public/_redirects` já está no projeto — necessário para as rotas do
-   Vue Router (ex. `/servicos`, `/agendar`) funcionarem em recarregamento
-   direto num host de arquivos estáticos, sem servidor próprio de rotas.
+1. Crie uma conta em [netlify.com](https://netlify.com) → **Add new site >
+   Import an existing project** → conecte o mesmo repositório GitHub.
+2. **Base directory**: `web`. Build command e Publish directory a Netlify
+   já lê de `web/netlify.toml` (`npm run build` / `dist`) — confirme que
+   veio certo antes de finalizar.
+3. Em **Site configuration > Environment variables**: `VITE_API_URL` = URL
+   pública da API no Railway (ex.: `https://noely-cerqueira-api.up.railway.app`).
+4. **Deploy site**. Você recebe uma URL tipo `nome-aleatorio.netlify.app`
+   (pode renomear em **Site configuration > General > Site details**).
+5. `web/netlify.toml` já está no projeto — necessário para as rotas do Vue
+   Router (ex. `/servicos`, `/agendar`) funcionarem em recarregamento direto
+   num host de arquivos estáticos, sem servidor próprio de rotas.
+6. **Domínio próprio**: em **Domain management > Add a domain**, informe o
+   domínio da clínica e siga as instruções de DNS mostradas na tela
+   (Netlify emite o certificado HTTPS automaticamente depois que o DNS
+   propaga — geralmente minutos, às vezes até 24h).
 
 ## O que já está pronto no código para isso
 
 - `server/prisma/schema.prisma` — `directUrl` para o padrão pooled/direct do Neon.
-- `server/src/lib/file-storage.ts` — usa R2 automaticamente quando configurado, disco local como padrão em dev.
-- `server/src/config/env.ts` — variáveis de R2 validadas e documentadas.
-- `web/public/_redirects` — roteamento SPA para Cloudflare Pages.
+- `server/src/lib/file-storage.ts` — usa storage S3-compatível automaticamente quando configurado, disco local como padrão em dev.
+- `server/src/config/env.ts` — variáveis de storage (`S3_*`) validadas e documentadas.
+- `web/netlify.toml` — build settings e roteamento SPA para a Netlify.
 
 ## Ponto de atenção — LGPD
 
-Dados de saúde são sensíveis. Neon, Railway e Cloudflare têm datacenters
-fora do Brasil (normalmente EUA/UE) — isso é comum e legal com as
-salvaguardas contratuais certas, mas vale confirmar com quem cuida da parte
-jurídica da clínica antes do primeiro deploy com dados reais de pacientes.
+Dados de saúde são sensíveis. Neon, Railway, Netlify e Supabase têm
+datacenters fora do Brasil (normalmente EUA/UE) — isso é comum e legal com
+as salvaguardas contratuais certas, mas vale confirmar com quem cuida da
+parte jurídica da clínica antes do primeiro deploy com dados reais de
+pacientes.

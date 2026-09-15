@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Sem isto, abrir uma URL direto (ex.: recarregar a página em /servicos, ou
+# compartilhar um link de /agendar) dá 404 — a Netlify tenta achar um
+# arquivo físico "/servicos", que não existe (é uma rota do Vue Router,
+# resolvida só depois do JavaScript carregar). Esta regra manda toda rota
+# desconhecida pro index.html, que aí sim inicializa o Vue Router, que lê a
+# URL real do navegador e renderiza a view certa.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

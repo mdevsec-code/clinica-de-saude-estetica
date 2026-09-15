@@ -18,15 +18,19 @@ const envSchema = z.object({
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
   // Armazenamento de arquivo (fotos de paciente, fichas digitalizadas) —
-  // opcionais pelo mesmo motivo do WhatsApp acima: sem as 4 variáveis,
+  // opcionais pelo mesmo motivo do WhatsApp acima: sem estas 5 variáveis,
   // lib/file-storage.ts cai para disco local (comportamento de sempre, bom
   // para desenvolvimento). Só ficam obrigatórias de fato em produção numa
   // hospedagem com disco efêmero (Railway, Render etc.) — ver DEPLOY.md.
-  // R2 é compatível com a API S3, então o mesmo client atende os dois.
-  R2_ACCOUNT_ID: z.string().optional(),
-  R2_ACCESS_KEY_ID: z.string().optional(),
-  R2_SECRET_ACCESS_KEY: z.string().optional(),
-  R2_BUCKET_NAME: z.string().optional(),
+  // Genérico (S3_*, não SUPABASE_*/R2_*) de propósito: qualquer storage
+  // compatível com a API S3 funciona sem trocar código — Supabase Storage
+  // (recomendado, ver DEPLOY.md) e Cloudflare R2 já foram usados aqui, só
+  // muda o endpoint/região/credenciais.
+  S3_ENDPOINT: z.string().optional(),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET_NAME: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

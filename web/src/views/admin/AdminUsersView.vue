@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
-import { createUser, fetchUsers, setUserActive } from '@/services/admin-users.service';
+import { createUser, fetchUsers, resetUserPassword, setUserActive, updateUser } from '@/services/admin-users.service';
 import { useAuthStore } from '@/stores/auth';
 import type { AdminAccount } from '@/types';
 import AdminSelect, { type AdminSelectOption } from '@/components/admin/AdminSelect.vue';
@@ -85,6 +85,91 @@ async function toggleActive(user: AdminAccount) {
     pendingId.value = null;
   }
 }
+
+// --- Editar conta ---
+const editingUserId = ref<string | null>(null);
+const editUserForm = reactive({ name: '', email: '', role: 'RECEPTION' as 'ADMIN' | 'RECEPTION' });
+const editUserSaving = ref(false);
+const editUserError = ref<string | null>(null);
+
+function startEditUser(user: AdminAccount) {
+  resettingUserId.value = null;
+  editingUserId.value = user.id;
+  editUserForm.name = user.name;
+  editUserForm.email = user.email;
+  editUserForm.role = user.role;
+  editUserError.value = null;
+}
+
+function cancelEditUser() {
+  editingUserId.value = null;
+}
+
+async function saveEditUser(user: AdminAccount) {
+  const name = editUserForm.name.trim();
+  const email = editUserForm.email.trim();
+  if (!name || !email) return;
+  editUserSaving.value = true;
+  editUserError.value = null;
+  try {
+    const { user: updated } = await updateUser(user.id, { name, email, role: editUserForm.role });
+    Object.assign(user, updated);
+    editingUserId.value = null;
+  } catch (err) {
+    editUserError.value = err instanceof ApiError ? err.message : 'Não foi possível salvar esta conta.';
+  } finally {
+    editUserSaving.value = false;
+  }
+}
+
+// --- Redefinir senha ---
+const resettingUserId = ref<string | null>(null);
+const resetPasswordValue = ref('');
+const resetPasswordSaving = ref(false);
+const resetPasswordError = ref<string | null>(null);
+const resetPasswordSuccessId = ref<string | null>(null);
+
+function startResetPassword(user: AdminAccount) {
+  editingUserId.value = null;
+  resettingUserId.value = user.id;
+  resetPasswordValue.value = '';
+  resetPasswordError.value = null;
+  resetPasswordSuccessId.value = null;
+}
+
+function cancelResetPassword() {
+  resettingUserId.value = null;
+}
+
+// Gera uma senha temporária fácil de ditar por telefone/WhatsApp para quem
+// esqueceu a própria senha, sem precisar de fluxo de e-mail — o ADMIN só
+// repassa esse valor à pessoa depois de salvar.
+function generateRandomPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let value = '';
+  for (let i = 0; i < 10; i += 1) {
+    value += chars[Math.floor(Math.random() * chars.length)];
+  }
+  resetPasswordValue.value = value;
+}
+
+async function submitResetPassword(user: AdminAccount) {
+  if (resetPasswordValue.value.length < 8) {
+    resetPasswordError.value = 'A senha deve ter pelo menos 8 caracteres.';
+    return;
+  }
+  resetPasswordSaving.value = true;
+  resetPasswordError.value = null;
+  try {
+    await resetUserPassword(user.id, resetPasswordValue.value);
+    resetPasswordSuccessId.value = user.id;
+    resettingUserId.value = null;
+  } catch (err) {
+    resetPasswordError.value = err instanceof ApiError ? err.message : 'Não foi possível redefinir a senha.';
+  } finally {
+    resetPasswordSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -132,28 +217,79 @@ async function toggleActive(user: AdminAccount) {
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
 
     <ul v-else key="content" class="admin-users__list">
-      <li v-for="user in users" :key="user.id" class="admin-card admin-users__row" :class="{ 'admin-users__row--inactive': !user.active }">
-        <div class="admin-users__info">
-          <span class="admin-users__name">
-            {{ user.name }}
-            <span v-if="user.id === auth.user?.id" class="admin-badge admin-badge--muted">Você</span>
-          </span>
-          <span class="admin-users__email">{{ user.email }}</span>
-          <span class="admin-users__meta">Criada em {{ formatDate(user.createdAt) }}</span>
-        </div>
-        <div class="admin-users__actions">
-          <span class="admin-badge" :class="{ 'admin-badge--featured': user.role === 'ADMIN' }">{{ ROLE_LABELS[user.role] }}</span>
-          <span v-if="!user.active" class="admin-badge admin-badge--muted">Inativa</span>
-          <button
-            type="button"
-            class="admin-link-btn"
-            :class="{ 'admin-link-btn--muted': user.active }"
-            :disabled="pendingId === user.id || user.id === auth.user?.id"
-            @click="toggleActive(user)"
-          >
-            {{ user.active ? 'Desativar' : 'Reativar' }}
-          </button>
-        </div>
+      <li v-for="user in users" :key="user.id" class="admin-card admin-users__card" :class="{ 'admin-users__row--inactive': !user.active }">
+        <template v-if="editingUserId === user.id">
+          <form class="admin-users__edit" @submit.prevent="saveEditUser(user)">
+            <div class="admin-form-row">
+              <label class="admin-field">
+                Nome
+                <input v-model="editUserForm.name" type="text" required />
+              </label>
+              <label class="admin-field">
+                E-mail
+                <input v-model="editUserForm.email" type="email" required />
+              </label>
+              <label class="admin-field admin-field--small">
+                Função
+                <AdminSelect v-model="editUserForm.role" :options="roleOptions" />
+              </label>
+            </div>
+            <p v-if="editUserError" class="admin-error">{{ editUserError }}</p>
+            <div class="admin-form-row">
+              <button type="submit" class="admin-chip-btn admin-chip-btn--primary" :disabled="editUserSaving">
+                {{ editUserSaving ? 'Salvando…' : 'Salvar' }}
+              </button>
+              <button type="button" class="admin-chip-btn" @click="cancelEditUser">Cancelar</button>
+            </div>
+          </form>
+        </template>
+
+        <template v-else>
+          <div class="admin-users__row">
+            <div class="admin-users__info">
+              <span class="admin-users__name">
+                {{ user.name }}
+                <span v-if="user.id === auth.user?.id" class="admin-badge admin-badge--muted">Você</span>
+              </span>
+              <span class="admin-users__email">{{ user.email }}</span>
+              <span class="admin-users__meta">Criada em {{ formatDate(user.createdAt) }}</span>
+            </div>
+            <div class="admin-users__actions">
+              <span class="admin-badge" :class="{ 'admin-badge--featured': user.role === 'ADMIN' }">{{ ROLE_LABELS[user.role] }}</span>
+              <span v-if="!user.active" class="admin-badge admin-badge--muted">Inativa</span>
+              <button type="button" class="admin-link-btn admin-link-btn--muted" @click="startEditUser(user)">Editar</button>
+              <button type="button" class="admin-link-btn admin-link-btn--muted" @click="startResetPassword(user)">Redefinir senha</button>
+              <button
+                type="button"
+                class="admin-link-btn"
+                :class="{ 'admin-link-btn--muted': user.active }"
+                :disabled="pendingId === user.id || user.id === auth.user?.id"
+                @click="toggleActive(user)"
+              >
+                {{ user.active ? 'Desativar' : 'Reativar' }}
+              </button>
+            </div>
+          </div>
+
+          <p v-if="resetPasswordSuccessId === user.id" class="admin-users__reset-success">
+            Senha redefinida — repasse a nova senha para {{ user.name.split(' ')[0] }} por um canal seguro.
+          </p>
+
+          <form v-if="resettingUserId === user.id" class="admin-users__reset-form" @submit.prevent="submitResetPassword(user)">
+            <label class="admin-field">
+              Nova senha para {{ user.name }}
+              <input v-model="resetPasswordValue" type="text" minlength="8" placeholder="Mínimo 8 caracteres" required />
+            </label>
+            <div class="admin-form-row">
+              <button type="button" class="admin-chip-btn" @click="generateRandomPassword">Gerar senha</button>
+              <button type="submit" class="admin-chip-btn admin-chip-btn--primary" :disabled="resetPasswordSaving">
+                {{ resetPasswordSaving ? 'Salvando…' : 'Confirmar' }}
+              </button>
+              <button type="button" class="admin-chip-btn" @click="cancelResetPassword">Cancelar</button>
+            </div>
+            <p v-if="resetPasswordError" class="admin-error">{{ resetPasswordError }}</p>
+          </form>
+        </template>
       </li>
     </ul>
     </Transition>
@@ -225,6 +361,22 @@ async function toggleActive(user: AdminAccount) {
   gap: var(--space-3);
 }
 
+.admin-users__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.admin-users__card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-users__row--inactive {
+  opacity: 0.65;
+}
+
 .admin-users__row {
   display: flex;
   flex-wrap: wrap;
@@ -233,17 +385,61 @@ async function toggleActive(user: AdminAccount) {
   gap: var(--space-4);
 }
 
-.admin-users__row {
-  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+.admin-users__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
 }
 
-.admin-users__row:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+.admin-users__reset-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
-.admin-users__row--inactive {
-  opacity: 0.65;
+.admin-users__reset-success {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-rose-700);
+}
+
+.admin-chip-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink-muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 7px 16px;
+  transition: border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+
+.admin-chip-btn:hover {
+  border-color: var(--color-rose-500);
+  color: var(--color-rose-700);
+}
+
+.admin-chip-btn--primary {
+  background: var(--color-rose-700);
+  border-color: var(--color-rose-700);
+  color: #fff;
+}
+
+.admin-chip-btn--primary:hover {
+  background: var(--color-rose-900);
+  border-color: var(--color-rose-900);
+  color: #fff;
+}
+
+.admin-chip-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .admin-users__info {
