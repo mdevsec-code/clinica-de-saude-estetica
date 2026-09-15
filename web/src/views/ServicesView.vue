@@ -138,6 +138,13 @@ const totalServices = computed(() => categories.value.reduce((sum, c) => sum + c
      próximo, não importa onde o gesto termine. scroll-snap-align (em
      .services-page__chip) marca onde cada chip encaixa; o padding dá folga
      física pro último não colar na borda mesmo no fim do scroll. */
+  /* padding-top: overflow-x:auto sozinho faz o navegador tratar overflow-y
+     como auto também (regra do spec — só um eixo "visible" não é permitido),
+     então o container passa a recortar verticalmente mesmo sem barra de
+     rolagem visível. Sem essa folga em cima, o translateY(-1px) do :hover do
+     chip empurra a borda de cima pra fora dessa área recortada, sumindo com
+     a linha exatamente ao passar o mouse. */
+  padding-top: 3px;
   padding-bottom: 2px;
   padding-right: var(--space-5);
   scroll-snap-type: x mandatory;
