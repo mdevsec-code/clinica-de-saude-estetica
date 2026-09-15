@@ -344,10 +344,15 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11A6.5 6.5 0 0 1 18.5 10c0 5.4-6.5 11-6.5 11Z" /><circle cx="12" cy="10" r="2.2" /></svg>
           <span>{{ settings.data?.address }}</span>
         </div>
+        <!-- Sem loading="lazy" de propósito: o Safari iOS decide quando
+             carregar um iframe lazy com base no scroll NATIVO da página, mas
+             o ScrollSmoother (GSAP) rola tudo via transform num wrapper —
+             o documento em si nunca "rola" de verdade aos olhos do WebKit
+             mobile, então o carregamento nunca disparava e o mapa ficava
+             em branco só no celular (funcionava normal no desktop). -->
         <iframe
           :src="mapEmbedSrc"
           title="Localização da clínica no Google Maps"
-          loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"
           allowfullscreen
         />
