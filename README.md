@@ -1,35 +1,47 @@
-# 💆‍♀️ Noely Cerqueira — Estética e Micropigmentação
-
-<p>
-  <img src="https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white" alt="Node.js 20+" />
-  <img src="https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Vue-3.4-4FC08D?logo=vue.js&logoColor=white" alt="Vue 3" />
-  <img src="https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white" alt="Express" />
-  <img src="https://img.shields.io/badge/Prisma-6.19-2D3748?logo=prisma&logoColor=white" alt="Prisma" />
-  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
-  <img src="https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/status-em%20desenvolvimento-yellow" alt="Status: em desenvolvimento" />
-  <img src="https://img.shields.io/badge/repositório-privado-lightgrey?logo=github" alt="Repositório privado" />
+<p align="center">
+  <img src="web/public/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira — Estética e Micropigmentação" width="300">
 </p>
 
-> 🔒 **Repositório privado — software proprietário.** Desenvolvido
-> especificamente para a Clínica Noely Cerqueira; não é software livre nem
-> aberto a contribuições externas.
+<h1 align="center">💆‍♀️ Noely Cerqueira — Estética e Micropigmentação</h1>
 
-Plataforma de gestão e site público da clínica de estética e micropigmentação
-da Noely Cerqueira (Camaçari, BA) — construída desde o início como a base de
-um **futuro SaaS multi-tenant** para clínicas de estética, com a Noely
-Cerqueira como primeiro tenant real.
+<p align="center">
+  <em>Do agendamento online à ficha clínica: a clínica inteira num só sistema.</em>
+</p>
 
-O projeto é dividido em duas aplicações independentes que conversam por API:
-um **site público** com agendamento online self-service, e um **painel
-administrativo** completo para a equipe da clínica gerenciar catálogo,
-agenda, pacientes, financeiro, estoque e usuários.
+<p align="center">
+  Site público com <strong>agendamento self-service</strong> e painel administrativo completo
+  (agenda, pacientes, fichas clínicas, financeiro com DRE e conciliação OFX, estoque e auditoria)
+  da clínica de estética da Noely Cerqueira, em Camaçari/BA — construído como base de um
+  <strong>futuro SaaS multi-tenant</strong> para clínicas de estética.
+</p>
+
+<p align="center">
+  <img alt="Node 20+" src="https://img.shields.io/badge/node-%E2%89%A520-339933?style=flat-square">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square">
+  <img alt="Multi-tenant ready" src="https://img.shields.io/badge/multi--tenant-ready-1F6FEB?style=flat-square">
+  <img alt="LGPD" src="https://img.shields.io/badge/LGPD-auditoria%20de%20acesso-8250DF?style=flat-square">
+  <img alt="Status" src="https://img.shields.io/badge/status-em%20desenvolvimento-D29922?style=flat-square">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Vue_3-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white" alt="Vue 3">
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
+  <img src="https://img.shields.io/badge/Pinia-FFD859?style=for-the-badge&logo=vuedotjs&logoColor=black" alt="Pinia">
+  <img src="https://img.shields.io/badge/GSAP-88CE02?style=for-the-badge&logo=greensock&logoColor=white" alt="GSAP">
+  <br>
+  <img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express">
+  <img src="https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Zod-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod">
+  <img src="https://img.shields.io/badge/WhatsApp_Cloud_API-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp Cloud API">
+</p>
 
 ---
 
 ## 📑 Sumário
 
+- [Telas](#-telas)
 - [Estrutura do repositório](#-estrutura-do-repositório)
 - [Stack tecnológica](#-stack-tecnológica)
 - [Funcionalidades](#-funcionalidades)
@@ -39,7 +51,33 @@ agenda, pacientes, financeiro, estoque e usuários.
 - [Variáveis de ambiente](#-variáveis-de-ambiente)
 - [Scripts disponíveis](#-scripts-disponíveis)
 - [Deploy em produção](#-deploy-em-produção)
-- [Roadmap](#-roadmap)
+- [Roadmap](#️-roadmap)
+- [Licença](#-licença)
+
+---
+
+## 📸 Telas
+
+> Capturas do ambiente local com os dados fictícios do `npm run seed:demo`.
+
+<p align="center">
+  <img src="docs/screenshots/site-inicio.png" alt="Site público — página inicial" width="100%">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/painel.png" alt="Painel administrativo"><br><sub><b>Painel</b> — atendimentos do dia, receita, gastos, ticket médio e estoque baixo</sub></td>
+    <td width="50%"><img src="docs/screenshots/agenda.png" alt="Agenda"><br><sub><b>Agenda</b> — calendário mensal, semanal e diário com lembretes de retorno</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/financeiro.png" alt="Financeiro"><br><sub><b>Financeiro</b> — despesas, faturamento diário, DRE e conciliação OFX</sub></td>
+    <td width="50%"><img src="docs/screenshots/servicos.png" alt="Catálogo de serviços"><br><sub><b>Serviços</b> — catálogo real com 8 categorias e 60 serviços</sub></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/celular-inicio.png" alt="Site público no celular" width="280">
+</p>
 
 ---
 
@@ -323,6 +361,12 @@ original em branco, galeria de fotos, retornos automáticos, lembretes e
 integração com a WhatsApp Cloud API (client pronto; só falta configurar
 credenciais reais em produção); preparação completa do código para deploy
 em produção (ver seção acima).
+
+## 📜 Licença
+
+Código **proprietário** — todos os direitos reservados. O repositório é público como
+portfólio, mas não é software livre: uso, cópia ou redistribuição dependem de
+autorização. Marca, fotos e textos são da Clínica Noely Cerqueira.
 
 ---
 
