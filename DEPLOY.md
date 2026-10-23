@@ -1,5 +1,11 @@
 # Guia de deploy em produção
 
+> **Produção atual (desde out/2026): VPS Hostinger KVM 2.** API e banco
+> saíram do Railway/Neon e rodam numa VPS própria — ver
+> [VPS Hostinger](#vps-hostinger-produção-atual) no fim deste guia. O site
+> continua na Netlify. As seções 1–5 abaixo descrevem a stack anterior
+> (Railway + Neon + Supabase), mantidas como alternativa.
+
 Stack recomendada (custo-benefício para o tamanho atual, com espaço para
 crescer conforme o volume de pacientes aumenta):
 
@@ -113,6 +119,33 @@ muda em relação ao `.env` local:
 - `server/src/lib/file-storage.ts` — usa storage S3-compatível automaticamente quando configurado, disco local como padrão em dev.
 - `server/src/config/env.ts` — variáveis de storage (`S3_*`) validadas e documentadas.
 - `web/netlify.toml` — build settings e roteamento SPA para a Netlify.
+
+## VPS Hostinger (produção atual)
+
+| Peça | Onde |
+|---|---|
+| Sistema | Ubuntu 26.04, firewall `ufw` liberando só 22/80/443 |
+| Banco | PostgreSQL 18 local, escutando só em `127.0.0.1` — banco `noely_cerqueira`, dono `noely` (restaurado do Neon com `pg_dump`/`pg_restore` 18) |
+| API | `/opt/noely/server`, serviço systemd `noely-api` rodando com usuário sem privilégios `noely-api`; `.env` em `/opt/noely/server/.env` (chmod 600) com `TRUST_PROXY=1` |
+| HTTPS | Nginx (`/etc/nginx/sites-available/noely-api`) na frente da API, certificado Let's Encrypt **do próprio IP** (perfil `shortlived`, 6 dias) emitido e renovado pelo `acme.sh` via webroot `/var/www/html` |
+| Arquivos | Disco local (`/opt/noely/server/uploads`) — na VPS o disco não é apagado a cada deploy, então o S3 é opcional |
+| Site | Netlify, com `VITE_API_URL` definido em `web/netlify.toml` |
+
+Atualizar a API (a partir do repositório local, sem git na VPS):
+
+```bash
+git ls-files server > /tmp/files.txt && tar -cf server.tar -T /tmp/files.txt
+scp server.tar root@<IP>:/tmp/
+ssh root@<IP> 'tar -xf /tmp/server.tar -C /opt/noely && rm /tmp/server.tar \
+  && chown -R noely-api:noely-api /opt/noely && cd /opt/noely/server \
+  && sudo -u noely-api -H npm ci && sudo -u noely-api -H npx prisma generate \
+  && sudo -u noely-api -H npm run build && sudo -u noely-api -H npx prisma migrate deploy \
+  && systemctl restart noely-api'
+```
+
+Ao trocar o IP por um domínio próprio: emitir o certificado para o domínio
+no `acme.sh`, ajustar `server_name` no Nginx e trocar `VITE_API_URL` no
+`web/netlify.toml`.
 
 ## Ponto de atenção — LGPD
 

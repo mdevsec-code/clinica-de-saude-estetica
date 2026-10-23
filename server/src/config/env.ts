@@ -7,6 +7,11 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET deve ter pelo menos 32 caracteres'),
   JWT_EXPIRES_IN: z.string().default('8h'),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
+  // Quantos proxies reversos ficam na frente da API (ex.: 1 com Nginx na
+  // VPS). Sem isso, atrás de um proxy todo req.ip vira 127.0.0.1 e os rate
+  // limiters por IP (ver middleware/rate-limit.ts) passam a contar todos os
+  // visitantes juntos. 0 = acesso direto, sem proxy (desenvolvimento).
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   TENANT_TIMEZONE: z.string().default('America/Bahia'),
   // WhatsApp Cloud API (Meta) — lembretes de retorno/aniversário. Opcionais
   // de propósito: sem essas duas variáveis, o envio simplesmente fica

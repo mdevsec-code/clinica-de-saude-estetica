@@ -20,6 +20,7 @@ import { patientsRouter, remindersRouter } from './modules/patients/patients.rou
 export function createApp() {
   const app = express();
 
+  app.set('trust proxy', env.TRUST_PROXY);
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN }));
   // Limite padrão do Express (100kb) é apertado para o upload de extrato OFX
