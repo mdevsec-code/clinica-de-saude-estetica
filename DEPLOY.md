@@ -147,6 +147,39 @@ Ao trocar o IP por um domínio próprio: emitir o certificado para o domínio
 no `acme.sh`, ajustar `server_name` no Nginx e trocar `VITE_API_URL` no
 `web/netlify.toml`.
 
+## Google Agenda
+
+O que a integração faz (código em `server/src/modules/google-calendar/`):
+
+- **Paciente**: depois de agendar no site, botão "Adicionar ao Google
+  Agenda" (só um link pré-preenchido — funciona sem configurar nada).
+- **Site → agenda da clínica**: todo agendamento confirmado vira um evento
+  ("Ana — Limpeza de pele", sem telefone nem dado de saúde); cancelar apaga.
+- **Agenda da clínica → site**: compromissos marcados direto no Google
+  (exceto os marcados como "Livre") fecham o horário no site. Sincroniza a
+  cada 5 minutos e pelo botão "Sincronizar agora" na Agenda do painel.
+
+Para ligar (uma vez):
+
+1. Em [console.cloud.google.com](https://console.cloud.google.com), crie um
+   projeto e ative a **Google Calendar API** (APIs e serviços → Biblioteca).
+2. **IAM e administrador → Contas de serviço → Criar conta de serviço**
+   (nome livre, sem papéis). Na conta criada: **Chaves → Adicionar chave →
+   JSON**. Guarde o arquivo baixado — é a senha do robô.
+3. No Google Agenda da clínica (no computador): **Configurações da agenda →
+   Compartilhar com pessoas específicas** → adicione o e-mail da conta de
+   serviço (`...@...iam.gserviceaccount.com`) com **Fazer alterações nos
+   eventos**. Na mesma tela, copie o **ID da agenda** (para a agenda
+   principal, é o próprio Gmail).
+4. Na VPS: copie o JSON para `/opt/noely/server/google-service-account.json`
+   (`chown noely-api` + `chmod 600`), defina `GOOGLE_CALENDAR_ID` e
+   `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` no `.env` e `systemctl restart noely-api`.
+
+Limitações conhecidas: mover ou apagar no Google um evento criado pelo site
+não altera o agendamento (o painel é a fonte de verdade — a próxima mudança
+de status no painel recria/apaga o evento); compromisso marcado no Google
+leva até 5 minutos para fechar o horário no site.
+
 ## Ponto de atenção — LGPD
 
 Dados de saúde são sensíveis. Neon, Railway, Netlify e Supabase têm

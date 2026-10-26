@@ -107,6 +107,23 @@ export interface AdminAppointment {
   service: { id: string; name: string; durationMinutes: number };
 }
 
+// Horário bloqueado na agenda — hoje, compromisso importado do Google Agenda
+// da clínica (source GOOGLE_CALENDAR), que some da grade de horários do site.
+export interface AdminBlockedTime {
+  id: string;
+  startAt: string;
+  endAt: string;
+  reason: string | null;
+  source: 'MANUAL' | 'GOOGLE_CALENDAR';
+}
+
+export interface GoogleCalendarSyncStatus {
+  configured: boolean;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  importedBlocks: number;
+}
+
 // --- Financeiro & Estoque ---
 export type ExpenseCategory = 'PRODUTOS' | 'EQUIPAMENTOS' | 'ALUGUEL' | 'MARKETING' | 'SALARIOS' | 'OUTROS';
 export type ExpenseStatus = 'PENDING' | 'PAID';

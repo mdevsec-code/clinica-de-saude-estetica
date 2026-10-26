@@ -22,6 +22,15 @@ const envSchema = z.object({
   WHATSAPP_CLOUD_API_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
+  // Google Agenda da clínica (ver modules/google-calendar) — opcionais pelo
+  // mesmo motivo do WhatsApp: sem as duas primeiras, a integração fica
+  // desligada e o agendamento funciona igual. Autentica por conta de serviço
+  // (arquivo JSON da chave, baixado do Google Cloud); a agenda precisa estar
+  // compartilhada com o e-mail dessa conta com permissão de "Fazer
+  // alterações nos eventos".
+  GOOGLE_CALENDAR_ID: z.string().optional(),
+  GOOGLE_SERVICE_ACCOUNT_KEY_FILE: z.string().optional(),
+  GOOGLE_CALENDAR_SYNC_INTERVAL_MIN: z.coerce.number().int().min(1).default(5),
   // Armazenamento de arquivo (fotos de paciente, fichas digitalizadas) —
   // opcionais pelo mesmo motivo do WhatsApp acima: sem estas 5 variáveis,
   // lib/file-storage.ts cai para disco local (comportamento de sempre, bom

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useBookingStore } from '@/stores/booking';
+import { useSettingsStore } from '@/stores/settings';
+import { buildGoogleCalendarLink } from '@/utils/google-calendar-link';
 import { fetchCategories } from '@/services/catalog.service';
 import { fetchAvailableSlots } from '@/services/availability.service';
 import { createAppointment } from '@/services/appointments.service';
 import { ApiError } from '@/services/api';
-import type { Service, ServiceCategory, Slot } from '@/types';
+import type { Appointment, Service, ServiceCategory, Slot } from '@/types';
 import BookingProgress from '@/components/BookingProgress.vue';
 import PageHeroBand from '@/components/PageHeroBand.vue';
 import CategoryAccordion from '@/components/CategoryAccordion.vue';
@@ -220,6 +222,24 @@ function handleSelectService(service: Service) {
 const submitting = ref(false);
 const submitError = ref<string | null>(null);
 
+// Guardado à parte (e não lido da store) porque vem da resposta da API — o
+// horário que de fato ficou reservado, com o fim calculado pelo servidor.
+const confirmedAppointment = ref<Appointment | null>(null);
+const settings = useSettingsStore();
+settings.load();
+
+const googleCalendarLink = computed(() => {
+  const appt = confirmedAppointment.value;
+  if (!appt) return null;
+  return buildGoogleCalendarLink({
+    title: `${appt.service.name} — Clínica Noely Cerqueira`,
+    startAt: appt.startAt,
+    endAt: appt.endAt,
+    details: 'Qualquer imprevisto, avise a clínica pelo WhatsApp.',
+    location: settings.data?.address,
+  });
+});
+
 async function confirmBooking() {
   if (!booking.selectedService || !booking.selectedSlot) return;
   submitting.value = true;
@@ -232,6 +252,7 @@ async function confirmBooking() {
       notes: booking.notes || undefined,
     });
     booking.confirmedAppointmentId = appointment.id;
+    confirmedAppointment.value = appointment;
     step.value = 'success';
   } catch (err) {
     if (err instanceof ApiError) {
@@ -390,7 +411,18 @@ function goBack() {
         <p class="success-check" aria-hidden="true">✓</p>
         <h1>Atendimento confirmado</h1>
         <p>Seu horário foi reservado. Em breve você recebe a confirmação também pelo WhatsApp.</p>
-        <button type="button" class="button button--ghost" @click="startOver">Fazer novo agendamento</button>
+        <div class="success-actions">
+          <a
+            v-if="googleCalendarLink"
+            class="button button--primary"
+            :href="googleCalendarLink"
+            target="_blank"
+            rel="noopener"
+          >
+            Adicionar ao Google Agenda
+          </a>
+          <button type="button" class="button button--ghost" @click="startOver">Fazer novo agendamento</button>
+        </div>
       </section>
       </Transition>
     </div>
@@ -588,6 +620,14 @@ function goBack() {
 .booking-step--success {
   text-align: center;
   padding-block: var(--space-8);
+}
+
+.success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
 }
 
 .success-check {

@@ -16,6 +16,7 @@ import { inventoryRouter } from './modules/inventory/inventory.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { auditRouter } from './modules/audit/audit.routes';
 import { patientsRouter, remindersRouter } from './modules/patients/patients.routes';
+import { googleCalendarRouter } from './modules/google-calendar/google-calendar.routes';
 
 export function createApp() {
   const app = express();
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/audit', auditRouter);
   app.use('/patients', patientsRouter);
   app.use('/reminders', remindersRouter);
+  app.use('/integrations/google-calendar', googleCalendarRouter);
 
   app.use(errorHandler);
 
