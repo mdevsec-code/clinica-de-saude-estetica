@@ -195,6 +195,11 @@ escaneando o QR. Depois do deploy com as migrations novas, rode
 A sessão fica em `/opt/noely/server/.whatsapp-session/` (fora do git). Ela é
 a "senha" do aparelho conectado:
 
+- O serviço roda com `ProtectSystem=strict`, então a pasta precisa existir
+  (`install -d -o noely-api -g noely-api -m 700 /opt/noely/server/.whatsapp-session`)
+  e estar liberada para escrita em
+  `/etc/systemd/system/noely-api.service.d/whatsapp-session.conf`
+  (`[Service]` + `ReadWritePaths=/opt/noely/server/.whatsapp-session`).
 - O deploy por `tar -xf` não apaga essa pasta; não a remova ao atualizar.
 - Inclua-a no backup (`tar -czf whatsapp-session.tgz -C /opt/noely/server
   .whatsapp-session`), com o mesmo cuidado do `.env`. Sem ela, basta
