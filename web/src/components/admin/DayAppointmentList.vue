@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { AdminAppointment, AppointmentStatus } from '@/types';
+import type { AdminAppointment, AdminBlockedTime, AppointmentStatus } from '@/types';
 import { updateAppointmentStatus } from '@/services/admin-appointments.service';
 import { ApiError } from '@/services/api';
 import EmptyState from '@/components/EmptyState.vue';
 
-defineProps<{ appointments: AdminAppointment[] }>();
+defineProps<{ appointments: AdminAppointment[]; blocks?: AdminBlockedTime[] }>();
 
 const pendingId = ref<string | null>(null);
 const errorId = ref<string | null>(null);
@@ -19,6 +19,18 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bahia' });
+}
+
+// Compromisso de dia inteiro (ou que atravessa vários dias, tipo férias)
+// não tem um "horário" que faça sentido mostrar — só o período.
+function formatBlockRange(block: AdminBlockedTime) {
+  const start = new Date(block.startAt);
+  const end = new Date(block.endAt);
+  if (end.getTime() - start.getTime() >= 24 * 60 * 60 * 1000) {
+    const fmt = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Bahia' });
+    return `${fmt(start)} a ${fmt(new Date(end.getTime() - 1))}`;
+  }
+  return `${formatTime(block.startAt)}–${formatTime(block.endAt)}`;
 }
 
 function whatsappLink(phone: string) {
@@ -45,6 +57,13 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
 </script>
 
 <template>
+  <ul v-if="blocks?.length" class="day-list day-list--blocks">
+    <li v-for="block in blocks" :key="block.id" class="day-block">
+      <span class="day-block__time">{{ formatBlockRange(block) }}</span>
+      <span class="day-block__reason">{{ block.reason || 'Ocupado' }}</span>
+      <span class="day-block__source">Google Agenda · horário fechado no site</span>
+    </li>
+  </ul>
   <EmptyState v-if="!appointments.length" title="Nenhum atendimento neste dia." />
   <ul v-else class="day-list">
     <li v-for="appt in appointments" :key="appt.id" class="day-item">
@@ -112,6 +131,38 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.day-list--blocks {
+  margin-bottom: var(--space-3);
+}
+
+.day-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-muted);
+  color: var(--color-ink-muted);
+}
+
+.day-block__time {
+  font-weight: 700;
+  min-width: 52px;
+}
+
+.day-block__reason {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.day-block__source {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--color-ink-soft);
 }
 
 .day-item {

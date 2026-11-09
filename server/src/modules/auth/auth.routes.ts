@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
 import { loginRateLimiter } from '../../middleware/rate-limit';
-import { createUser, FILE_TOKEN_TTL_SECONDS, listUsers, login, setUserActive, signFileToken } from './auth.service';
+import { createUser, FILE_TOKEN_TTL_SECONDS, listUsers, login, resetUserPassword, setUserActive, signFileToken, updateUser } from './auth.service';
 import { requireAuth, requireRole } from './auth.middleware';
 
 export const authRouter = Router();
@@ -71,6 +71,34 @@ usersRouter.patch(
     const { active } = statusSchema.parse(req.body);
     const user = await setUserActive(req.tenant.id, req.params.id, active, req.user!.id);
     res.json({ user });
+  }),
+);
+
+const updateUserSchema = z.object({
+  name: z.string().min(2, 'Informe o nome completo.'),
+  email: z.string().email(),
+  role: z.enum(['ADMIN', 'RECEPTION']),
+});
+
+usersRouter.put(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const input = updateUserSchema.parse(req.body);
+    const user = await updateUser(req.tenant.id, req.params.id, input, req.user!.id);
+    res.json({ user });
+  }),
+);
+
+const resetPasswordSchema = z.object({
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres.'),
+});
+
+usersRouter.post(
+  '/:id/reset-password',
+  asyncHandler(async (req, res) => {
+    const { password } = resetPasswordSchema.parse(req.body);
+    await resetUserPassword(req.tenant.id, req.params.id, password);
+    res.status(204).end();
   }),
 );
 

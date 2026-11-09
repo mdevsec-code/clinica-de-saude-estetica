@@ -4,7 +4,7 @@
 // HTML inteiro já ter sido processado) chegava tarde demais: o navegador já
 // tinha restaurado sozinho a posição de scroll da visita anterior antes
 // desse módulo rodar. Arquivo próprio (não inline) para a Content-Security-
-// Policy do site poder proibir script inline (ver deploy/hostinger/nginx.conf).
+// Policy do site poder proibir script inline.
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
 }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
 import { bookingRateLimiter } from '../../middleware/rate-limit';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
-import { createAppointment, listAppointments, updateAppointmentStatus } from './appointments.service';
+import { createAppointment, listAppointments, listBlockedTimes, updateAppointmentStatus } from './appointments.service';
 
 export const appointmentsRouter = Router();
 
@@ -23,6 +23,20 @@ appointmentsRouter.get(
     const { from, to } = listQuerySchema.parse(req.query);
     const appointments = await listAppointments({ tenantId: req.tenant.id, from, to });
     res.json({ appointments });
+  }),
+);
+
+// Bloqueios da agenda (hoje: compromissos importados do Google Agenda) para
+// exibir junto dos atendimentos no painel. Rota separada de GET / em vez de
+// misturar no mesmo array: bloqueio não tem paciente, serviço nem status.
+appointmentsRouter.get(
+  '/blocked-times',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    const { from, to } = listQuerySchema.parse(req.query);
+    const blockedTimes = await listBlockedTimes({ tenantId: req.tenant.id, from, to });
+    res.json({ blockedTimes });
   }),
 );
 

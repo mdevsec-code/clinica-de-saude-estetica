@@ -334,16 +334,21 @@ model BusinessHour {
   @@index([tenantId, weekday])
 }
 
-// Bloqueios pontuais: folgas, férias, feriados, eventos externos importados do Google Calendar (fase futura).
+// Bloqueios pontuais: folgas, férias, feriados e compromissos importados do
+// Google Agenda da clínica. Os de source GOOGLE_CALENDAR são recriados a cada
+// sincronização (ver modules/google-calendar) — nunca editar à mão, a próxima
+// sincronização desfaz; externalId é o id do evento no Google, só para
+// rastreio.
 model BlockedTime {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  startAt   DateTime @db.Timestamptz(3)
-  endAt     DateTime @db.Timestamptz(3)
-  reason    String?
-  source    String   @default("MANUAL") // MANUAL | GOOGLE_CALENDAR (fase futura)
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  startAt    DateTime @db.Timestamptz(3)
+  endAt      DateTime @db.Timestamptz(3)
+  reason     String?
+  source     String   @default("MANUAL") // MANUAL | GOOGLE_CALENDAR
+  externalId String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([tenantId, startAt, endAt])
 }
@@ -389,6 +394,10 @@ model Appointment {
   reminder2hSentAt        DateTime? @db.Timestamptz(3)
   // Paciente respondeu "SIM" à mensagem de confirmação.
   clientConfirmedAt       DateTime? @db.Timestamptz(3)
+  // Evento espelhado no Google Agenda da clínica (ver modules/google-calendar).
+  // Nulo = ainda não enviado (integração desligada, Google fora do ar) — a
+  // sincronização periódica reenvia os confirmados que ficaram sem evento.
+  googleEventId String?
 
   procedureRecord ProcedureRecord?
 

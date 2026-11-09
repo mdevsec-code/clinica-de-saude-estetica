@@ -18,13 +18,12 @@ import { auditRouter } from './modules/audit/audit.routes';
 import { patientsRouter, remindersRouter } from './modules/patients/patients.routes';
 import { messagesRouter } from './modules/messages/messages.routes';
 import { whatsappRouter } from './modules/whatsapp/whatsapp.routes';
+import { googleCalendarRouter } from './modules/google-calendar/google-calendar.routes';
 
 export function createApp() {
   const app = express();
 
-  // Um único salto (o Nginx da VPS) — ver TRUST_PROXY em config/env.ts.
-  if (env.TRUST_PROXY) app.set('trust proxy', 1);
-
+  app.set('trust proxy', env.TRUST_PROXY);
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN }));
   // Corpo grande (10mb) SÓ nas rotas de upload — extrato OFX e foto/ficha
@@ -87,6 +86,7 @@ export function createApp() {
   app.use('/reminders', remindersRouter);
   app.use('/message-templates', messagesRouter);
   app.use('/whatsapp', whatsappRouter);
+  app.use('/integrations/google-calendar', googleCalendarRouter);
 
   app.use(errorHandler);
 

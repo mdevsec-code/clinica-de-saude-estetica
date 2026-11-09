@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { AdminAppointment } from '@/types';
+import type { AdminAppointment, AdminBlockedTime } from '@/types';
 import { WEEKDAY_LABELS, type CalendarDay } from '@/utils/calendar';
 
 const props = defineProps<{
   days: CalendarDay[];
   appointmentsByDate: Record<string, AdminAppointment[]>;
+  blocksByDate?: Record<string, AdminBlockedTime[]>;
   maxVisible?: number;
 }>();
 
@@ -22,6 +23,15 @@ function appointmentsFor(dateKey: string): AdminAppointment[] {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bahia' });
+}
+
+// Um chip só por dia, resumido: o detalhe (horário e título de cada
+// compromisso) fica no modal do dia — aqui a ideia é só sinalizar que a
+// Noely tem algo marcado no Google naquele dia.
+function blocksLabel(dateKey: string): string | null {
+  const blocks = props.blocksByDate?.[dateKey] ?? [];
+  if (!blocks.length) return null;
+  return blocks.length === 1 ? 'Ocupado (Google)' : `${blocks.length} compromissos (Google)`;
 }
 </script>
 
@@ -42,6 +52,9 @@ function formatTime(iso: string) {
         <span class="calendar-day__number">{{ day.date.getDate() }}</span>
 
         <span class="calendar-day__items">
+          <span v-if="blocksLabel(day.dateKey)" class="calendar-chip calendar-chip--blocked">
+            <span class="calendar-chip__name">{{ blocksLabel(day.dateKey) }}</span>
+          </span>
           <span
             v-for="appt in appointmentsFor(day.dateKey).slice(0, visibleCount)"
             :key="appt.id"
@@ -214,6 +227,18 @@ function formatTime(iso: string) {
 .calendar-chip--no_show {
   background: #f3e2df;
   color: var(--color-danger);
+}
+
+.calendar-chip--blocked {
+  background: var(--color-surface-muted);
+  border-style: dashed;
+  border-color: var(--color-border);
+  color: var(--color-ink-soft);
+}
+
+.calendar-chip--blocked:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 .calendar-day__more {

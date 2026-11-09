@@ -1,0 +1,1110 @@
+<title>Casos de Uso — Clínica Noely Cerqueira</title>
+<style>
+  :root {
+    --paper: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f5f7fa;
+    --line: #d7dde6;
+    --ink: #131c2e;
+    --ink-soft: #55647d;
+    --ink-faint: #8493ab;
+    --accent: #2454c7;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4ecfc;
+    --warm: #a8571c;
+    --warm-soft: #fbeadd;
+    --actor-visitante: #2454c7;
+    --actor-recepcao: #0f8a6b;
+    --actor-admin: #a8571c;
+    --actor-sistema: #6b5bd6;
+    --shadow: 0 1px 2px rgba(19,28,46,0.06), 0 8px 24px -12px rgba(19,28,46,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0d1220;
+      --surface: #141b2c;
+      --surface-2: #182035;
+      --line: #29334a;
+      --ink: #e8ecf5;
+      --ink-soft: #a7b2c8;
+      --ink-faint: #6d7893;
+      --accent: #6c93ff;
+      --accent-ink: #0d1220;
+      --accent-soft: #1c2740;
+      --warm: #e0965a;
+      --warm-soft: #2c2113;
+      --actor-visitante: #6c93ff;
+      --actor-recepcao: #4fd3a8;
+      --actor-admin: #e0965a;
+      --actor-sistema: #b0a1f5;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0d1220;
+    --surface: #141b2c;
+    --surface-2: #182035;
+    --line: #29334a;
+    --ink: #e8ecf5;
+    --ink-soft: #a7b2c8;
+    --ink-faint: #6d7893;
+    --accent: #6c93ff;
+    --accent-ink: #0d1220;
+    --accent-soft: #1c2740;
+    --warm: #e0965a;
+    --warm-soft: #2c2113;
+    --actor-visitante: #6c93ff;
+    --actor-recepcao: #4fd3a8;
+    --actor-admin: #e0965a;
+    --actor-sistema: #b0a1f5;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  h1, h2, h3 { text-wrap: balance; color: var(--ink); }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    max-width: 1220px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  /* --- Sidebar --- */
+  aside {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 28px 18px 28px 28px;
+    border-right: 1px solid var(--line);
+  }
+  .brand {
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 4px;
+  }
+  .brand strong {
+    display: block;
+    font-size: 0.92rem;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+  nav.toc {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  nav.toc a {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 0.82rem;
+  }
+  nav.toc a:hover { background: var(--surface-2); color: var(--ink); }
+  nav.toc .tag {
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+    min-width: 26px;
+  }
+  nav.toc .actors {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .actor-key { display: flex; align-items: center; gap: 8px; font-size: 0.76rem; color: var(--ink-soft); }
+  .actor-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* --- Main --- */
+  main { padding: 40px 40px 120px; min-width: 0; }
+
+  .doc-head { margin-bottom: 8px; }
+  .doc-kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1 { font-size: 1.9rem; margin: 6px 0 10px; font-weight: 700; }
+  .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 32px;
+  }
+  .doc-meta span strong { color: var(--ink-soft); }
+
+  section.intro p { max-width: 68ch; color: var(--ink-soft); margin: 0 0 14px; }
+  section.intro p:first-of-type { color: var(--ink); }
+
+  figure { margin: 28px 0 36px; }
+  figure .frame {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; height: auto; color: var(--ink-soft); }
+  figcaption { margin-top: 10px; font-size: 0.8rem; color: var(--ink-faint); max-width: 68ch; }
+
+  .pkg {
+    margin-top: 56px;
+    scroll-margin-top: 24px;
+  }
+  .pkg-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 6px;
+  }
+  .pkg-num {
+    font-size: 0.78rem;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .pkg-head h2 { font-size: 1.24rem; margin: 0; }
+  .pkg-actors { display: flex; gap: 6px; margin-left: auto; }
+  .pkg-note { color: var(--ink-faint); font-size: 0.84rem; max-width: 70ch; margin: 10px 0 20px; }
+
+  .actor-chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .uc {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .uc-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .uc-id {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .uc-head h3 { font-size: 0.98rem; margin: 0; font-weight: 600; flex: 1; }
+  .uc-route {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  .uc-body { display: grid; grid-template-columns: 128px 1fr; }
+  .uc-row { display: contents; }
+  .uc-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .uc-value {
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+  }
+  .uc-value strong { color: var(--ink); font-weight: 600; }
+  .uc-value ol, .uc-value ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+  .uc-value .alt { color: var(--warm); }
+  .uc-actors-inline { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    main { padding: 28px 20px 100px; }
+    .uc-body { grid-template-columns: 100px 1fr; }
+  }
+
+  ::selection { background: var(--accent-soft); }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<div class="shell">
+  <aside>
+    <div class="brand">Documento técnico<strong>Clínica Noely Cerqueira</strong></div>
+    <nav class="toc">
+      <a href="#visao-geral"><span class="tag">—</span> Visão geral</a>
+      <a href="#diagrama"><span class="tag">—</span> Diagrama de contexto</a>
+      <a href="#pkg-1"><span class="tag">01</span> Site público</a>
+      <a href="#pkg-2"><span class="tag">02</span> Autenticação</a>
+      <a href="#pkg-3"><span class="tag">03</span> Agenda</a>
+      <a href="#pkg-4"><span class="tag">04</span> Pacientes</a>
+      <a href="#pkg-5"><span class="tag">05</span> Fichas clínicas</a>
+      <a href="#pkg-6"><span class="tag">06</span> Lembretes de retorno</a>
+      <a href="#pkg-7"><span class="tag">07</span> Catálogo — gestão</a>
+      <a href="#pkg-8"><span class="tag">08</span> Financeiro</a>
+      <a href="#pkg-9"><span class="tag">09</span> Estoque</a>
+      <a href="#pkg-10"><span class="tag">10</span> Dashboard</a>
+      <a href="#pkg-11"><span class="tag">11</span> Usuários</a>
+      <a href="#pkg-12"><span class="tag">12</span> Auditoria</a>
+      <a href="#pkg-13"><span class="tag">13</span> Processos automáticos</a>
+    </nav>
+    <div class="actors">
+      <div class="actor-key"><span class="actor-dot" style="background:var(--actor-visitante)"></span> Visitante</div>
+      <div class="actor-key"><span class="actor-dot" style="background:var(--actor-recepcao)"></span> Recepção</div>
+      <div class="actor-key"><span class="actor-dot" style="background:var(--actor-admin)"></span> Administrador</div>
+      <div class="actor-key"><span class="actor-dot" style="background:var(--actor-sistema)"></span> Sistema</div>
+    </div>
+    <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:0.78rem;">
+      Ver também: <a href="https://claude.ai/code/artifact/f8f584bc-226e-4b16-a048-87ab49bab846" target="_blank" rel="noopener" style="color:var(--accent)">Documentação Técnica →</a>
+    </div>
+  </aside>
+
+  <main>
+    <div class="doc-head" id="visao-geral">
+      <div class="doc-kicker">Especificação de casos de uso</div>
+      <h1>Sistema de Gestão — Clínica Noely Cerqueira</h1>
+    </div>
+    <div class="doc-meta">
+      <span><strong>55</strong> casos de uso</span>
+      <span><strong>4</strong> atores</span>
+      <span><strong>13</strong> pacotes funcionais</span>
+      <span>Base: rotas e regras implementadas no código (server/src/modules)</span>
+    </div>
+
+    <section class="intro">
+      <p>Este documento especifica, em formato UML, todos os casos de uso do sistema que sustenta a operação da Clínica Noely Cerqueira (Camaçari, BA): agendamento público, agenda interna, prontuário de pacientes, financeiro, estoque e administração de acesso. Cada caso de uso reflete uma rota e uma regra de negócio de fato implementadas — nenhum item aqui descreve uma intenção futura.</p>
+      <p>Quatro atores interagem com o sistema: o <strong>Visitante</strong> do site público (sem login), a <strong>Recepção</strong> e o <strong>Administrador</strong> — os dois papéis de acesso ao painel interno (<code class="mono">RECEPTION</code> e <code class="mono">ADMIN</code>) — e o <strong>Sistema</strong>, que executa dois processos automáticos sem intervenção humana direta (geração de retorno e registro de auditoria).</p>
+    </section>
+
+    <figure id="diagrama">
+      <div class="frame">
+        <svg viewBox="0 0 960 600" role="img" aria-label="Diagrama de contexto: quatro atores — Visitante, Recepção, Administrador e Sistema — e as três fronteiras de acesso do sistema — Site Público, Painel de Operação Diária e Administração — com setas mostrando quem alcança qual fronteira.">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- Boundary boxes -->
+          <g font-family="IBM Plex Mono, monospace">
+            <rect x="330" y="30" width="590" height="118" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="346" y="54" font-size="13" font-weight="700" fill="currentColor">SITE PÚBLICO — sem login</text>
+            <text x="346" y="76" font-size="11.5" fill="currentColor" opacity="0.75">Catálogo de serviços · Disponibilidade de horários</text>
+            <text x="346" y="94" font-size="11.5" fill="currentColor" opacity="0.75">Dados de contato e funcionamento</text>
+            <text x="346" y="112" font-size="11.5" fill="currentColor" opacity="0.75">Criação de agendamento</text>
+            <text x="346" y="132" font-size="10.5" fill="currentColor" opacity="0.55">pacotes 01</text>
+
+            <rect x="330" y="184" width="590" height="188" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="346" y="208" font-size="13" font-weight="700" fill="currentColor">PAINEL — operação diária</text>
+            <text x="346" y="230" font-size="11.5" fill="currentColor" opacity="0.75">Agenda e status de atendimento · Dashboard</text>
+            <text x="346" y="248" font-size="11.5" fill="currentColor" opacity="0.75">Cadastro e busca de pacientes (versão restrita)</text>
+            <text x="346" y="266" font-size="11.5" fill="currentColor" opacity="0.75">Financeiro: gastos, resumo do dia, DRE, conciliação</text>
+            <text x="346" y="284" font-size="11.5" fill="currentColor" opacity="0.75">Estoque · Lembretes de retorno</text>
+            <text x="346" y="302" font-size="11.5" fill="currentColor" opacity="0.75">Autenticação (login/sessão)</text>
+            <text x="346" y="322" font-size="10.5" fill="currentColor" opacity="0.55">pacotes 02 03 04 06 08 09 10</text>
+
+            <rect x="330" y="408" width="590" height="164" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="346" y="432" font-size="13" font-weight="700" fill="currentColor">ADMINISTRAÇÃO — só ADMIN</text>
+            <text x="346" y="454" font-size="11.5" fill="currentColor" opacity="0.75">Catálogo: categorias e serviços (gestão completa)</text>
+            <text x="346" y="472" font-size="11.5" fill="currentColor" opacity="0.75">Fichas clínicas, fotos e notas de paciente</text>
+            <text x="346" y="490" font-size="11.5" fill="currentColor" opacity="0.75">Usuários do painel · Conciliação bancária</text>
+            <text x="346" y="508" font-size="11.5" fill="currentColor" opacity="0.75">Log de auditoria</text>
+            <text x="346" y="528" font-size="10.5" fill="currentColor" opacity="0.55">pacotes 04 05 07 08 11 12</text>
+          </g>
+
+          <!-- Actors -->
+          <g font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600">
+            <!-- Visitante -->
+            <g transform="translate(90,86)" color="var(--actor-visitante)">
+              <circle cx="0" cy="-18" r="11" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="-7" x2="0" y2="22" stroke="currentColor" stroke-width="2"/>
+              <line x1="-16" y1="4" x2="16" y2="4" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="22" x2="-13" y2="46" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="22" x2="13" y2="46" stroke="currentColor" stroke-width="2"/>
+              <text x="0" y="66" text-anchor="middle" fill="currentColor">Visitante</text>
+            </g>
+            <!-- Recepção -->
+            <g transform="translate(90,246)" color="var(--actor-recepcao)">
+              <circle cx="0" cy="-18" r="11" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="-7" x2="0" y2="22" stroke="currentColor" stroke-width="2"/>
+              <line x1="-16" y1="4" x2="16" y2="4" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="22" x2="-13" y2="46" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="22" x2="13" y2="46" stroke="currentColor" stroke-width="2"/>
+              <text x="0" y="66" text-anchor="middle" fill="currentColor">Recepção</text>
+            </g>
+            <!-- Administrador -->
+            <g transform="translate(90,406)" color="var(--actor-admin)">
+              <circle cx="0" cy="-18" r="11" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="-7" x2="0" y2="22" stroke="currentColor" stroke-width="2"/>
+              <line x1="-16" y1="4" x2="16" y2="4" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="22" x2="-13" y2="46" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="22" x2="13" y2="46" stroke="currentColor" stroke-width="2"/>
+              <text x="0" y="66" text-anchor="middle" fill="currentColor">Administrador</text>
+            </g>
+            <!-- Sistema -->
+            <g transform="translate(90,540)" color="var(--actor-sistema)">
+              <rect x="-16" y="-30" width="32" height="24" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="0" y1="-6" x2="0" y2="10" stroke="currentColor" stroke-width="2"/>
+              <line x1="-14" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="2"/>
+              <text x="0" y="30" text-anchor="middle" fill="currentColor">Sistema</text>
+            </g>
+          </g>
+
+          <!-- Arrows -->
+          <g stroke-width="1.6" fill="none">
+            <path d="M118,86 C220,86 220,89 328,89" stroke="var(--actor-visitante)" marker-end="url(#arrow)"/>
+            <text x="150" y="78" font-size="10.5" fill="var(--actor-visitante)">consulta e agenda</text>
+
+            <path d="M118,246 C220,246 220,278 328,278" stroke="var(--actor-recepcao)" marker-end="url(#arrow)"/>
+            <text x="150" y="238" font-size="10.5" fill="var(--actor-recepcao)">opera o dia a dia</text>
+
+            <path d="M118,398 C230,398 230,278 328,278" stroke="var(--actor-admin)" stroke-dasharray="0" marker-end="url(#arrow)"/>
+            <path d="M118,414 C260,414 260,470 328,470" stroke="var(--actor-admin)" marker-end="url(#arrow)"/>
+            <text x="150" y="440" font-size="10.5" fill="var(--actor-admin)">acesso total</text>
+
+            <path d="M118,532 C260,532 260,278 328,278" stroke="var(--actor-sistema)" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+            <text x="150" y="560" font-size="10.5" fill="var(--actor-sistema)">gera retorno · audita escrita</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Fronteiras de acesso do sistema e quem as alcança. A Recepção nunca vê a fronteira de Administração; o Administrador acumula as duas. O Sistema age nos bastidores em dois pontos: ao concluir um atendimento (gera retorno automático) e a cada escrita autenticada (grava auditoria).</figcaption>
+    </figure>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 01 — SITE PÚBLICO -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-1">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 01</span>
+        <h2>Site público</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-visitante)">VISITANTE</span></div>
+      </div>
+      <p class="pkg-note">Nenhuma autenticação envolvida. É a porta de entrada do cliente final — consulta o catálogo, vê horários livres e agenda, tudo sem criar conta.</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC01</span><h3>Consultar catálogo de serviços</h3><span class="uc-route">GET /catalog/categories</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Visitante visualiza categorias ativas com seus serviços ativos, preços e durações.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Visitante abre a página de serviços.</li>
+            <li>Sistema busca categorias e serviços ativos do tenant.</li>
+            <li>Sistema retorna a lista, já ordenada por destaque/ordem cadastrada.</li>
+          </ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC02</span><h3>Consultar horários disponíveis</h3><span class="uc-route">GET /availability/slots</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Visitante já escolheu um serviço e uma data.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Sistema apresenta os horários livres daquele dia para aquele serviço.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Visitante informa <code class="mono">serviceId</code> e <code class="mono">date</code>.</li>
+            <li>Sistema cruza horário de funcionamento, duração do serviço, agendamentos já confirmados e bloqueios do dia.</li>
+            <li>Sistema retorna os horários vagos, na granularidade configurada (15 min por padrão).</li>
+          </ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Data fora da janela de antecedência mínima/máxima configurada — lista vem vazia.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC03</span><h3>Consultar dados de contato e funcionamento</h3><span class="uc-route">GET /settings/public</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Visitante vê WhatsApp, Instagram, e-mail, endereço e horário de funcionamento da clínica.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Página pública solicita as configurações do tenant.</li>
+            <li>Sistema retorna os dados de contato e os dias/horários ativos.</li>
+          </ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC04</span><h3>Agendar atendimento</h3><span class="uc-route">POST /appointments</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Visitante escolheu serviço e horário disponível (UC02).</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Agendamento criado com status <code class="mono">CONFIRMED</code>, origem <code class="mono">PUBLIC_SITE</code>; cliente é criado ou reaproveitado por WhatsApp.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Visitante informa nome, WhatsApp (e opcionalmente e-mail), serviço e horário.</li>
+            <li>Sistema localiza cliente existente pelo WhatsApp ou cria um novo.</li>
+            <li>Sistema tenta reservar o intervalo — uma <em>exclude constraint</em> no banco impede sobreposição mesmo sob concorrência (dois visitantes clicando "confirmar" ao mesmo tempo).</li>
+            <li>Sistema confirma o agendamento e retorna os dados.</li>
+          </ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Horário foi tomado por outra reserva no instante da confirmação → sistema rejeita com erro de conflito, sem duplicar o horário. Limite de tentativas por IP (rate limit) protege contra abuso automatizado.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 02 — AUTENTICAÇÃO -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-2">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 02</span>
+        <h2>Autenticação</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC05</span><h3>Autenticar-se no painel</h3><span class="uc-route">POST /auth/login</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Usuário possui conta ativa no tenant.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Usuário recebe um token JWT (validade 8h) que autoriza as próximas requisições.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Usuário informa e-mail e senha.</li>
+            <li>Sistema localiza a conta pelo par tenant+e-mail e confere o hash da senha.</li>
+            <li>Sistema emite o token com id, papel (<code class="mono">ADMIN</code>/<code class="mono">RECEPTION</code>) e tenant embutidos.</li>
+          </ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Conta inexistente, senha incorreta ou conta desativada → mesma mensagem genérica de erro nos três casos, para não revelar quais e-mails existem no sistema. Limite de tentativas por rota (rate limit) contra força bruta.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC06</span><h3>Consultar sessão atual</h3><span class="uc-route">GET /auth/me</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Token válido no cabeçalho da requisição.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Painel confirma quem está logado e com qual papel, para decidir o que exibir na interface.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Painel consulta a rota ao carregar.</li><li>Sistema devolve os dados do usuário decodificados do próprio token.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 03 — AGENDA -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-3">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 03</span>
+        <h2>Agenda</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC07</span><h3>Consultar agenda de atendimentos</h3><span class="uc-route">GET /appointments</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Usuário autenticado como Recepção ou Administrador.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista de agendamentos do período solicitado é exibida.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário define um período (opcional).</li><li>Sistema retorna os agendamentos do tenant nesse intervalo, com cliente e serviço.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC08</span><h3>Alterar status de atendimento</h3><span class="uc-route">PATCH /appointments/:id/status</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Agendamento existe e pertence ao tenant do usuário.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Status muda para <code class="mono">CONFIRMED</code>, <code class="mono">CANCELLED</code>, <code class="mono">COMPLETED</code> ou <code class="mono">NO_SHOW</code>.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Usuário seleciona o novo status na agenda.</li>
+            <li>Sistema grava a mudança.</li>
+            <li><strong>Se o novo status for <code class="mono">COMPLETED</code></strong>: dispara automaticamente o sub-fluxo do Sistema (UC54) — cria o registro de procedimento e os lembretes de retorno do serviço.</li>
+          </ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 04 — PACIENTES -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-4">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 04</span>
+        <h2>Pacientes</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO*</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+      <p class="pkg-note">*Recepção acessa em versão restrita: nunca vê notas clínicas nem a galeria de fotos (UC12). Upload/remoção de foto e envio de WhatsApp exigem ADMIN.</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC09</span><h3>Cadastrar paciente</h3><span class="uc-route">POST /patients</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma (Recepção ou Admin autenticado).</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Novo registro de cliente/paciente criado no tenant.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário informa nome e WhatsApp (dados adicionais opcionais: telefone, e-mail, data de nascimento).</li><li>Sistema grava o paciente.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC10</span><h3>Editar paciente</h3><span class="uc-route">PATCH /patients/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Paciente existe no tenant.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Dados cadastrais atualizados.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário edita um ou mais campos.</li><li>Sistema grava as alterações.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC11</span><h3>Consultar lista de pacientes</h3><span class="uc-route">GET /patients</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista de pacientes exibida, filtrável por busca textual.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário digita um termo de busca (opcional).</li><li>Sistema retorna os pacientes que casam com nome/WhatsApp.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC12</span><h3>Consultar ficha resumida do paciente</h3><span class="uc-route">GET /patients/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Paciente existe no tenant.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Dados do paciente exibidos — completos para Admin, restritos (sem notas/fotos) para Recepção. Toda consulta gera um registro de auditoria de <strong>visualização</strong> (dado sensível, LGPD).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Usuário abre o perfil do paciente.</li>
+            <li>Sistema registra o acesso na trilha de auditoria antes de responder.</li>
+            <li>Sistema retorna os dados — filtrando notas e fotos se o papel for Recepção.</li>
+          </ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC13</span><h3>Fazer upload de foto do paciente</h3><span class="uc-route">POST /patients/:id/photos <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Usuário é Administrador.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Foto (antes/depois/evolução/outra) salva e vinculada ao paciente, opcionalmente a um procedimento.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin envia a imagem (JPEG/PNG/WebP), categoria e data.</li><li>Sistema grava o arquivo (disco local em dev, storage S3-compatível em produção) e o registro no banco.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC14</span><h3>Remover foto do paciente</h3><span class="uc-route">DELETE /patients/:id/photos/:photoId <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Foto existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Registro e arquivo removidos permanentemente.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin solicita a remoção.</li><li>Sistema apaga o arquivo do storage e o registro do banco.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC15</span><h3>Visualizar arquivo de foto</h3><span class="uc-route">GET /patients/:id/photos/:photoId/file <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Foto existe; token de acesso válido (header ou query string, já que a tag <code class="mono">&lt;img&gt;</code> do navegador não envia cabeçalho de autorização).</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Bytes da imagem retornados diretamente ao navegador.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Painel solicita a imagem passando o token na própria URL.</li><li>Sistema valida o token e devolve o arquivo do storage.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC16</span><h3>Enviar lembrete de aniversário por WhatsApp</h3><span class="uc-route">POST /patients/:id/notify-birthday <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Paciente tem data de nascimento cadastrada; credenciais da WhatsApp Cloud API configuradas.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Mensagem de aniversário enviada ao WhatsApp do paciente.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin aciona o envio a partir do lembrete do dashboard.</li><li>Sistema chama a WhatsApp Cloud API com o número do paciente.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Credenciais da WhatsApp Cloud API não configuradas → erro claro em vez de falha silenciosa.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 05 — FICHAS CLÍNICAS -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-5">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 05</span>
+        <h2>Fichas clínicas</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+      <p class="pkg-note">Sem exceção para Recepção — é o dado mais sensível do sistema (histórico de saúde). Toda leitura e escrita gera auditoria própria.</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC17</span><h3>Registrar ficha clínica</h3><span class="uc-route">POST /patients/:id/fichas</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Paciente existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Ficha criada — preenchida campo a campo, ou como upload de um arquivo digitalizado (PDF/imagem), ou as duas formas combinadas.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol>
+            <li>Admin escolhe o tipo de ficha (texto livre — cresce sem depender de migração de banco).</li>
+            <li>Admin preenche campos e/ou anexa um arquivo já preenchido em papel.</li>
+            <li>Sistema exige pelo menos um dos dois (campos ou arquivo) e grava a ficha.</li>
+          </ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC18</span><h3>Editar ficha clínica</h3><span class="uc-route">PATCH /patients/:id/fichas/:fichaId</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Ficha existe e pertence ao paciente informado.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Campos/anotações atualizados.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin altera campos ou notas.</li><li>Sistema grava.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC19</span><h3>Excluir ficha clínica</h3><span class="uc-route">DELETE /patients/:id/fichas/:fichaId</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Ficha existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Ficha removida; se havia arquivo anexado, ele também é apagado do storage.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin confirma a exclusão.</li><li>Sistema apaga o registro e, se houver, o arquivo associado.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC20</span><h3>Consultar fichas clínicas do paciente</h3><span class="uc-route">GET /patients/:id/fichas</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Paciente existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista de fichas exibida; acesso registrado em auditoria (VIEW).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin abre a aba de fichas do paciente.</li><li>Sistema registra o acesso e retorna a lista.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC21</span><h3>Visualizar/imprimir arquivo de ficha</h3><span class="uc-route">GET /patients/:id/fichas/:fichaId/file</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Ficha tem arquivo anexado (digitalizada) OU é um modelo em branco (PDF original servido como asset estático do site).</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Arquivo aberto/impresso: ficha já preenchida no sistema abre num modal de impressão fiel ao papel; modelo em branco abre o PDF original da clínica, pronto para preencher à mão.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin clica em imprimir.</li><li>Sistema serve o arquivo (digitalizado) ou o PDF-modelo (em branco), com token de acesso na própria URL.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 06 — LEMBRETES DE RETORNO -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-6">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 06</span>
+        <h2>Lembretes de retorno</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC22</span><h3>Consultar lembretes de retorno pendentes</h3><span class="uc-route">GET /reminders</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista de retornos que vencem nos próximos N dias (padrão 30).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário abre a tela/widget de lembretes.</li><li>Sistema retorna os lembretes <code class="mono">PENDING</code> dentro da janela.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC23</span><h3>Marcar lembrete como concluído/dispensado</h3><span class="uc-route">PATCH /reminders/:id/status</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Lembrete existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Status muda para <code class="mono">DONE</code> (paciente voltou) ou <code class="mono">DISMISSED</code> (não se aplica mais).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário resolve o lembrete na tela.</li><li>Sistema grava o novo status.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC24</span><h3>Enviar lembrete de retorno por WhatsApp</h3><span class="uc-route">POST /reminders/:id/notify-whatsapp <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Credenciais da WhatsApp Cloud API configuradas.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Mensagem enviada e lembrete marcado como <code class="mono">NOTIFIED</code>.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin aciona o envio manual.</li><li>Sistema chama a WhatsApp Cloud API e atualiza o status.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 07 — CATÁLOGO (GESTÃO) -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-7">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 07</span>
+        <h2>Catálogo — gestão</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+      <p class="pkg-note">Preço e cadastro de serviço são decisão do dono da clínica — Recepção não gerencia catálogo, só o consulta (UC01/UC02).</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC25</span><h3>Criar categoria de serviço</h3><span class="uc-route">POST /catalog/admin/categories</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Nova categoria criada, disponível para receber serviços.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin informa nome (imagem, destaque e ordem são opcionais).</li><li>Sistema grava.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC26</span><h3>Editar / destacar / ativar / desativar categoria</h3><span class="uc-route">PATCH /catalog/admin/categories/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Categoria existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Categoria atualizada; se marcada como destaque, qualquer outra categoria em destaque é automaticamente desmarcada (só existe um destaque por vez na home).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin altera nome, imagem, status ou marca como destaque.</li><li>Sistema grava e, se aplicável, remove o destaque anterior.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC27</span><h3>Cadastrar serviço</h3><span class="uc-route">POST /catalog/admin/categories/:categoryId/services</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Categoria existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Novo serviço disponível no catálogo público (se ativo).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin informa nome, duração e, opcionalmente, preço, descrição e dias de retorno automático.</li><li>Sistema grava o serviço.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC28</span><h3>Editar / ativar / desativar serviço</h3><span class="uc-route">PATCH /catalog/admin/services/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Serviço existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Dados atualizados — inclusive os dias de retorno automático usados pelo Pacote 06.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin altera os campos desejados.</li><li>Sistema grava.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 08 — FINANCEIRO -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-8">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 08</span>
+        <h2>Financeiro</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO*</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+      <p class="pkg-note">*Conciliação bancária (UC37, UC40–UC42) exige ADMIN — mexe diretamente na baixa automática de gastos.</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC29</span><h3>Lançar gasto</h3><span class="uc-route">POST /finance/expenses</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Gasto registrado como já pago (com data de pagamento) ou pendente (com data de vencimento).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário descreve o gasto, categoria e valor.</li><li>Usuário informa se já foi pago ou ainda vai vencer.</li><li>Sistema valida a consistência (pendente exige vencimento; pago exige data de pagamento) e grava.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC30</span><h3>Editar gasto</h3><span class="uc-route">PATCH /finance/expenses/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Gasto existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Dados atualizados, mantendo a mesma validação de consistência status×datas.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário altera campos.</li><li>Sistema revalida e grava.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC31</span><h3>Dar baixa em gasto pendente</h3><span class="uc-route">POST /finance/expenses/:id/pay</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Gasto está <code class="mono">PENDING</code>.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Gasto passa a <code class="mono">PAID</code> com a data informada.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário confirma o pagamento de um vencimento.</li><li>Sistema muda o status e grava a data.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC32</span><h3>Excluir gasto</h3><span class="uc-route">DELETE /finance/expenses/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Gasto existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Gasto removido definitivamente.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário confirma a exclusão.</li><li>Sistema apaga o registro.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC33</span><h3>Consultar lista de gastos</h3><span class="uc-route">GET /finance/expenses</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista exibida, filtrável por período e status.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário aplica filtros (opcional).</li><li>Sistema retorna os gastos correspondentes.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC34</span><h3>Consultar resumo financeiro do dia</h3><span class="uc-route">GET /finance/today-summary</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Usuário vê o que vence hoje (gastos pendentes) e o que já entrou hoje (atendimentos concluídos) — nunca projeção, só o que está de fato lançado.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário abre o painel financeiro.</li><li>Sistema soma vencimentos e recebimentos do dia corrente no fuso do tenant.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC35</span><h3>Consultar histórico de faturamento</h3><span class="uc-route">GET /finance/revenue-daily</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Série diária de receita dos últimos N dias (7–180), com média sobre dias de funcionamento real.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário escolhe o período.</li><li>Sistema soma o preço dos atendimentos concluídos por dia.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC36</span><h3>Gerar DRE do período</h3><span class="uc-route">GET /finance/dre</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Usuário informa data inicial e final.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Demonstração de Resultado simplificada: Receita Bruta (atendimentos concluídos) − Despesas por categoria (gastos pagos) = Resultado Líquido, com margem percentual.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário define o período.</li><li>Sistema soma receita e despesas pagas agrupadas por categoria naquele intervalo.</li><li>Sistema calcula resultado líquido e margem.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Regime de caixa, não de competência — e sem linha de impostos/CMV, porque o sistema não rastreia esse dado ainda.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC37</span><h3>Importar extrato bancário (OFX)</h3><span class="uc-route">POST /finance/bank/import <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Admin possui um arquivo de extrato no formato OFX.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Transações do extrato importadas como <code class="mono">UNMATCHED</code>, prontas para conciliar.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin envia o conteúdo do OFX.</li><li>Sistema identifica cada transação pelo FITID (identificador único do próprio banco).</li><li>Sistema grava só as transações ainda não importadas.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Reimportar o mesmo extrato (ou período sobreposto) nunca duplica lançamentos — o FITID já existente é simplesmente ignorado.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC38</span><h3>Consultar transações bancárias</h3><span class="uc-route">GET /finance/bank/transactions</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista de transações importadas, filtrável por status de conciliação.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário abre a tela de conciliação.</li><li>Sistema retorna as transações e o gasto já vinculado, quando houver.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC39</span><h3>Consultar sugestões de conciliação</h3><span class="uc-route">GET /finance/bank/transactions/:id/suggestions</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Transação é de saída (débito).</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Até 5 gastos candidatos, com o mesmo valor e data próxima (±5 dias), ainda não conciliados.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário pede sugestões para uma transação.</li><li>Sistema busca gastos compatíveis por valor exato e janela de data.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC40</span><h3>Conciliar transação bancária</h3><span class="uc-route">POST /finance/bank/transactions/:id/match <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Transação e gasto existem.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Transação marcada <code class="mono">MATCHED</code>; se o gasto ainda estava <code class="mono">PENDING</code>, é automaticamente dado como pago na data em que o banco processou.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin escolhe o gasto correspondente (de uma sugestão ou manualmente).</li><li>Sistema vincula os dois e dá baixa no gasto, se necessário, numa única operação.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC41</span><h3>Desfazer conciliação</h3><span class="uc-route">POST /finance/bank/transactions/:id/unmatch <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Transação está conciliada.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Transação volta a <code class="mono">UNMATCHED</code>; o vínculo com o gasto é removido (o gasto em si não é alterado).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin identifica uma conciliação incorreta.</li><li>Sistema desfaz o vínculo.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC42</span><h3>Ignorar transação bancária</h3><span class="uc-route">POST /finance/bank/transactions/:id/ignore <span class="mono" style="color:var(--warm)">ADMIN</span></span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Transação existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Transação marcada <code class="mono">IGNORED</code> (ex.: transferência pessoal, sem relação com a clínica) — sai da fila de conciliação pendente.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin identifica uma transação sem gasto correspondente.</li><li>Sistema marca como ignorada.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 09 — ESTOQUE -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-9">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 09</span>
+        <h2>Estoque</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC43</span><h3>Cadastrar item de estoque</h3><span class="uc-route">POST /inventory</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Item criado com quantidade e quantidade mínima (para alerta de reposição).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário informa nome, unidade e quantidades.</li><li>Sistema grava.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC44</span><h3>Editar item de estoque</h3><span class="uc-route">PATCH /inventory/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Item existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Dados do item atualizados (inclusive ativar/desativar).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário altera campos.</li><li>Sistema grava.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC45</span><h3>Ajustar quantidade em estoque</h3><span class="uc-route">POST /inventory/:id/adjust</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Item existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Quantidade somada/subtraída do valor atual (ajuste direto por delta, sem um livro-razão de movimentações separado).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário informa a variação (positiva = entrada, negativa = saída).</li><li>Sistema aplica o delta sobre a quantidade atual.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC46</span><h3>Consultar lista de estoque</h3><span class="uc-route">GET /inventory</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista completa de itens exibida.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário abre a tela de estoque.</li><li>Sistema retorna todos os itens do tenant.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 10 — DASHBOARD -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-10">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 10</span>
+        <h2>Dashboard</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-recepcao)">RECEPÇÃO</span><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC47</span><h3>Consultar dashboard de indicadores</h3><span class="uc-route">GET /dashboard</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Painel exibe indicadores consolidados: atendimentos do período, serviços mais agendados, gráfico de faturamento, lembretes e vencimentos próximos.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Usuário abre o painel (tela inicial do sistema).</li><li>Sistema agrega os dados dos demais módulos para o período solicitado.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 11 — USUÁRIOS -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-11">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 11</span>
+        <h2>Usuários</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+      <p class="pkg-note">Gestão de acesso ao próprio painel é decisão do dono da clínica — Recepção nunca gerencia outras contas.</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC48</span><h3>Consultar lista de usuários</h3><span class="uc-route">GET /auth/users</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Lista de contas do painel exibida, com papel e status.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin abre a tela de usuários.</li><li>Sistema retorna as contas do tenant.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC49</span><h3>Criar conta de usuário</h3><span class="uc-route">POST /auth/users</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">E-mail ainda não usado no tenant.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Nova conta criada com papel <code class="mono">ADMIN</code> ou <code class="mono">RECEPTION</code>.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin informa nome, e-mail, senha (mín. 8 caracteres) e função.</li><li>Sistema cria a conta com a senha já em hash.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">E-mail já cadastrado no tenant → erro de conflito.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC50</span><h3>Ativar/desativar conta de usuário</h3><span class="uc-route">PATCH /auth/users/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Conta existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Conta ativada ou desativada (desativada não consegue mais fazer login).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin alterna o status.</li><li>Sistema grava.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Admin tenta desativar a própria conta → bloqueado, para nunca ficar sem ninguém capaz de reverter.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC51</span><h3>Editar dados de usuário</h3><span class="uc-route">PUT /auth/users/:id</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Conta existe.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Nome, e-mail e/ou função atualizados.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin edita os campos.</li><li>Sistema valida e-mail duplicado e grava.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Admin tenta remover a própria função de ADMIN → bloqueado, pela mesma razão do UC50.</div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC52</span><h3>Redefinir senha de usuário</h3><span class="uc-route">POST /auth/users/:id/reset-password</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Conta existe. Fluxo pensado para quando alguém esquece a própria senha (sem e-mail de recuperação — poucas contas, o Admin já tem acesso a esta tela).</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Nova senha definida; Admin repassa o valor à pessoa por um canal seguro.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin define (ou gera) uma nova senha de pelo menos 8 caracteres.</li><li>Sistema grava o novo hash.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 12 — AUDITORIA -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-12">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 12</span>
+        <h2>Auditoria</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-admin)">ADMIN</span></div>
+      </div>
+      <p class="pkg-note">Recepção não vê o próprio log de vigilância — mesmo raciocínio de Usuários (Pacote 11).</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC53</span><h3>Consultar log de auditoria</h3><span class="uc-route">GET /audit</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Nenhuma.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Histórico paginado de ações, filtrável por usuário, tipo de entidade, ação e período.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Admin aplica filtros (opcional).</li><li>Sistema retorna os registros correspondentes, mais recentes primeiro.</li></ol></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PACOTE 13 — PROCESSOS AUTOMÁTICOS -->
+    <!-- ============================================================ -->
+    <div class="pkg" id="pkg-13">
+      <div class="pkg-head">
+        <span class="pkg-num">PACOTE 13</span>
+        <h2>Processos automáticos</h2>
+        <div class="pkg-actors"><span class="actor-chip" style="background:var(--actor-sistema)">SISTEMA</span></div>
+      </div>
+      <p class="pkg-note">Nenhuma pessoa aciona estes dois casos de uso diretamente — o Sistema os executa como consequência de outra ação.</p>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC54</span><h3>Gerar procedimento e lembretes de retorno</h3><span class="uc-route">sub-fluxo de UC08</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Um agendamento foi marcado como <code class="mono">COMPLETED</code>.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Um <code class="mono">ProcedureRecord</code> é criado (histórico do procedimento realizado) e, se o serviço tiver dias de retorno configurados (ex.: Botox = 15 e 122 dias), um <code class="mono">ReturnReminder</code> é criado para cada um, com data já calculada e congelada.</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Sistema detecta a mudança de status para concluído.</li><li>Sistema cria o registro de procedimento vinculado ao agendamento.</li><li>Sistema lê <code class="mono">Service.returnOffsetDays</code> e cria um lembrete por dia configurado.</li></ol></div>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="uc-id">UC55</span><h3>Registrar log de auditoria a cada escrita</h3><span class="uc-route">middleware transversal</span></div>
+        <div class="uc-body">
+          <div class="uc-label">Pré-condição</div><div class="uc-value">Uma requisição autenticada de escrita (POST/PATCH/PUT/DELETE) chega a qualquer rota do painel.</div>
+          <div class="uc-label">Pós-condição</div><div class="uc-value">Um registro de auditoria é gravado com usuário, ação, entidade afetada e corpo da requisição (com senhas e outros campos sensíveis removidos antes de salvar).</div>
+          <div class="uc-label">Fluxo principal</div><div class="uc-value"><ol><li>Sistema intercepta a requisição antes dela chegar à rota de negócio.</li><li>Sistema aguarda a resposta ser enviada (<code class="mono">res.on('finish')</code>).</li><li>Sistema grava o log de forma assíncrona, sem atrasar a resposta ao usuário.</li></ol></div>
+          <div class="uc-label">Exceção</div><div class="uc-value alt">Agendamento público (UC04) nunca passa por aqui — não há usuário autenticado nessa rota.</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>

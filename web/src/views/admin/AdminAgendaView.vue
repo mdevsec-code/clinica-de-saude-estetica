@@ -3,10 +3,22 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
-import { fetchAppointments } from '@/services/admin-appointments.service';
+import {
+  fetchAppointments,
+  fetchBlockedTimes,
+  fetchGoogleCalendarStatus,
+  syncGoogleCalendarNow,
+} from '@/services/admin-appointments.service';
 import { fetchCategories } from '@/services/catalog.service';
 import { fetchReminders } from '@/services/admin-reminders.service';
-import type { AdminAppointment, AppointmentStatus, ServiceCategory, UnifiedReminder } from '@/types';
+import type {
+  AdminAppointment,
+  AdminBlockedTime,
+  AppointmentStatus,
+  GoogleCalendarSyncStatus,
+  ServiceCategory,
+  UnifiedReminder,
+} from '@/types';
 import {
   addDays,
   addMonths,
@@ -35,6 +47,7 @@ const viewMode = ref<ViewMode>('month');
 const referenceDate = ref(new Date());
 
 const appointments = ref<AdminAppointment[]>([]);
+const blockedTimes = ref<AdminBlockedTime[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
@@ -90,9 +103,16 @@ async function load() {
   loading.value = true;
   error.value = null;
   try {
-    const { from, to } = currentRange();
-    const { appointments: data } = await fetchAppointments({ from: from.toISOString(), to: to.toISOString() });
+    const range = currentRange();
+    const params = { from: range.from.toISOString(), to: range.to.toISOString() };
+    // Bloqueios são complementares: se falharem, a agenda de atendimentos
+    // continua aparecendo normalmente, só sem os compromissos do Google.
+    const [{ appointments: data }, blocks] = await Promise.all([
+      fetchAppointments(params),
+      fetchBlockedTimes(params).catch(() => ({ blockedTimes: [] as AdminBlockedTime[] })),
+    ]);
     appointments.value = data;
+    blockedTimes.value = blocks.blockedTimes;
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       router.push({ name: 'admin-login' });
@@ -106,6 +126,32 @@ async function load() {
 
 onMounted(load);
 watch([viewMode, referenceDate], load);
+
+// --- Google Agenda (status da sincronização + "Sincronizar agora") ---
+// A faixa só aparece com a integração configurada no servidor — sem ela,
+// a agenda fica exatamente como antes.
+const googleStatus = ref<GoogleCalendarSyncStatus | null>(null);
+const syncingGoogle = ref(false);
+
+onMounted(async () => {
+  googleStatus.value = await fetchGoogleCalendarStatus().catch(() => null);
+});
+
+async function syncGoogleNow() {
+  syncingGoogle.value = true;
+  try {
+    googleStatus.value = await syncGoogleCalendarNow();
+    await load();
+  } catch {
+    // mantém o status anterior; a faixa já mostra o último erro conhecido
+  } finally {
+    syncingGoogle.value = false;
+  }
+}
+
+function formatSyncTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
 
 // Lembretes de retorno/aniversário (mesmo feed do dashboard, ver
 // reminders.service.ts no backend) — janela mais larga aqui (14 dias) que no
@@ -182,9 +228,25 @@ const appointmentsByDate = computed(() => {
 
 const dayAppointments = computed(() => appointmentsByDate.value[toLocalDateKey(referenceDate.value)] ?? []);
 
+// Um bloqueio aparece em todo dia que ele cobre (férias de uma semana marcam
+// os sete dias), não só no dia em que começa.
+const blocksByDate = computed(() => {
+  const map: Record<string, AdminBlockedTime[]> = {};
+  for (const block of blockedTimes.value) {
+    const end = new Date(block.endAt);
+    for (let day = startOfDay(new Date(block.startAt)); day < end; day = addDays(day, 1)) {
+      (map[toLocalDateKey(day)] ??= []).push(block);
+    }
+  }
+  return map;
+});
+
+const dayBlocks = computed(() => blocksByDate.value[toLocalDateKey(referenceDate.value)] ?? []);
+
 // --- Modal de dia (aberto a partir de um clique na grade em mês/semana) ---
 const dayModalKey = ref<string | null>(null);
 const dayModalAppointments = computed(() => (dayModalKey.value ? appointmentsByDate.value[dayModalKey.value] ?? [] : []));
+const dayModalBlocks = computed(() => (dayModalKey.value ? blocksByDate.value[dayModalKey.value] ?? [] : []));
 const dayModalTitle = computed(() =>
   dayModalKey.value ? dayLabel(new Date(`${dayModalKey.value}T12:00:00`)) : '',
 );
@@ -251,6 +313,20 @@ function onAppointmentCreated() {
       </label>
     </div>
 
+    <div v-if="googleStatus?.configured" class="admin-agenda__google" :class="{ 'admin-agenda__google--error': googleStatus.lastError }">
+      <span>
+        <strong>Google Agenda:</strong>
+        <template v-if="googleStatus.lastError">falha na última sincronização — {{ googleStatus.lastError }}</template>
+        <template v-else-if="googleStatus.lastSyncAt">
+          sincronizado às {{ formatSyncTime(googleStatus.lastSyncAt) }} · {{ googleStatus.importedBlocks }} compromisso(s) fechando horários no site
+        </template>
+        <template v-else>aguardando a primeira sincronização</template>
+      </span>
+      <button type="button" class="admin-agenda__nav-btn" :disabled="syncingGoogle" @click="syncGoogleNow">
+        {{ syncingGoogle ? 'Sincronizando…' : 'Sincronizar agora' }}
+      </button>
+    </div>
+
     <div v-if="reminders.length" class="admin-agenda__reminders">
       <span class="admin-agenda__reminders-label">Lembretes (14 dias):</span>
       <button
@@ -270,12 +346,13 @@ function onAppointmentCreated() {
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
       <div v-else key="content" v-stagger.grid="'.calendar-day'">
         <Transition name="fade-swap">
-          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" />
+          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" :blocks="dayBlocks" />
           <CalendarGrid
             v-else
             :key="viewMode"
             :days="visibleDays"
             :appointments-by-date="appointmentsByDate"
+            :blocks-by-date="blocksByDate"
             @select-day="openDayModal"
             @select-appointment="openDayModalForAppointment"
           />
@@ -284,7 +361,7 @@ function onAppointmentCreated() {
     </Transition>
 
     <AdminModal v-if="dayModalKey" :title="dayModalTitle" @close="dayModalKey = null">
-      <DayAppointmentList :appointments="dayModalAppointments" />
+      <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" />
     </AdminModal>
 
     <NewAppointmentModal v-if="showNewAppointment" @close="showNewAppointment = false" @created="onAppointmentCreated" />
@@ -396,6 +473,31 @@ function onAppointmentCreated() {
 
 .admin-agenda__view-btn {
   transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.admin-agenda__google {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+.admin-agenda__google--error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.admin-agenda__google .admin-agenda__nav-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .admin-agenda__reminders {

@@ -25,3 +25,23 @@ export function setUserActive(id: string, active: boolean) {
     body: JSON.stringify({ active }),
   });
 }
+
+export interface UpdateUserPayload {
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export function updateUser(id: string, payload: UpdateUserPayload) {
+  return apiRequest<{ user: AdminAccount }>(`/auth/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetUserPassword(id: string, password: string) {
+  return apiRequest<void>(`/auth/users/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}

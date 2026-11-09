@@ -30,7 +30,12 @@ export function initSmoothScroll(): ScrollSmoother | null {
     content: '#smooth-content',
     smooth: 1.2,
     smoothTouch: 0.1,
-    normalizeScroll: true,
+    // allowNestedScroll: sem isso, normalizeScroll assume TODO o toque da
+    // página pra si (é o que evita o salto da barra de endereço do celular),
+    // inclusive dentro de listas com scroll horizontal próprio — a nav de
+    // abas do painel (.admin__nav) e as tiras de chip do site (categorias,
+    // datas) ficavam impossíveis de arrastar no toque por causa disso.
+    normalizeScroll: { allowNestedScroll: true },
     ignoreMobileResize: true,
   });
 

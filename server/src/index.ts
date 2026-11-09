@@ -3,6 +3,7 @@ import { env } from './config/env';
 import { prisma } from './lib/prisma';
 import { restoreWhatsappSessions } from './modules/whatsapp/whatsapp-connection';
 import { startReminderScheduler } from './modules/whatsapp/whatsapp-automation';
+import { startGoogleCalendarSyncLoop } from './modules/google-calendar/google-calendar.service';
 
 const app = createApp();
 
@@ -16,4 +17,5 @@ app.listen(env.PORT, () => {
     .then((tenants) => restoreWhatsappSessions(tenants.map((t) => t.id)))
     .catch((err) => console.error('Falha ao restaurar sessões do WhatsApp', err));
   startReminderScheduler();
+  startGoogleCalendarSyncLoop(env.GOOGLE_CALENDAR_SYNC_INTERVAL_MIN);
 });

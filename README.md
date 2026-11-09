@@ -1,35 +1,47 @@
-# 💆‍♀️ Noely Cerqueira — Estética e Micropigmentação
-
-<p>
-  <img src="https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white" alt="Node.js 20+" />
-  <img src="https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Vue-3.4-4FC08D?logo=vue.js&logoColor=white" alt="Vue 3" />
-  <img src="https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white" alt="Express" />
-  <img src="https://img.shields.io/badge/Prisma-6.19-2D3748?logo=prisma&logoColor=white" alt="Prisma" />
-  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
-  <img src="https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/status-em%20desenvolvimento-yellow" alt="Status: em desenvolvimento" />
-  <img src="https://img.shields.io/badge/repositório-privado-lightgrey?logo=github" alt="Repositório privado" />
+<p align="center">
+  <img src="web/public/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira — Estética e Micropigmentação" width="300">
 </p>
 
-> 🔒 **Repositório privado — software proprietário.** Desenvolvido
-> especificamente para a Clínica Noely Cerqueira; não é software livre nem
-> aberto a contribuições externas.
+<h1 align="center">💆‍♀️ Noely Cerqueira — Estética e Micropigmentação</h1>
 
-Plataforma de gestão e site público da clínica de estética e micropigmentação
-da Noely Cerqueira (Camaçari, BA) — construída desde o início como a base de
-um **futuro SaaS multi-tenant** para clínicas de estética, com a Noely
-Cerqueira como primeiro tenant real.
+<p align="center">
+  <em>Do agendamento online à ficha clínica: a clínica inteira num só sistema.</em>
+</p>
 
-O projeto é dividido em duas aplicações independentes que conversam por API:
-um **site público** com agendamento online self-service, e um **painel
-administrativo** completo para a equipe da clínica gerenciar catálogo,
-agenda, pacientes, financeiro, estoque e usuários.
+<p align="center">
+  Site público com <strong>agendamento self-service</strong> e painel administrativo completo
+  (agenda, pacientes, fichas clínicas, financeiro com DRE e conciliação OFX, estoque e auditoria)
+  da clínica de estética da Noely Cerqueira, em Camaçari/BA — construído como base de um
+  <strong>futuro SaaS multi-tenant</strong> para clínicas de estética.
+</p>
+
+<p align="center">
+  <img alt="Node 20+" src="https://img.shields.io/badge/node-%E2%89%A520-339933?style=flat-square">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square">
+  <img alt="Multi-tenant ready" src="https://img.shields.io/badge/multi--tenant-ready-1F6FEB?style=flat-square">
+  <img alt="LGPD" src="https://img.shields.io/badge/LGPD-auditoria%20de%20acesso-8250DF?style=flat-square">
+  <img alt="Status" src="https://img.shields.io/badge/status-em%20desenvolvimento-D29922?style=flat-square">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Vue_3-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white" alt="Vue 3">
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
+  <img src="https://img.shields.io/badge/Pinia-FFD859?style=for-the-badge&logo=vuedotjs&logoColor=black" alt="Pinia">
+  <img src="https://img.shields.io/badge/GSAP-88CE02?style=for-the-badge&logo=greensock&logoColor=white" alt="GSAP">
+  <br>
+  <img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express">
+  <img src="https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Zod-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod">
+  <img src="https://img.shields.io/badge/WhatsApp_Cloud_API-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp Cloud API">
+</p>
 
 ---
 
 ## 📑 Sumário
 
+- [Telas](#-telas)
 - [Estrutura do repositório](#-estrutura-do-repositório)
 - [Stack tecnológica](#-stack-tecnológica)
 - [Funcionalidades](#-funcionalidades)
@@ -39,7 +51,33 @@ agenda, pacientes, financeiro, estoque e usuários.
 - [Variáveis de ambiente](#-variáveis-de-ambiente)
 - [Scripts disponíveis](#-scripts-disponíveis)
 - [Deploy em produção](#-deploy-em-produção)
-- [Roadmap](#-roadmap)
+- [Roadmap](#️-roadmap)
+- [Licença](#-licença)
+
+---
+
+## 📸 Telas
+
+> Capturas do ambiente local com os dados fictícios do `npm run seed:demo`.
+
+<p align="center">
+  <img src="docs/screenshots/site-inicio.png" alt="Site público — página inicial" width="100%">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/painel.png" alt="Painel administrativo"><br><sub><b>Painel</b> — atendimentos do dia, receita, gastos, ticket médio e estoque baixo</sub></td>
+    <td width="50%"><img src="docs/screenshots/agenda.png" alt="Agenda"><br><sub><b>Agenda</b> — calendário mensal, semanal e diário com lembretes de retorno</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/financeiro.png" alt="Financeiro"><br><sub><b>Financeiro</b> — despesas, faturamento diário, DRE e conciliação OFX</sub></td>
+    <td width="50%"><img src="docs/screenshots/servicos.png" alt="Catálogo de serviços"><br><sub><b>Serviços</b> — catálogo real com 8 categorias e 60 serviços</sub></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/celular-inicio.png" alt="Site público no celular" width="280">
+</p>
 
 ---
 
@@ -80,7 +118,7 @@ server/src/
 │   └── settings/                 # configurações públicas do tenant
 ├── lib/
 │   ├── prisma.ts                 # client Prisma singleton
-│   ├── file-storage.ts            # fotos/fichas — disco local (dev) ou R2 (produção, ver DEPLOY.md)
+│   ├── file-storage.ts            # fotos/fichas — disco local (dev) ou S3-compatível (produção, ver DEPLOY.md)
 │   └── whatsapp-client.ts         # cliente da WhatsApp Cloud API (Meta)
 └── utils/                       # async-handler, erros tipados, slugify
 
@@ -254,8 +292,8 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 
 | Variável | Obrigatória | Descrição |
 |---|:---:|---|
-| `DATABASE_URL` | ✅ | String de conexão do PostgreSQL |
-| `DIRECT_DATABASE_URL` | ✅ | Conexão usada só pelas migrations — sem pooler (local ou na VPS), é igual à `DATABASE_URL` |
+| `DATABASE_URL` | ✅ | String de conexão do PostgreSQL (pooled, em produção com Neon) |
+| `DIRECT_DATABASE_URL` | ✅ | Conexão direta, sem pooler — usada só pelas migrations (ver [Deploy em produção](#-deploy-em-produção)); local, sem pooler, é igual à `DATABASE_URL` |
 | `PORT` | — | Porta da API (padrão `3333`) |
 | `JWT_SECRET` | ✅ | Segredo para assinatura dos tokens (mín. 32 caracteres) |
 | `JWT_EXPIRES_IN` | — | Validade do token (padrão `8h`) |
@@ -263,11 +301,10 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `ADMIN_SEED_EMAIL` | ✅* | E-mail do admin criado pelo `npm run seed` (\*só obrigatório para rodar o seed) |
 | `ADMIN_SEED_PASSWORD` | ✅* | Senha do admin criado pelo `npm run seed` (\*só obrigatório para rodar o seed) |
 | `TENANT_TIMEZONE` | — | Fuso horário do tenant (padrão `America/Bahia`) |
-| `TRUST_PROXY` | — | `"true"` quando a API roda atrás do Nginx (produção na VPS) — sem isso o rate limit vê todo visitante com o mesmo IP (padrão `false`) |
 | `WHATSAPP_CLOUD_API_TOKEN` | — | Token de acesso da WhatsApp Cloud API (Meta) — sem ele, o envio de lembretes por WhatsApp fica indisponível, mas o resto do painel funciona normalmente |
 | `WHATSAPP_PHONE_NUMBER_ID` | — | Phone Number ID configurado na Cloud API |
 | `WHATSAPP_API_VERSION` | — | Versão da Graph API (padrão `v21.0`) |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | — | Object storage (Cloudflare R2) para fotos/fichas — sem elas, usa o disco local (`server/uploads/`), que é o caso da VPS; só necessárias numa hospedagem com disco efêmero (Railway, Render etc.) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` | — | Object storage S3-compatível (Supabase Storage recomendado) para fotos/fichas — sem elas, cai para disco local (dev); **obrigatório em produção** numa hospedagem com disco efêmero, ver [Deploy em produção](#-deploy-em-produção) |
 
 ### `web/.env`
 
@@ -300,11 +337,13 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 
 ## 📦 Deploy em produção
 
-Guia completo, passo a passo, em **[DEPLOY.md](DEPLOY.md)**: tudo numa VPS
-da Hostinger — Nginx servindo o site e fazendo proxy da API (pm2),
-PostgreSQL na própria VPS, fotos/fichas no disco local e HTTPS via
-Let's Encrypt. Configuração do Nginx, do pm2 e os scripts de atualização e
-backup diário ficam em [`deploy/hostinger/`](deploy/hostinger/).
+Guia completo (contas, variáveis de ambiente, custo estimado) em
+**[DEPLOY.md](DEPLOY.md)**. Stack recomendada: Railway (API) + Netlify
+(site) + Neon (Postgres) + Supabase Storage (fotos/fichas). O código já
+está preparado para essa stack — `directUrl` no schema do Prisma, storage
+S3-compatível automático em `lib/file-storage.ts` quando configurado, e
+roteamento SPA (`web/netlify.toml`) — falta só criar as contas e configurar
+as variáveis descritas lá.
 
 ## 🗺️ Roadmap
 
@@ -322,6 +361,12 @@ original em branco, galeria de fotos, retornos automáticos, lembretes e
 integração com a WhatsApp Cloud API (client pronto; só falta configurar
 credenciais reais em produção); preparação completa do código para deploy
 em produção (ver seção acima).
+
+## 📜 Licença
+
+Código **proprietário** — todos os direitos reservados. O repositório é público como
+portfólio, mas não é software livre: uso, cópia ou redistribuição dependem de
+autorização. Marca, fotos e textos são da Clínica Noely Cerqueira.
 
 ---
 

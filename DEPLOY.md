@@ -1,319 +1,211 @@
-# Guia de deploy em produção — VPS Hostinger
+# Guia de deploy em produção
 
-Tudo em um único servidor, num único fornecedor:
+> **Produção atual (desde out/2026): VPS Hostinger KVM 2.** API e banco
+> saíram do Railway/Neon e rodam numa VPS própria — ver
+> [VPS Hostinger](#vps-hostinger-produção-atual) no fim deste guia. O site
+> continua na Netlify. As seções 1–5 abaixo descrevem a stack anterior
+> (Railway + Neon + Supabase), mantidas como alternativa.
 
-| Peça | Onde roda na VPS |
-|---|---|
-| Site (`web/`) | Arquivos estáticos do build (`web/dist`) servidos pelo Nginx |
-| API (`server/`) | Node.js mantido no ar pelo pm2, atrás do Nginx em `/api` |
-| Banco de dados | PostgreSQL instalado na própria VPS (acessível só por `localhost`) |
-| Fotos de paciente e fichas digitalizadas | Disco da VPS (`server/uploads/`) — persistente, ao contrário de Railway/Render |
-| HTTPS | Let's Encrypt via certbot (grátis, renova sozinho) |
+Stack recomendada (custo-benefício para o tamanho atual, com espaço para
+crescer conforme o volume de pacientes aumenta):
 
-Arquivos prontos para isso em [`deploy/hostinger/`](deploy/hostinger/):
+| Peça | Serviço | Por quê |
+|---|---|---|
+| API (`server/`) | [Railway](https://railway.app) | Deploy via git, HTTPS automático, sem DevOps |
+| Site (`web/`) | [Netlify](https://netlify.com) | CDN global, grátis, desacoplado do custo da API, domínio próprio com HTTPS automático |
+| Banco de dados | [Neon](https://neon.tech) | Postgres serverless, separa storage de computação, branching para testar migrations com segurança |
+| Fotos de paciente e fichas digitalizadas | [Supabase Storage](https://supabase.com/storage) | Free tier permanente (não expira), compatível com S3 — resolve o problema do disco local, que é apagado a cada deploy no Railway |
 
-| Arquivo | Para quê |
-|---|---|
-| `nginx.conf` | Site + proxy da API + rotas do Vue Router + limite de upload |
-| `security-headers.conf` | Cabeçalhos de segurança do site (CSP, anti-iframe, HSTS) — incluído pelo `nginx.conf` |
-| `ecosystem.config.js` | Configuração do pm2 para a API |
-| `update.sh` | Publica uma versão nova (pull, migrations, build, reload) |
-| `backup.sh` | Backup diário do banco e das fotos/fichas, com rotação |
+Custo estimado para começar: ~R$0–65/mês (Supabase Storage e o plano
+gratuito da Netlify cobrem bem o volume inicial), crescendo só conforme o
+uso real.
 
-Os comandos abaixo usam `noelycerqueira.com.br` como domínio de exemplo e
-`IP_DA_VPS` como o IP do servidor — troque pelos reais.
+O código já está preparado para essa stack (ver "O que já está pronto"
+abaixo) — falta só criar as contas, os recursos, e configurar as variáveis
+de ambiente descritas aqui.
 
-> ⚠️ **Repositório privado**: a VPS precisa de uma *deploy key* para clonar
-> o repositório (seção 4) — é uma chave só de leitura, só deste repositório,
-> configurada pelo dono da conta do GitHub.
+> ⚠️ **Repositório privado**: ao conectar o Railway e a Netlify ao GitHub
+> (seções 3 e 5), a tela de autorização do GitHub vai pedir acesso explícito
+> a este repositório especificamente (repos privados não aparecem por
+> padrão) — normal, só confirme o acesso pelo dono da conta do GitHub.
 
-## 1. Criar a VPS e apontar o domínio
+## 1. Banco de dados (Neon)
 
-1. No hPanel da Hostinger, contrate uma **VPS KVM** (o KVM 1 já sobra para
-   o volume atual; dá para subir de plano depois sem reinstalar).
-2. Sistema operacional: **Ubuntu 24.04 LTS** (o "plain OS", sem painel).
-3. **Datacenter**: escolha o do Brasil se o plano oferecer — ver "LGPD" no fim.
-4. Cadastre sua **chave SSH** na criação (mais seguro que senha de root).
-   No Windows, se ainda não tiver uma: `ssh-keygen -t ed25519` no PowerShell
-   e cole o conteúdo de `~/.ssh/id_ed25519.pub`.
-5. Em **Domínios > DNS**, crie dois registros **A** apontando para o IP da VPS:
-   `@` e `www`. A propagação leva de minutos a algumas horas — o certbot
-   (seção 5) só funciona depois disso.
+1. Crie uma conta em [neon.tech](https://neon.tech) e um projeto novo.
+2. No painel do projeto, pegue duas connection strings:
+   - **Pooled connection** (tem `-pooler` no host) → vai em `DATABASE_URL`.
+   - **Direct connection** (sem `-pooler`) → vai em `DIRECT_DATABASE_URL`.
+   - Migrations (DDL) não funcionam de forma confiável através do pooler —
+     por isso o schema (`server/prisma/schema.prisma`) já declara as duas
+     (`url` e `directUrl`); localmente, sem pooler, elas apontam pro mesmo
+     banco (ver `server/.env.example`).
+3. Depois de configurar as variáveis (seção 4), rode as migrations contra o
+   Neon a partir da sua máquina (uma vez, antes do primeiro deploy):
+   ```bash
+   cd server
+   npx prisma migrate deploy
+   npx prisma db execute --file prisma/manual-sql/001_appointment_no_overlap.sql --schema prisma/schema.prisma
+   npm run seed
+   ```
 
-## 2. Preparar o servidor
+## 2. Armazenamento de arquivo (Supabase Storage)
 
-Conecte como root (`ssh root@IP_DA_VPS`) e rode:
+Fotos de paciente e fichas digitalizadas hoje ficam em `server/uploads/` —
+isso funciona em desenvolvimento, mas **desaparece a cada deploy** em
+qualquer hospedagem com disco efêmero (Railway incluso). `lib/file-storage.ts`
+já sabe usar um storage S3-compatível automaticamente quando configurado
+(usa `@aws-sdk/client-s3`, endpoint/região genéricos) — sem essas variáveis,
+continua caindo para disco local sem quebrar nada.
 
-```bash
-apt update && apt upgrade -y
-apt install -y git rsync nginx postgresql postgresql-contrib certbot python3-certbot-nginx ufw
+1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo
+   (o projeto também sobe um Postgres próprio — ignore-o, o banco desta
+   aplicação continua sendo o Neon da seção 1).
+2. No painel do projeto, vá em **Storage** e crie um bucket (ex.:
+   `noely-cerqueira-uploads`). Deixe como **privado** (não público) — o
+   acesso aos arquivos é sempre por rota autenticada da própria API, nunca
+   direto do storage.
+3. Vá em **Project Settings > Storage > S3 Connection** e gere um par de
+   credenciais S3 (Access Key ID / Secret Access Key) — são diferentes das
+   chaves `anon`/`service_role` do resto do Supabase. Anote também o
+   **Endpoint** e a **Region** mostrados nessa mesma tela.
+4. Configure as 5 variáveis descritas em `server/.env.example` (seção S3).
 
-# Node.js 24 (mesma versão usada no desenvolvimento) + pm2
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt install -y nodejs
-npm install -g pm2
+## 3. API (Railway)
 
-# Usuário sem privilégio de root para rodar a aplicação
-adduser --disabled-password --gecos "" deploy
-mkdir -p /home/deploy/.ssh
-cp ~/.ssh/authorized_keys /home/deploy/.ssh/
-chown -R deploy:deploy /home/deploy/.ssh && chmod 700 /home/deploy/.ssh
-chmod 755 /home/deploy   # o Nginx precisa ler web/dist
+1. Crie um projeto no Railway e conecte o repositório do GitHub.
+2. Configure o **root directory** do serviço como `server/`.
+3. Build command: `npm run build` · Start command: `npm start` (já existem
+   em `server/package.json`).
+4. Configure as variáveis de ambiente (seção 4 abaixo) no painel do Railway.
+5. Cada push na branch principal faz deploy automático.
 
-# Firewall: só SSH e web. A porta 5432 do Postgres NÃO fica aberta.
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-ufw enable
-```
+## 4. Variáveis de ambiente da API em produção
 
-Também vale ligar o **firewall da própria Hostinger** (hPanel > VPS >
-Segurança) com as mesmas regras, e os **snapshots/backups automáticos** da
-VPS, como segunda camada além da seção 7.
-
-## 3. Banco de dados: migrar o banco atual
-
-### 3.1 Conferir versões
-
-`pg_restore` não restaura um dump de um Postgres **mais novo** que o do
-servidor. Compare:
-
-```bash
-psql --version          # na sua máquina
-psql --version          # na VPS (Ubuntu 24.04 vem com o 16)
-```
-
-Se o local for mais novo (ex.: 17), instale a mesma versão na VPS pelo
-repositório oficial do PostgreSQL antes de continuar (`apt install
-postgresql-common && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh`,
-depois `apt install postgresql-17`).
-
-### 3.2 Criar banco e usuário na VPS
-
-Ainda como root, com uma senha forte (diferente da de dev):
-
-```bash
-sudo -u postgres psql -c "CREATE USER noely WITH PASSWORD 'SENHA_FORTE_AQUI';"
-sudo -u postgres psql -c "CREATE DATABASE noely_cerqueira OWNER noely;"
-```
-
-### 3.3 Exportar o banco local (na sua máquina, PowerShell)
-
-```powershell
-cd C:\Users\...\clinica-de-saúde
-pg_dump -U noely -h localhost -Fc --no-owner --no-acl noely_cerqueira -f noely.dump
-```
-
-- Se `pg_dump` não for reconhecido, ele fica em
-  `C:\Program Files\PostgreSQL\<versão>\bin\pg_dump.exe`.
-- Se o Postgres local roda em Docker:
-  `docker exec <container> pg_dump -U noely -Fc --no-owner --no-acl noely_cerqueira > noely.dump`
-  (no PowerShell, prefira rodar isso pelo Git Bash — o `>` do PowerShell 5
-  corrompe arquivo binário).
-
-O dump completo já leva junto o histórico de migrations do Prisma
-(`_prisma_migrations`) e a constraint de
-[`001_appointment_no_overlap.sql`](server/prisma/manual-sql/001_appointment_no_overlap.sql) —
-não precisa rodar nada disso de novo depois.
-
-### 3.4 Enviar e restaurar
-
-```powershell
-scp noely.dump deploy@IP_DA_VPS:/tmp/
-```
-
-Na VPS:
-
-```bash
-pg_restore --no-owner --no-acl \
-  -d "postgresql://noely:SENHA_FORTE_AQUI@localhost:5432/noely_cerqueira" \
-  /tmp/noely.dump
-rm /tmp/noely.dump
-```
-
-> O dump tem dados reais de pacientes — envie só por `scp`, nunca por
-> e-mail/WhatsApp/drive, e apague as cópias (na VPS e no PC) depois de
-> confirmar que a restauração funcionou.
-
-**Não rode `npm run seed` depois de restaurar** — os dados já estão lá. O
-seed só é necessário se for começar com um banco vazio (aí, em vez das
-seções 3.3/3.4, rode `npx prisma migrate deploy`, o `db execute` do SQL
-manual e `npm run seed` depois da seção 4).
-
-## 4. API
-
-Como usuário deploy (`ssh deploy@IP_DA_VPS`):
-
-### 4.1 Clonar o repositório privado
-
-```bash
-ssh-keygen -t ed25519 -C "vps-clinica" -f ~/.ssh/id_ed25519 -N ""
-cat ~/.ssh/id_ed25519.pub
-```
-
-No GitHub: repositório > **Settings > Deploy keys > Add deploy key**, cole a
-chave, **sem** marcar "Allow write access". Depois:
-
-```bash
-git clone git@github.com:mdevsec-code/clinica-de-saude-estetica.git ~/clinica
-chmod +x ~/clinica/deploy/hostinger/*.sh
-```
-
-### 4.2 Configurar `server/.env`
-
-```bash
-cp ~/clinica/server/.env.example ~/clinica/server/.env
-chmod 600 ~/clinica/server/.env
-nano ~/clinica/server/.env
-```
+Todas descritas com comentário em `server/.env.example` — resumo do que
+muda em relação ao `.env` local:
 
 | Variável | Valor em produção |
 |---|---|
-| `DATABASE_URL` | `postgresql://noely:SENHA_FORTE_AQUI@localhost:5432/noely_cerqueira?schema=public` |
-| `DIRECT_DATABASE_URL` | Igual à `DATABASE_URL` (sem pooler na VPS) |
+| `DATABASE_URL` | Connection string **pooled** do Neon |
+| `DIRECT_DATABASE_URL` | Connection string **direta** do Neon |
 | `JWT_SECRET` | Novo valor aleatório (não reaproveitar o de dev) — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `WEB_ORIGIN` | `https://noelycerqueira.com.br` |
-| `TRUST_PROXY` | `"true"` — a API fica atrás do Nginx (ver comentário em `server/src/config/env.ts`) |
-| `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` | Só usados pelo seed — com o banco restaurado, podem ficar como estão |
-| `WHATSAPP_CLOUD_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Os mesmos do ambiente atual (ver seção 8) |
-| `R2_*` | **Deixar comentadas** — na VPS o disco é persistente, e `lib/file-storage.ts` usa `server/uploads/` automaticamente |
+| `WEB_ORIGIN` | URL pública do site na Netlify (ex.: `https://noelycerqueira.com.br`) |
+| `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` | Credenciais reais do admin (senha forte, não a de dev) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` | Do bucket criado na seção 2 (Supabase Storage) |
+| `WHATSAPP_CLOUD_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Se for usar lembretes por WhatsApp — opcional |
 
-### 4.3 Copiar fotos e fichas digitalizadas
+## 5. Site (Netlify)
 
-Da sua máquina (PowerShell):
+1. Crie uma conta em [netlify.com](https://netlify.com) → **Add new site >
+   Import an existing project** → conecte o mesmo repositório GitHub.
+2. **Base directory**: `web`. Build command e Publish directory a Netlify
+   já lê de `web/netlify.toml` (`npm run build` / `dist`) — confirme que
+   veio certo antes de finalizar.
+3. Em **Site configuration > Environment variables**: `VITE_API_URL` = URL
+   pública da API no Railway (ex.: `https://noely-cerqueira-api.up.railway.app`).
+4. **Deploy site**. Você recebe uma URL tipo `nome-aleatorio.netlify.app`
+   (pode renomear em **Site configuration > General > Site details**).
+5. `web/netlify.toml` já está no projeto — necessário para as rotas do Vue
+   Router (ex. `/servicos`, `/agendar`) funcionarem em recarregamento direto
+   num host de arquivos estáticos, sem servidor próprio de rotas.
+6. **Domínio próprio**: em **Domain management > Add a domain**, informe o
+   domínio da clínica e siga as instruções de DNS mostradas na tela
+   (Netlify emite o certificado HTTPS automaticamente depois que o DNS
+   propaga — geralmente minutos, às vezes até 24h).
 
-```powershell
-scp -r server\uploads deploy@IP_DA_VPS:~/clinica/server/
-```
+## O que já está pronto no código para isso
 
-### 4.4 Build e subir com pm2
+- `server/prisma/schema.prisma` — `directUrl` para o padrão pooled/direct do Neon.
+- `server/src/lib/file-storage.ts` — usa storage S3-compatível automaticamente quando configurado, disco local como padrão em dev.
+- `server/src/config/env.ts` — variáveis de storage (`S3_*`) validadas e documentadas.
+- `web/netlify.toml` — build settings e roteamento SPA para a Netlify.
 
-```bash
-cd ~/clinica/server
-npm ci
-npx prisma generate
-npx prisma migrate deploy   # com o banco restaurado, deve dizer "No pending migrations"
-npm run build
+## VPS Hostinger (produção atual)
 
-pm2 start ~/clinica/deploy/hostinger/ecosystem.config.js
-pm2 save
-pm2 startup   # imprime um comando "sudo env PATH=..." — rode-o como root
-curl http://127.0.0.1:3333/health   # → {"status":"ok"}
-```
+| Peça | Onde |
+|---|---|
+| Sistema | Ubuntu 26.04, firewall `ufw` liberando só 22/80/443 |
+| Banco | PostgreSQL 18 local, escutando só em `127.0.0.1` — banco `noely_cerqueira`, dono `noely` (restaurado do Neon com `pg_dump`/`pg_restore` 18) |
+| API | `/opt/noely/server`, serviço systemd `noely-api` rodando com usuário sem privilégios `noely-api`; `.env` em `/opt/noely/server/.env` (chmod 600) com `TRUST_PROXY=1` |
+| HTTPS | Nginx (`/etc/nginx/sites-available/noely-api`) na frente da API, certificado Let's Encrypt **do próprio IP** (perfil `shortlived`, 6 dias) emitido e renovado pelo `acme.sh` via webroot `/var/www/html` |
+| Arquivos | Disco local (`/opt/noely/server/uploads`) — na VPS o disco não é apagado a cada deploy, então o S3 é opcional |
+| Site | Netlify, com `VITE_API_URL` definido em `web/netlify.toml` |
 
-## 5. Site, Nginx e HTTPS
-
-Ainda como deploy:
-
-```bash
-echo 'VITE_API_URL="https://noelycerqueira.com.br/api"' > ~/clinica/web/.env.production
-cd ~/clinica/web
-npm ci
-npm run build
-```
-
-`VITE_API_URL` é embutida no bundle **em tempo de build** — se mudar o
-domínio, edite `.env.production` e rode o build de novo.
-
-Como root, edite o domínio em `deploy/hostinger/nginx.conf` (se não for o de
-exemplo) e instale:
+Atualizar a API (a partir do repositório local, sem git na VPS):
 
 ```bash
-cp /home/deploy/clinica/deploy/hostinger/security-headers.conf /etc/nginx/snippets/clinica-security-headers.conf
-cp /home/deploy/clinica/deploy/hostinger/nginx.conf /etc/nginx/sites-available/clinica
-ln -s /etc/nginx/sites-available/clinica /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
-
-certbot --nginx -d noelycerqueira.com.br -d www.noelycerqueira.com.br
+git ls-files server > /tmp/files.txt && tar -cf server.tar -T /tmp/files.txt
+scp server.tar root@<IP>:/tmp/
+ssh root@<IP> 'tar -xf /tmp/server.tar -C /opt/noely && rm /tmp/server.tar \
+  && chown -R noely-api:noely-api /opt/noely && cd /opt/noely/server \
+  && sudo -u noely-api -H npm ci && sudo -u noely-api -H npx prisma generate \
+  && sudo -u noely-api -H npm run build && sudo -u noely-api -H npx prisma migrate deploy \
+  && systemctl restart noely-api'
 ```
 
-O certbot adiciona o HTTPS e o redirecionamento de HTTP sozinho, e agenda a
-renovação automática (`systemctl list-timers | grep certbot` para conferir).
+Ao trocar o IP por um domínio próprio: emitir o certificado para o domínio
+no `acme.sh`, ajustar `server_name` no Nginx e trocar `VITE_API_URL` no
+`web/netlify.toml`.
 
-## 6. Publicar atualizações
+## Google Agenda
 
-Depois de dar push na `main`:
+O que a integração faz (código em `server/src/modules/google-calendar/`):
 
-```bash
-ssh deploy@IP_DA_VPS
-~/clinica/deploy/hostinger/update.sh
-```
+- **Paciente**: depois de agendar no site, botão "Adicionar ao Google
+  Agenda" (só um link pré-preenchido — funciona sem configurar nada).
+- **Site → agenda da clínica**: todo agendamento confirmado vira um evento
+  ("Ana — Limpeza de pele", sem telefone nem dado de saúde); cancelar apaga.
+- **Agenda da clínica → site**: compromissos marcados direto no Google
+  (exceto os marcados como "Livre") fecham o horário no site. Sincroniza a
+  cada 5 minutos e pelo botão "Sincronizar agora" na Agenda do painel.
 
-Ele faz `git pull`, instala dependências, aplica migrations novas, recompila
-a API, recarrega o pm2 e refaz o build do site. Se uma migration nova vier
-acompanhada de SQL manual em `server/prisma/manual-sql/`, rode-o à parte
-(`npx prisma db execute --file ... --schema prisma/schema.prisma`).
+Para ligar (uma vez):
 
-Logs da API: `pm2 logs clinica-api`.
+1. Em [console.cloud.google.com](https://console.cloud.google.com), crie um
+   projeto e ative a **Google Calendar API** (APIs e serviços → Biblioteca).
+2. **IAM e administrador → Contas de serviço → Criar conta de serviço**
+   (nome livre, sem papéis). Na conta criada: **Chaves → Adicionar chave →
+   JSON**. Guarde o arquivo baixado — é a senha do robô.
+3. No Google Agenda da clínica (no computador): **Configurações da agenda →
+   Compartilhar com pessoas específicas** → adicione o e-mail da conta de
+   serviço (`...@...iam.gserviceaccount.com`) com **Fazer alterações nos
+   eventos**. Na mesma tela, copie o **ID da agenda** (para a agenda
+   principal, é o próprio Gmail).
+4. Na VPS: copie o JSON para `/opt/noely/server/google-service-account.json`
+   (`chown noely-api` + `chmod 600`), defina `GOOGLE_CALENDAR_ID` e
+   `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` no `.env` e `systemctl restart noely-api`.
 
-## 7. Backups
+Limitações conhecidas: mover ou apagar no Google um evento criado pelo site
+não altera o agendamento (o painel é a fonte de verdade — a próxima mudança
+de status no painel recria/apaga o evento); compromisso marcado no Google
+leva até 5 minutos para fechar o horário no site.
 
-Sem Neon, o backup passa a ser responsabilidade da instalação. Como deploy:
+## WhatsApp automático (QR code)
 
-```bash
-~/clinica/deploy/hostinger/backup.sh   # teste manual
-crontab -e
-# adicione:
-0 3 * * * /home/deploy/clinica/deploy/hostinger/backup.sh >> /home/deploy/backups/backup.log 2>&1
-```
+O que faz (código em `server/src/modules/whatsapp/`): confirmação logo após o
+agendamento no site, agradecimento quando a paciente responde "SIM", lembrete
+1 dia antes e 2 horas antes, e boas-vindas para quem escreve para a clínica.
+Os textos ficam editáveis no painel, aba **WhatsApp**.
 
-Todo dia às 3h salva o banco (`db-AAAA-MM-DD.dump`) e as fotos/fichas
-(`uploads-AAAA-MM-DD/`) em `~/backups`, guardando os últimos 14 dias. Cada
-pasta `uploads-*` é um snapshot completo daquele dia, mas fotos que não
-mudaram são *hardlinks* para o snapshot anterior — então 14 dias de backup
-ocupam mais ou menos o tamanho das fotos uma vez, mais o que entrou de novo
-no período (e não 14 vezes o tamanho, como um `.tar.gz` diário ocuparia).
-Para conferir o espaço real: `du -sh ~/backups`.
+Para ligar (uma vez): no painel, aba **WhatsApp → Conectar WhatsApp**, e no
+celular da clínica **WhatsApp → Aparelhos conectados → Conectar aparelho**,
+escaneando o QR. Depois do deploy com as migrations novas, rode
+`systemctl restart noely-api` e conecte.
 
-**Backup na mesma máquina não protege contra perder a máquina.** Copie
-periodicamente para fora — no mínimo, o dump e o snapshot mais recentes,
-da sua máquina (PowerShell; troque a data):
+A sessão fica em `/opt/noely/server/.whatsapp-session/` (fora do git). Ela é
+a "senha" do aparelho conectado:
 
-```powershell
-scp deploy@IP_DA_VPS:~/backups/db-AAAA-MM-DD.dump C:\Backups\clinica\
-scp -r deploy@IP_DA_VPS:~/backups/uploads-AAAA-MM-DD C:\Backups\clinica\
-```
-
-Não copie a pasta `~/backups` inteira com `scp -r`: ele não preserva os
-hardlinks e baixaria todas as fotos 14 vezes.
-
-…e mantenha os snapshots da Hostinger ligados. Para restaurar, ver o
-comentário no topo de `backup.sh`. Vale testar uma restauração completa
-uma vez, num banco de teste, antes de precisar de verdade.
-
-## 8. WhatsApp e Google Calendar
-
-- **WhatsApp (Cloud API da Meta)**: os envios são disparados pelo painel
-  (não há webhook nem cron na API hoje — ver `notifications.service.ts`),
-  então basta preencher `WHATSAPP_CLOUD_API_TOKEN` e
-  `WHATSAPP_PHONE_NUMBER_ID` no `.env` e `pm2 reload clinica-api`. Se no
-  futuro for configurado um webhook no painel da Meta, a URL será
-  `https://noelycerqueira.com.br/api/<rota>` (a Meta exige HTTPS — já
-  coberto pela seção 5).
-- **Google Calendar**: no Google Cloud Console, em **APIs e serviços >
-  Credenciais**, adicione o domínio novo nas *Authorized JavaScript origins*
-  e nas *Authorized redirect URIs* do cliente OAuth (ex.:
-  `https://noelycerqueira.com.br/api/...` — o caminho exato da rota de
-  callback). Sem isso, o login com o Google falha com `redirect_uri_mismatch`.
-
-## Checklist depois do primeiro deploy
-
-- [ ] `https://noelycerqueira.com.br` abre o site, com cadeado.
-- [ ] Recarregar direto em `/agendar` ou `/admin` não dá 404.
-- [ ] Login no painel funciona e mostra os pacientes/agendamentos migrados.
-- [ ] Uma foto antiga de paciente abre (confirma a cópia de `uploads/`).
-- [ ] Upload de uma foto nova funciona.
-- [ ] Envio de um WhatsApp de teste funciona.
-- [ ] `~/backups` tem o dump do dia seguinte.
-- [ ] `ssh root@IP_DA_VPS` com senha está desabilitado (só chave):
-      `PasswordAuthentication no` em `/etc/ssh/sshd_config`.
+- O deploy por `tar -xf` não apaga essa pasta; não a remova ao atualizar.
+- Inclua-a no backup (`tar -czf whatsapp-session.tgz -C /opt/noely/server
+  .whatsapp-session`), com o mesmo cuidado do `.env`. Sem ela, basta
+  escanear o QR de novo.
+- Com o QR conectado, a confirmação vai por ele; a Cloud API da Meta
+  (`WHATSAPP_CLOUD_API_TOKEN`) fica só como reserva dos avisos da ficha.
 
 ## Ponto de atenção — LGPD
 
-Dados de saúde são sensíveis. Com tudo numa VPS só, a responsabilidade de
-segurança (atualizações do sistema, firewall, backups, acesso SSH) passa a
-ser da própria clínica, não de um provedor gerenciado — mantenha `apt
-upgrade` em dia (ou ative `unattended-upgrades`). Hospedar em datacenter no
-Brasil simplifica a questão de transferência internacional de dados, mas
-vale confirmar com quem cuida da parte jurídica da clínica antes do
-primeiro deploy com dados reais de pacientes.
+Dados de saúde são sensíveis. Neon, Railway, Netlify e Supabase têm
+datacenters fora do Brasil (normalmente EUA/UE) — isso é comum e legal com
+as salvaguardas contratuais certas, mas vale confirmar com quem cuida da
+parte jurídica da clínica antes do primeiro deploy com dados reais de
+pacientes.

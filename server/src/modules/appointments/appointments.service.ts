@@ -6,6 +6,8 @@ import { findOrCreateCustomer } from '../customers/customers.service';
 import { onAppointmentCreated } from '../whatsapp/whatsapp-automation';
 import { computeAvailableSlots } from '../availability/availability.service';
 import { createProcedureRecordForAppointment } from '../patients/procedures.service';
+import { sendCancellationWhatsapp } from '../patients/notifications.service';
+import { syncAppointmentToGoogle } from '../google-calendar/google-calendar.service';
 
 interface CreateAppointmentInput {
   tenantId: string;
@@ -103,6 +105,11 @@ export async function createAppointment(input: CreateAppointmentInput) {
       onAppointmentCreated(input.tenantId, appointment.id).catch((err) =>
         console.error('Falha no WhatsApp automático do agendamento', appointment.id, err),
       );
+      // Se o Google falhar aqui, a sincronização periódica reenvia (ver
+      // reconcileAppointments em google-calendar.service.ts).
+      await syncAppointmentToGoogle(appointment.id).catch((err) =>
+        console.error('Falha ao criar evento no Google Agenda:', err),
+      );
       return appointment;
     } catch (err) {
       const isSerializationConflict =
@@ -170,6 +177,8 @@ export async function updateAppointmentStatus(
     throw new NotFoundError('Agendamento não encontrado.');
   }
 
+  const previousStatus = appointment.status;
+
   const updated = await prisma.appointment.update({
     where: { id: appointment.id },
     data: {
@@ -198,5 +207,45 @@ export async function updateAppointmentStatus(
     }).catch((err) => console.error('Falha ao gerar registro de procedimento/retornos:', err));
   }
 
+  // previousStatus !== 'CANCELLED': evita reenviar o aviso se a rota for
+  // chamada de novo com o mesmo status (idempotência), já que o cliente já
+  // foi avisado da primeira vez.
+  if (status === 'CANCELLED' && previousStatus !== 'CANCELLED') {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    await sendCancellationWhatsapp({
+      whatsapp: updated.customer.whatsapp,
+      customerName: updated.customer.name,
+      serviceName: updated.service.name,
+      startAt: updated.startAt,
+      timezone: tenant.timezone,
+    }).catch((err) => console.error('Falha ao enviar aviso de cancelamento por WhatsApp:', err));
+  }
+
+  // Cancelar apaga o evento do Google; reverter para confirmado recria.
+  // Fora do if acima de propósito — syncAppointmentToGoogle decide pelo
+  // status atual, então cobre as duas direções com a mesma chamada.
+  await syncAppointmentToGoogle(updated.id).catch((err) =>
+    console.error('Falha ao atualizar evento no Google Agenda:', err),
+  );
+
   return updated;
+}
+
+interface ListBlockedTimesInput {
+  tenantId: string;
+  from?: string;
+  to?: string;
+}
+
+export async function listBlockedTimes({ tenantId, from, to }: ListBlockedTimesInput) {
+  const blockedTimes = await prisma.blockedTime.findMany({
+    where: {
+      tenantId,
+      ...(to ? { startAt: { lt: new Date(to) } } : {}),
+      endAt: { gt: from ? new Date(from) : new Date() },
+    },
+    orderBy: { startAt: 'asc' },
+    select: { id: true, startAt: true, endAt: true, reason: true, source: true },
+  });
+  return blockedTimes;
 }
