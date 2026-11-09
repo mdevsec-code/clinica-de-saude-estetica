@@ -93,8 +93,6 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
   const conn = getConnection(tenantId);
   if (conn.socket && conn.status !== 'disconnected') return;
   conn.manualStop = false;
-  conn.status = 'connecting';
-
   const baileys = await importEsm('@whiskeysockets/baileys');
   const makeWASocket = (baileys as unknown as { default: typeof baileys.makeWASocket }).default ?? baileys.makeWASocket;
 
@@ -104,6 +102,10 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
   const { state, saveCreds } = await baileys.useMultiFileAuthState(dir);
   const { version } = await baileys.fetchLatestBaileysVersion().catch(() => ({ version: undefined }));
 
+  // Só depois da preparação: se a pasta da sessão falhar acima, o status
+  // continua "disconnected" e o painel mostra o erro em vez de travar em
+  // "Conectando…".
+  conn.status = 'connecting';
   const socket = makeWASocket({
     auth: state,
     ...(version ? { version } : {}),
