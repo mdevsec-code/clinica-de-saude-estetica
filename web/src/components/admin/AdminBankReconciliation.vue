@@ -140,9 +140,6 @@ const FILTERS: { key: BankTransactionStatus; label: string }[] = [
 <template>
   <div class="admin-card admin-bank">
     <h2>
-      <span class="admin-card__icon">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M8 15h4" /></svg>
-      </span>
       Conciliação bancária
     </h2>
     <p class="admin-bank__hint">
@@ -184,7 +181,7 @@ const FILTERS: { key: BankTransactionStatus; label: string }[] = [
         :description="statusFilter === 'UNMATCHED' ? 'Importe um extrato OFX para começar.' : undefined"
       />
 
-      <ul v-else key="content" class="admin-bank__list">
+      <ul v-else key="content" v-stagger class="admin-bank__list">
         <li v-for="txn in transactions" :key="txn.id" class="admin-bank__row" :class="{ 'admin-bank__row--credit': txn.amountCents >= 0 }">
           <div class="admin-bank__info">
             <span class="admin-bank__description">{{ txn.description }}</span>

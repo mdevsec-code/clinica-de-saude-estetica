@@ -12,3 +12,6 @@ coverage/
 .claude/
 server/uploads/
 *.timestamp-*.mjs
+# Sessão do WhatsApp conectado por QR code — equivale a um login no WhatsApp
+# da clínica. Nunca versionar.
+server/.whatsapp-session/

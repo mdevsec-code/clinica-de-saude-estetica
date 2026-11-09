@@ -210,7 +210,7 @@ onUnmounted(() => {
   color: var(--color-ink);
   padding: 48px;
   border-radius: var(--radius-md, 16px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   font-size: 0.92rem;
   line-height: 1.5;
 }

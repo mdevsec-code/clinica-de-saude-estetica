@@ -37,12 +37,12 @@ export function applyTiltHover(containerSelector: string, itemSelector: string, 
         transformPerspective: 700,
         duration: 0.4,
         ease: 'power2.out',
-        overwrite: true,
+        overwrite: 'auto',
       });
     };
 
     const onLeave = () => {
-      gsap.to(el, { rotateX: 0, rotateY: 0, scale: 1, duration: 0.5, ease: 'power2.out', overwrite: true });
+      gsap.to(el, { rotateX: 0, rotateY: 0, scale: 1, duration: 0.5, ease: 'power2.out', overwrite: 'auto' });
     };
 
     el.addEventListener('mousemove', onMove);

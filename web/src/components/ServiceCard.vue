@@ -41,8 +41,8 @@ function formatPrice(price: number | null) {
   gap: var(--space-4);
   width: 100%;
   text-align: left;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border: none;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   padding-left: calc(var(--space-3) + 3px);
@@ -64,14 +64,12 @@ function formatPrice(price: number | null) {
 }
 
 .service-card:hover {
-  border-color: var(--color-rose-300);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-rose-100);
 }
 
 .service-card--selected {
-  border-color: var(--color-rose-700);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-rose-100);
   background: var(--color-rose-100);
 }
 
@@ -85,7 +83,7 @@ function formatPrice(price: number | null) {
   height: 64px;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-rose-300));
+  background: var(--color-rose-100);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -122,7 +120,7 @@ function formatPrice(price: number | null) {
 }
 
 .service-card__description {
-  font-size: 0.85rem;
+  font-size: 1.05rem;
   color: var(--color-ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -140,16 +138,16 @@ function formatPrice(price: number | null) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: var(--color-ink-soft);
+  color: var(--color-ink-muted);
   background: var(--color-surface-muted);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
 }
 
 .service-card__price {
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--color-rose-700);
 }
@@ -164,6 +162,7 @@ function formatPrice(price: number | null) {
 
 .service-card__indicator--on {
   border-color: var(--color-rose-700);
-  background: radial-gradient(circle, var(--color-rose-700) 45%, transparent 50%);
+  border-width: 7px;
+  background: var(--color-surface);
 }
 </style>

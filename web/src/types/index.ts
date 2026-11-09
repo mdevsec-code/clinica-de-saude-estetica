@@ -105,6 +105,9 @@ export interface AdminAppointment {
   notes: string | null;
   customer: { name: string; whatsapp: string };
   service: { id: string; name: string; durationMinutes: number };
+  // WhatsApp automático: confirmação enviada / paciente respondeu "SIM".
+  confirmationSentAt?: string | null;
+  clientConfirmedAt?: string | null;
 }
 
 // --- Financeiro & Estoque ---
@@ -164,7 +167,9 @@ export interface DreReport {
 }
 
 // --- Auditoria ---
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
+// VIEW: acesso a ficha de paciente (registro exigido pela LGPD — ver enum
+// AuditAction no schema do servidor).
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'VIEW';
 
 export interface AuditLog {
   id: string;
@@ -328,4 +333,24 @@ export interface DashboardStats {
   upcomingAppointments: { id: string; startAt: string; customerName: string; serviceName: string }[];
   topServices: { id: string; name: string; count: number }[];
   upcomingReminders: UnifiedReminder[];
+}
+
+// --- WhatsApp (conexão por QR code + mensagens automáticas) ---
+export type MessageTemplateKey = 'WELCOME' | 'CONFIRMATION' | 'CONFIRMATION_THANKS' | 'REMINDER_DAY_BEFORE' | 'REMINDER_2H';
+
+export interface MessageTemplate {
+  key: MessageTemplateKey;
+  body: string;
+  defaultBody: string;
+  enabled: boolean;
+  isDefault: boolean;
+  updatedAt: string | null;
+}
+
+export type WhatsappStatus = 'disconnected' | 'connecting' | 'qr' | 'connected';
+
+export interface WhatsappState {
+  status: WhatsappStatus;
+  qrDataUrl: string | null;
+  phone: string | null;
 }

@@ -8,6 +8,15 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('8h'),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
   TENANT_TIMEZONE: z.string().default('America/Bahia'),
+  // "true" só quando a API roda atrás de um proxy reverso (Nginx na VPS —
+  // ver DEPLOY.md). Sem isso, atrás do proxy todo visitante chega com o IP
+  // do próprio Nginx e o rate limit de login/agendamento passa a bloquear
+  // todo mundo junto. Desligado por padrão porque, exposta direto, confiar
+  // no X-Forwarded-For deixaria qualquer um forjar o próprio IP.
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   // WhatsApp Cloud API (Meta) — lembretes de retorno/aniversário. Opcionais
   // de propósito: sem essas duas variáveis, o envio simplesmente fica
   // indisponível (ver whatsapp.client.ts) em vez de a aplicação inteira
@@ -17,6 +26,10 @@ const envSchema = z.object({
   WHATSAPP_CLOUD_API_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
+  // Pasta da sessão do WhatsApp conectado por QR code (modules/whatsapp).
+  // Opcional: padrão server/.whatsapp-session. Contém as credenciais da
+  // sessão — fora do repositório (.gitignore) e fora de pastas públicas.
+  WHATSAPP_SESSION_DIR: z.string().optional(),
   // Armazenamento de arquivo (fotos de paciente, fichas digitalizadas) —
   // opcionais pelo mesmo motivo do WhatsApp acima: sem as 4 variáveis,
   // lib/file-storage.ts cai para disco local (comportamento de sempre, bom

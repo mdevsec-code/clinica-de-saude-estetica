@@ -80,9 +80,6 @@ async function onCreate() {
 <template>
   <div class="admin-patients">
     <div class="admin-patients__header">
-      <span class="admin-page-icon">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" /></svg>
-      </span>
       <div>
         <h1>Pacientes</h1>
         <p>Ficha individual, histórico, retornos e evolução de cada paciente.</p>
@@ -136,7 +133,7 @@ async function onCreate() {
         :title="search ? 'Nenhum paciente encontrado.' : 'Nenhum paciente cadastrado ainda.'"
       />
 
-      <ul v-else key="content" class="admin-patients__list">
+      <ul v-else key="content" v-stagger class="admin-patients__list">
         <li
           v-for="patient in patients"
           :key="patient.id"
@@ -289,7 +286,7 @@ async function onCreate() {
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-rose-300));
+  background: var(--color-rose-100);
   display: flex;
   align-items: center;
   justify-content: center;

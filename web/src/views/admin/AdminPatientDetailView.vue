@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { Flip, gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import {
   addPatientPhoto,
   createFicha as createFichaApi,
   deleteFicha as deleteFichaApi,
+  ensureFileToken,
   fetchFichas,
   fetchPatient,
   fichaFileUrl,
@@ -33,6 +35,52 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const tab = ref<'overview' | 'history' | 'photos' | 'financial' | 'fichas'>('overview');
 
+// Duas iniciais, como na lista de pacientes ("Aline Gomes" → "AG").
+const patientInitials = computed(() => {
+  const parts = (patient.value?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)).toUpperCase();
+});
+
+// Abas da ficha: a pílula ativa DESLIZA até a aba escolhida (Flip, a
+// mesma técnica da navegação principal do painel) e o conteúdo do novo
+// painel assenta em sequência. Só transform no painel — mesma regra do
+// resto do painel (ver AdminLayout.vue): o conteúdo nunca fica transparente.
+const tabsNav = ref<HTMLElement | null>(null);
+const tabIndicator = ref<HTMLElement | null>(null);
+
+function syncTabIndicator(animate: boolean) {
+  const nav = tabsNav.value;
+  const pill = tabIndicator.value;
+  const active = nav?.querySelector<HTMLElement>('button.is-active');
+  if (!nav || !pill || !active) return;
+  const state = Flip.getState(pill);
+  pill.style.width = `${active.offsetWidth}px`;
+  pill.style.height = `${active.offsetHeight}px`;
+  pill.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  if (animate && !prefersReducedMotion()) Flip.from(state, { duration: 0.5, ease: 'premium-out' });
+}
+
+watch(tab, async () => {
+  await nextTick();
+  syncTabIndicator(true);
+  if (prefersReducedMotion()) return;
+  gsap.from('.patient-detail__panel > *, .patient-detail__panel > ul > li', {
+    y: 16,
+    duration: 0.55,
+    stagger: 0.035,
+    ease: 'premium-out',
+    clearProps: 'transform',
+  });
+});
+
+// O nav só existe depois que a ficha carrega (v-else-if="patient").
+watch(loading, async (isLoading) => {
+  if (isLoading) return;
+  await nextTick();
+  syncTabIndicator(false);
+});
+
 async function load() {
   loading.value = true;
   error.value = null;
@@ -43,7 +91,10 @@ async function load() {
     // Fichas são ADMIN-only no backend (dado clínico é o mais sensível do
     // módulo, ver patients.routes.ts) — nem tenta buscar pra quem está numa
     // sessão restrita (RECEPTION), evita uma requisição fadada a 403.
-    if (!r) await loadFichas();
+    // Token de arquivo antes de renderizar fotos/fichas (as URLs dos <img> e
+    // links usam ele — ver ensureFileToken). Só faz sentido sem restrição:
+    // as rotas de arquivo são ADMIN-only.
+    if (!r) await Promise.all([ensureFileToken(), loadFichas()]);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       router.push({ name: 'admin-login' });
@@ -56,6 +107,13 @@ async function load() {
 }
 
 onMounted(load);
+
+// O token de arquivo vale 1h; com a ficha aberta por muito tempo, renova
+// antes de expirar para fotos e links de fichas continuarem abrindo.
+const fileTokenTimer = setInterval(() => {
+  if (patient.value && !restricted.value) ensureFileToken().catch(() => {});
+}, 15 * 60_000);
+onUnmounted(() => clearInterval(fileTokenTimer));
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -392,11 +450,11 @@ async function saveFichaUpload() {
       <LoadingState v-if="loading" key="loading" label="Carregando ficha…" />
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
 
-      <div v-else-if="patient" key="content">
+      <div v-else-if="patient" key="content" v-stagger>
         <div class="admin-card patient-detail__header">
           <span class="patient-detail__avatar">
             <img v-if="patient.profilePhotoUrl" :src="patient.profilePhotoUrl" :alt="patient.name" />
-            <span v-else>{{ patient.name.charAt(0) }}</span>
+            <span v-else>{{ patientInitials }}</span>
           </span>
           <div class="patient-detail__headline">
             <h1>{{ patient.name }}</h1>
@@ -438,7 +496,8 @@ async function saveFichaUpload() {
           <p v-if="editError" class="admin-error">{{ editError }}</p>
         </form>
 
-        <nav class="patient-detail__tabs">
+        <nav ref="tabsNav" class="patient-detail__tabs" aria-label="Seções da ficha">
+          <span ref="tabIndicator" class="patient-detail__tab-indicator" aria-hidden="true" />
           <button type="button" :class="{ 'is-active': tab === 'overview' }" @click="tab = 'overview'">Visão geral</button>
           <button type="button" :class="{ 'is-active': tab === 'history' }" @click="tab = 'history'">Histórico</button>
           <button v-if="!restricted" type="button" :class="{ 'is-active': tab === 'photos' }" @click="tab = 'photos'">
@@ -770,8 +829,8 @@ async function saveFichaUpload() {
 .admin-badge {
   font-size: 0.68rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 2px 9px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-muted);
@@ -801,7 +860,7 @@ async function saveFichaUpload() {
   height: 64px;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-rose-300));
+  background: var(--color-rose-100);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -816,8 +875,11 @@ async function saveFichaUpload() {
   object-fit: cover;
 }
 
+/* Base de 220px: sem ela (flex:1 + min-width:0), no celular o bloco do
+   nome encolhia até virar uma coluna estreita — "Aline Gom / es Teixe /
+   ira" — em vez de o botão "Editar dados" descer para a linha de baixo. */
 .patient-detail__headline {
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -831,6 +893,7 @@ async function saveFichaUpload() {
 
 .patient-detail__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   flex-shrink: 0;
 }
@@ -898,29 +961,56 @@ async function saveFichaUpload() {
   background: var(--color-bg);
 }
 
+/* Controle segmentado: trilho claro com a pílula ativa deslizando por
+   baixo dos rótulos (ver syncTabIndicator no script). Antes era um
+   sublinhado de 2px em texto pequeno — fácil de não notar qual seção
+   estava aberta numa ficha longa. */
 .patient-detail__tabs {
-  display: flex;
-  gap: var(--space-2);
-  margin: var(--space-5) 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  gap: 2px;
+  margin: var(--space-5) 0 var(--space-5);
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.patient-detail__tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-rose-900);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
 }
 
 .patient-detail__tabs button {
+  position: relative;
+  z-index: 1;
   background: none;
   border: none;
-  padding: 10px 4px;
-  margin-right: var(--space-4);
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
+  font-size: 0.9rem;
   color: var(--color-ink-muted);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
   white-space: nowrap;
+  transition: color var(--duration-base) var(--ease-premium);
+}
+
+.patient-detail__tabs button:hover {
+  color: var(--color-rose-700);
 }
 
 .patient-detail__tabs button.is-active {
-  color: var(--color-rose-700);
-  border-bottom-color: var(--color-rose-700);
+  color: #fff;
 }
 
 .patient-detail__empty-notes {
@@ -954,8 +1044,64 @@ async function saveFichaUpload() {
 .patient-detail__procedure-head {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
   margin-bottom: var(--space-3);
   color: var(--color-ink);
+}
+
+.patient-detail__procedure-head span {
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Sem retornos abaixo, o cabeçalho é o único conteúdo do card — a margem
+   de baixo deixava um vão vazio que dobrava a altura do card. */
+.patient-detail__procedure-head:only-child {
+  margin-bottom: 0;
+}
+
+/* Linha do tempo: procedimentos são eventos em sequência (mais recente no
+   topo), então um trilho vertical com um marco por procedimento mostra a
+   ordem de relance, em vez de uma pilha de cards soltos. */
+.patient-detail__procedures {
+  position: relative;
+  padding-left: 28px;
+}
+
+.patient-detail__procedures::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-rose-300);
+}
+
+.patient-detail__procedures > li {
+  position: relative;
+}
+
+.patient-detail__procedures > li::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 20px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-rose-500);
+  box-shadow: 0 0 0 4px var(--color-surface-muted);
+}
+
+.patient-detail__procedures > li:first-child::before {
+  background: var(--color-rose-700);
+  border-color: var(--color-rose-700);
 }
 
 .patient-detail__returns {

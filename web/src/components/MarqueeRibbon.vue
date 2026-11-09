@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { gsap, Observer, prefersReducedMotion } from '@/lib/motion';
 
 const props = withDefaults(defineProps<{ items?: string[]; durationSeconds?: number }>(), {
-  items: () => ['Estética', 'Micropigmentação', 'Agendamento online', 'Camaçari · Bahia'],
+  items: () => ['Estética', 'Micropigmentação', 'Agendamento online', 'Camaçari, Bahia'],
   durationSeconds: 24,
 });
 
@@ -32,6 +32,12 @@ onMounted(() => {
     repeat: -1,
   });
 
+  // A faixa também se inclina na direção da rolagem, proporcional à força
+  // do gesto, e volta a ficar reta quando o scroll para — quickTo porque
+  // isso dispara a cada evento de wheel/touch.
+  const skewTo = gsap.quickTo(track.value, 'skewX', { duration: 0.5, ease: 'power3.out' });
+  let settle: gsap.core.Tween | null = null;
+
   observer = Observer.create({
     target: window,
     type: 'wheel,touch,pointer',
@@ -40,6 +46,9 @@ onMounted(() => {
       const boost = gsap.utils.clamp(-4, 4, self.deltaY / 60);
       gsap.to(tween, { timeScale: 1 + boost, duration: 0.3, overwrite: true });
       gsap.to(tween, { timeScale: 1, duration: 1.2, delay: 0.35, overwrite: 'auto' });
+      skewTo(gsap.utils.clamp(-12, 12, -self.deltaY / 8));
+      settle?.kill();
+      settle = gsap.delayedCall(0.15, () => skewTo(0));
     },
   });
 });
@@ -56,7 +65,6 @@ onUnmounted(() => {
       <span v-for="group in groupCount" :key="group" class="marquee__group">
         <span v-for="(item, i) in items" :key="i" class="marquee__item">
           {{ item }}
-          <span class="marquee__dot">✦</span>
         </span>
       </span>
     </div>
@@ -67,7 +75,6 @@ onUnmounted(() => {
 .marquee {
   overflow: hidden;
   background: var(--color-rose-100);
-  border-block: 1px solid var(--color-border);
   padding-block: var(--space-4);
   /* Esmaece o texto nas bordas em vez de cortar abruptamente — sem isso, as
      palavras que cruzam o limite do contêiner terminam "decapitadas". */
@@ -97,18 +104,15 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  padding-inline: var(--space-4);
-  font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2.6vw, 1.7rem);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  padding-inline: var(--space-6);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(1.6rem, 3.4vw, 2.6rem);
+  font-weight: 300;
+  font-variation-settings: 'SOFT' 100;
+  letter-spacing: -0.01em;
   color: var(--color-rose-900);
   white-space: nowrap;
 }
 
-.marquee__dot {
-  color: var(--color-rose-500);
-  font-size: 0.9rem;
-}
 </style>

@@ -239,7 +239,7 @@ onUnmounted(() => {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   padding: 6px;
 }
 
@@ -247,8 +247,8 @@ onUnmounted(() => {
   padding: 8px 10px 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--color-ink-soft);
 }
 

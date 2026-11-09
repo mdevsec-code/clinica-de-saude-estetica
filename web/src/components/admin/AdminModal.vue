@@ -9,15 +9,22 @@ const panel = ref<HTMLElement | null>(null);
 const backdrop = ref<HTMLElement | null>(null);
 
 onMounted(() => {
-  if (prefersReducedMotion()) return;
-  gsap.fromTo(backdrop.value, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power1.out' });
-  gsap.fromTo(
-    panel.value,
-    { opacity: 0, y: 24, scale: 0.97 },
-    { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: 'premium-out' },
-  );
-
+  // Registrado antes do retorno antecipado: com prefers-reduced-motion o
+  // Esc também precisa fechar (antes o listener só existia com animação).
   document.addEventListener('keydown', onKeydown);
+  if (prefersReducedMotion()) return;
+
+  gsap.fromTo(backdrop.value, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power1.out' });
+  gsap
+    .timeline({ defaults: { ease: 'premium-out' } })
+    .fromTo(panel.value, { opacity: 0, y: 32, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.5 })
+    // O conteúdo assenta logo depois da moldura — cabeçalho e campos chegam
+    // em sequência curta, em vez de o formulário inteiro aparecer de bloco.
+    .from(
+      panel.value?.querySelectorAll('.admin-modal__header, .admin-modal__body > *') ?? [],
+      { opacity: 0, y: 12, duration: 0.45, stagger: 0.04 },
+      0.12,
+    );
 });
 
 onUnmounted(() => {
@@ -25,17 +32,35 @@ onUnmounted(() => {
 });
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') emit('close');
+  if (event.key === 'Escape') requestClose();
+}
+
+// Fechamento iniciado pelo próprio modal (X, clique fora, Esc): anima a
+// saída e só então avisa o pai, que remove o modal com v-if. Antes ele
+// sumia de uma vez, sem a contrapartida da entrada animada. Fechamentos
+// decididos pelo pai (ex.: depois de salvar) continuam imediatos.
+let closing = false;
+function requestClose() {
+  if (closing) return;
+  closing = true;
+  if (prefersReducedMotion() || !panel.value) {
+    emit('close');
+    return;
+  }
+  gsap
+    .timeline({ onComplete: () => emit('close') })
+    .to(panel.value, { opacity: 0, y: 20, scale: 0.97, duration: 0.25, ease: 'power2.in' }, 0)
+    .to(backdrop.value, { opacity: 0, duration: 0.25, ease: 'power1.in' }, 0.05);
 }
 </script>
 
 <template>
   <Teleport to="#overlay-slot">
-    <div ref="backdrop" class="admin-modal__backdrop" @click.self="emit('close')">
+    <div ref="backdrop" class="admin-modal__backdrop" @click.self="requestClose">
       <div ref="panel" class="admin-modal__panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="admin-modal__header">
           <h2>{{ title }}</h2>
-          <button type="button" class="admin-modal__close" aria-label="Fechar" @click="emit('close')">✕</button>
+          <button type="button" class="admin-modal__close" aria-label="Fechar" @click="requestClose">✕</button>
         </header>
         <div class="admin-modal__body">
           <slot />
@@ -65,7 +90,7 @@ function onKeydown(event: KeyboardEvent) {
   flex-direction: column;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
 }
 

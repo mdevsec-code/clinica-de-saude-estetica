@@ -254,8 +254,8 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 
 | Variável | Obrigatória | Descrição |
 |---|:---:|---|
-| `DATABASE_URL` | ✅ | String de conexão do PostgreSQL (pooled, em produção com Neon) |
-| `DIRECT_DATABASE_URL` | ✅ | Conexão direta, sem pooler — usada só pelas migrations (ver [Deploy em produção](#-deploy-em-produção)); local, sem pooler, é igual à `DATABASE_URL` |
+| `DATABASE_URL` | ✅ | String de conexão do PostgreSQL |
+| `DIRECT_DATABASE_URL` | ✅ | Conexão usada só pelas migrations — sem pooler (local ou na VPS), é igual à `DATABASE_URL` |
 | `PORT` | — | Porta da API (padrão `3333`) |
 | `JWT_SECRET` | ✅ | Segredo para assinatura dos tokens (mín. 32 caracteres) |
 | `JWT_EXPIRES_IN` | — | Validade do token (padrão `8h`) |
@@ -263,10 +263,11 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 | `ADMIN_SEED_EMAIL` | ✅* | E-mail do admin criado pelo `npm run seed` (\*só obrigatório para rodar o seed) |
 | `ADMIN_SEED_PASSWORD` | ✅* | Senha do admin criado pelo `npm run seed` (\*só obrigatório para rodar o seed) |
 | `TENANT_TIMEZONE` | — | Fuso horário do tenant (padrão `America/Bahia`) |
+| `TRUST_PROXY` | — | `"true"` quando a API roda atrás do Nginx (produção na VPS) — sem isso o rate limit vê todo visitante com o mesmo IP (padrão `false`) |
 | `WHATSAPP_CLOUD_API_TOKEN` | — | Token de acesso da WhatsApp Cloud API (Meta) — sem ele, o envio de lembretes por WhatsApp fica indisponível, mas o resto do painel funciona normalmente |
 | `WHATSAPP_PHONE_NUMBER_ID` | — | Phone Number ID configurado na Cloud API |
 | `WHATSAPP_API_VERSION` | — | Versão da Graph API (padrão `v21.0`) |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | — | Object storage (Cloudflare R2) para fotos/fichas — sem elas, cai para disco local (dev); **obrigatório em produção** numa hospedagem com disco efêmero, ver [Deploy em produção](#-deploy-em-produção) |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | — | Object storage (Cloudflare R2) para fotos/fichas — sem elas, usa o disco local (`server/uploads/`), que é o caso da VPS; só necessárias numa hospedagem com disco efêmero (Railway, Render etc.) |
 
 ### `web/.env`
 
@@ -299,13 +300,11 @@ O site sobe em **http://localhost:5173** — e o painel administrativo em
 
 ## 📦 Deploy em produção
 
-Guia completo (contas, variáveis de ambiente, custo estimado) em
-**[DEPLOY.md](DEPLOY.md)**. Stack recomendada: Railway (API) + Cloudflare
-Pages (site) + Neon (Postgres) + Cloudflare R2 (fotos/fichas). O código já
-está preparado para essa stack — `directUrl` no schema do Prisma, R2
-automático em `lib/file-storage.ts` quando configurado, e roteamento SPA
-(`web/public/_redirects`) — falta só criar as contas e configurar as
-variáveis descritas lá.
+Guia completo, passo a passo, em **[DEPLOY.md](DEPLOY.md)**: tudo numa VPS
+da Hostinger — Nginx servindo o site e fazendo proxy da API (pm2),
+PostgreSQL na própria VPS, fotos/fichas no disco local e HTTPS via
+Let's Encrypt. Configuração do Nginx, do pm2 e os scripts de atualização e
+backup diário ficam em [`deploy/hostinger/`](deploy/hostinger/).
 
 ## 🗺️ Roadmap
 

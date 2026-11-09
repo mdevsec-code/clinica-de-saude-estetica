@@ -3,6 +3,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { prisma } from '../../lib/prisma';
 import { AppError, ConflictError, NotFoundError } from '../../utils/errors';
 import { findOrCreateCustomer } from '../customers/customers.service';
+import { onAppointmentCreated } from '../whatsapp/whatsapp-automation';
 import { computeAvailableSlots } from '../availability/availability.service';
 import { createProcedureRecordForAppointment } from '../patients/procedures.service';
 
@@ -53,7 +54,7 @@ export async function createAppointment(input: CreateAppointmentInput) {
   const MAX_ATTEMPTS = 2;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await prisma.$transaction(
+      const appointment = await prisma.$transaction(
         async (tx) => {
           const overlap = await tx.appointment.findFirst({
             where: {
@@ -67,7 +68,7 @@ export async function createAppointment(input: CreateAppointmentInput) {
             throw new ConflictError('Este horário acabou de ser reservado por outra pessoa.');
           }
 
-          const customer = await findOrCreateCustomer(tx, input.tenantId, input.customer);
+          const { customer } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
 
           const created = await tx.appointment.create({
             data: {
@@ -94,6 +95,15 @@ export async function createAppointment(input: CreateAppointmentInput) {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
+
+      // Confirmação automática por WhatsApp só DEPOIS do commit —
+      // nunca para um agendamento que a transação acabou desfazendo — e em
+      // segundo plano: a paciente vê a confirmação na tela na hora, sem
+      // esperar a fila de envio (que espaça as mensagens por segundos).
+      onAppointmentCreated(input.tenantId, appointment.id).catch((err) =>
+        console.error('Falha no WhatsApp automático do agendamento', appointment.id, err),
+      );
+      return appointment;
     } catch (err) {
       const isSerializationConflict =
         err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';

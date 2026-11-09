@@ -1,41 +1,50 @@
 import { onMounted, onUnmounted } from 'vue';
 import { gsap, SplitText, prefersReducedMotion } from '@/lib/motion';
 
-// Revelação "cortina": cada linha de texto nasce dentro de uma máscara
-// (overflow hidden) e sobe de baixo para cima — o efeito de título clássico
-// de site premium/Awwwards. `mask:'lines'` (SplitText 3.13+) já cria esse
-// wrapper por linha sozinho, então não precisamos de nenhum CSS extra: sem
-// JS (ou com prefers-reduced-motion), o texto continua um <h2> normal,
-// inteiro e selecionável, sem nenhum estado "escondido" dependente de script
-// rodar com sucesso.
-export function applySplitHeadingReveal(selector: string) {
-  if (prefersReducedMotion()) return;
+// Revelação "cortina" de títulos: cada linha vira uma máscara (overflow
+// hidden, criada pelo próprio SplitText via mask:'lines') e as PALAVRAS
+// sobem de dentro dela em sequência, com uma leve rotação que assenta no
+// lugar — lê como tinta assentando no papel, não como bloco deslizando.
+// autoSplit:true é essencial com a fonte web: a Fraunces carrega depois do
+// primeiro render, e as quebras de linha mudam quando ela chega — sem
+// autoSplit, as máscaras ficavam calculadas com a fonte de fallback e
+// cortavam o texto. Sem JS (ou com prefers-reduced-motion), o título
+// continua um <h2> normal, inteiro e selecionável.
+// Retorna a função de limpeza (reverte o split e mata os gatilhos) — quem
+// chama de dentro de useGsapContext não precisa dela, o contexto já reverte.
+export function applySplitHeadingReveal(selector: string): () => void {
+  if (prefersReducedMotion()) return () => {};
 
   const targets = document.querySelectorAll<HTMLElement>(selector);
-  targets.forEach((el) => {
+  const splits = Array.from(targets).map((el) =>
     SplitText.create(el, {
-      type: 'lines',
+      type: 'words, lines',
       mask: 'lines',
       autoSplit: true,
       linesClass: 'split-line',
       onSplit(self) {
-        return gsap.from(self.lines, {
-          yPercent: 110,
-          opacity: 0,
-          duration: 1,
-          stagger: 0.09,
+        return gsap.from(self.words, {
+          yPercent: 115,
+          rotate: 4,
+          transformOrigin: '0% 100%',
+          duration: 1.15,
+          stagger: 0.045,
           ease: 'premium-out',
-          scrollTrigger: { trigger: el, start: 'top 85%' },
+          scrollTrigger: { trigger: el, start: 'top 88%', once: true },
         });
       },
-    });
-  });
+    }),
+  );
+
+  return () => splits.forEach((s) => s.revert());
 }
 
 export function useSplitHeadingReveal(selector: string) {
+  let cleanup: () => void = () => {};
   onMounted(() => {
-    applySplitHeadingReveal(selector);
+    cleanup = applySplitHeadingReveal(selector);
   });
+  onUnmounted(() => cleanup());
 }
 
 // Título do hero: cada palavra entra com um leve giro 3D, dentro de uma
@@ -63,10 +72,11 @@ export function splitHeroTitle(el: HTMLElement): () => void {
       return gsap.from(self.words, {
         opacity: 0,
         yPercent: 130,
-        rotateX: -50,
+        rotateX: -60,
+        rotate: 3,
         transformOrigin: '50% 100%',
-        duration: 1.1,
-        stagger: 0.07,
+        duration: 1.4,
+        stagger: 0.09,
         ease: 'premium-out',
       });
     },

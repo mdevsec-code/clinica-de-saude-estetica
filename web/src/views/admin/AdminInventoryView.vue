@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { nextTick, onMounted, reactive, ref } from 'vue';
+import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import { adjustInventoryQuantity, createInventoryItem, fetchInventory, updateInventoryItem } from '@/services/admin-inventory.service';
@@ -85,6 +86,16 @@ async function adjust(item: InventoryItem, delta: number) {
   try {
     const { item: updated } = await adjustInventoryQuantity(item.id, delta);
     item.quantity = updated.quantity;
+    await nextTick();
+    // O número "rola" na direção da mudança — sobe ao somar, desce ao
+    // subtrair — confirmando que o clique foi registrado no servidor.
+    if (!prefersReducedMotion()) {
+      gsap.fromTo(
+        `[data-qty="${item.id}"]`,
+        { yPercent: delta > 0 ? 60 : -60, scale: 0.8 },
+        { yPercent: 0, scale: 1, duration: 0.45, ease: 'back.out(2.4)', clearProps: 'transform' },
+      );
+    }
   } catch {
     // botão volta ao normal, quantidade não muda — dá para tentar de novo
   } finally {
@@ -106,9 +117,6 @@ async function toggleActive(item: InventoryItem) {
 <template>
   <div class="admin-inventory">
     <div class="admin-inventory__header">
-      <span class="admin-page-icon">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" /><path d="M8 21v-7h8v7" /></svg>
-      </span>
       <div>
         <h1>Estoque</h1>
         <p>Controle de produtos e materiais da clínica.</p>
@@ -150,7 +158,7 @@ async function toggleActive(item: InventoryItem) {
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
     <EmptyState v-else-if="!items.length" key="empty" title="Nenhum item cadastrado ainda." />
 
-    <ul v-else key="content" class="admin-inventory__list">
+    <ul v-else key="content" v-stagger class="admin-inventory__list">
       <li
         v-for="item in items"
         :key="item.id"
@@ -167,7 +175,7 @@ async function toggleActive(item: InventoryItem) {
 
         <div class="admin-inventory__adjust">
           <button type="button" class="admin-inventory__step" :disabled="pendingId === item.id || item.quantity <= 0" @click="adjust(item, -1)">−</button>
-          <span class="admin-inventory__qty">{{ item.quantity }}{{ item.unit }}</span>
+          <span class="admin-inventory__qty" :data-qty="item.id">{{ item.quantity }}{{ item.unit }}</span>
           <button type="button" class="admin-inventory__step" :disabled="pendingId === item.id" @click="adjust(item, 1)">+</button>
         </div>
 
@@ -305,8 +313,8 @@ async function toggleActive(item: InventoryItem) {
 .admin-badge {
   font-size: 0.68rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 2px 9px;
   border-radius: var(--radius-pill);
 }
@@ -352,6 +360,9 @@ async function toggleActive(item: InventoryItem) {
 }
 
 .admin-inventory__qty {
+  /* inline-block: o "rolar" do número (ver adjust no script) é um transform,
+     que não se aplica a elemento inline. */
+  display: inline-block;
   min-width: 56px;
   text-align: center;
   font-weight: 700;

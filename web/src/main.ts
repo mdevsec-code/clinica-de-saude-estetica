@@ -4,6 +4,7 @@ import App from './App.vue';
 import { router } from './router';
 import './lib/motion';
 import { initSmoothScroll } from './composables/useSmoothScroll';
+import { vStagger } from './directives/stagger';
 import './styles/global.css';
 
 // Precisa rodar ANTES do app montar: o Vue monta componentes filhos antes do
@@ -14,4 +15,4 @@ import './styles/global.css';
 // index.html exatamente para permitir isso.
 initSmoothScroll();
 
-createApp(App).use(createPinia()).use(router).mount('#app');
+createApp(App).use(createPinia()).use(router).directive('stagger', vStagger).mount('#app');

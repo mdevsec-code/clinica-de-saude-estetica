@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { gsap } from '@/lib/motion';
+import { useChartEntrance } from '@/composables/useChartEntrance';
 
 const props = withDefaults(
   defineProps<{ data: { label: string; value: number; color: string }[]; centerLabel?: string; size?: number }>(),
@@ -16,6 +18,33 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 const total = computed(() => props.data.reduce((sum, d) => sum + d.value, 0));
 
+// Os segmentos se desenham um após o outro, no sentido horário (cada um
+// parte de traço zero até a sua fração), e o total no centro conta junto.
+const root = useChartEntrance(
+  () => props.data,
+  (el) => {
+    const segs = el.querySelectorAll<SVGCircleElement>('.donut__seg');
+    const tl = gsap.timeline({ defaults: { ease: 'premium-in-out' } });
+    segs.forEach((seg) => {
+      const [length] = (seg.getAttribute('stroke-dasharray') ?? '0').split(' ').map(Number);
+      const share = length / CIRCUMFERENCE;
+      tl.from(seg, { attr: { 'stroke-dasharray': `0 ${CIRCUMFERENCE}` }, duration: 0.25 + share * 0.9 });
+    });
+    const totalEl = el.querySelector('.donut__total');
+    if (totalEl && total.value > 0) {
+      const counter = { value: 0 };
+      gsap.to(counter, {
+        value: total.value,
+        duration: Math.max(0.6, tl.duration()),
+        ease: 'power2.out',
+        onUpdate: () => {
+          totalEl.textContent = String(Math.round(counter.value));
+        },
+      });
+    }
+  },
+);
+
 const segments = computed(() => {
   let offset = 0;
   return props.data
@@ -31,7 +60,7 @@ const segments = computed(() => {
 </script>
 
 <template>
-  <div class="donut" :style="{ width: `${size}px`, height: `${size}px` }">
+  <div ref="root" class="donut" :style="{ width: `${size}px`, height: `${size}px` }">
     <svg viewBox="0 0 36 36" class="donut__svg">
       <circle
         v-if="!total"
@@ -111,8 +140,8 @@ const segments = computed(() => {
 .donut__label {
   font-size: 0.68rem;
   color: var(--color-ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   margin-top: 2px;
 }
 </style>

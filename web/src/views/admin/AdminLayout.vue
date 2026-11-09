@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
-import { Flip, gsap, prefersReducedMotion } from '@/lib/motion';
+import { Flip, gsap, prefersReducedMotion, SplitText, supportsFinePointer } from '@/lib/motion';
 import { applyMagneticButtons } from '@/composables/useMagneticButton';
 import { useAuthStore } from '@/stores/auth';
 import { nowInClinicTimezone } from '@/utils/calendar';
 import { fetchDashboardStats } from '@/services/admin-dashboard.service';
 import type { DashboardStats } from '@/types';
-import DecorativeDots from '@/components/DecorativeDots.vue';
 import AdminCommandPalette from '@/components/admin/AdminCommandPalette.vue';
 
 const auth = useAuthStore();
@@ -59,6 +58,54 @@ const greeting = computed(() => {
 });
 const firstName = computed(() => auth.user?.name?.trim().split(/\s+/)[0] ?? '');
 
+// "segunda-feira, 2 de novembro" — no fuso da clínica, como a saudação.
+const todayLabel = new Intl.DateTimeFormat('pt-BR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  timeZone: 'America/Bahia',
+}).format(new Date());
+
+// Brilho dourado que percorre a logo (ver .admin__brand-shine): uma faixa
+// de luz em background-position, recortada pela máscara com o próprio PNG.
+// Toca na entrada do painel e de novo a cada hover, sem empilhar se o
+// mouse entrar e sair rápido (overwrite).
+const shine = ref<HTMLElement | null>(null);
+function shineLogo() {
+  if (prefersReducedMotion() || !shine.value) return;
+  gsap.fromTo(
+    shine.value,
+    { backgroundPosition: '-60% 0' },
+    { backgroundPosition: '160% 0', duration: 1.1, ease: 'premium-in-out', overwrite: true },
+  );
+}
+
+// Pílula de hover: uma segunda pílula, clarinha, que DESLIZA até a aba sob
+// o mouse (em vez de cada link acender sozinho) — a pílula escura continua
+// marcando a aba ativa. Um listener só na nav (delegação), quickTo porque
+// mouseover dispara muito ao passar de link em link.
+const hoverPill = ref<HTMLElement | null>(null);
+let hoverX: ((v: number) => void) | null = null;
+let hoverW: ((v: number) => void) | null = null;
+function onNavHover(event: MouseEvent) {
+  if (!supportsFinePointer() || prefersReducedMotion() || !hoverPill.value || !nav.value) return;
+  const link = (event.target as HTMLElement).closest<HTMLElement>('.admin__nav > a');
+  if (!link) return;
+  const x = link.offsetLeft;
+  if (!hoverX || !hoverW) {
+    // Primeira vez: nasce já no lugar, sem deslizar do canto esquerdo.
+    gsap.set(hoverPill.value, { x, width: link.offsetWidth, y: link.offsetTop, height: link.offsetHeight });
+    hoverX = gsap.quickTo(hoverPill.value, 'x', { duration: 0.45, ease: 'premium-out' });
+    hoverW = gsap.quickTo(hoverPill.value, 'width', { duration: 0.45, ease: 'premium-out' });
+  }
+  hoverX(x);
+  hoverW(link.offsetWidth);
+  gsap.to(hoverPill.value, { opacity: 1, duration: 0.2, overwrite: 'auto' });
+}
+function onNavLeave() {
+  if (hoverPill.value) gsap.to(hoverPill.value, { opacity: 0, duration: 0.3, overwrite: 'auto' });
+}
+
 const nav = ref<HTMLElement | null>(null);
 const indicator = ref<HTMLElement | null>(null);
 
@@ -68,7 +115,7 @@ const indicator = ref<HTMLElement | null>(null);
 // estivesse "adiante" na fila); indo para uma mais à esquerda, entra vindo
 // da esquerda. Sem isso, toda troca de aba tinha a mesma animação genérica
 // independente de para onde o usuário estava realmente navegando.
-const NAV_ORDER = ['admin-dashboard', 'admin-catalog', 'admin-agenda', 'admin-patients', 'admin-patient-detail', 'admin-finance', 'admin-inventory', 'admin-users', 'admin-audit'];
+const NAV_ORDER = ['admin-dashboard', 'admin-catalog', 'admin-agenda', 'admin-patients', 'admin-patient-detail', 'admin-finance', 'admin-inventory', 'admin-users', 'admin-whatsapp', 'admin-audit'];
 const transitionName = ref<'admin-tab-forward' | 'admin-tab-back'>('admin-tab-forward');
 watch(
   () => route.name,
@@ -84,23 +131,14 @@ watch(
 // novo destino a cada troca de aba do painel.
 function moveIndicatorTo(link: HTMLElement | null) {
   if (!indicator.value || !link || !nav.value) return;
-  const navRect = nav.value.getBoundingClientRect();
   const state = Flip.getState(indicator.value);
-  const linkRect = link.getBoundingClientRect();
-  // A pílula é position:absolute DENTRO da própria nav (que tem
-  // overflow-x:auto) — ou seja, ela rola junto com o conteúdo, igual ao
-  // link. getBoundingClientRect() já vem líquido do scroll atual (é
-  // relativo ao viewport), então "linkRect.left - navRect.left" dá só o
-  // deslocamento visível NAQUELE instante, não a posição real dentro do
-  // conteúdo rolável. Resultado: toda vez que a nav já estava rolada no
-  // momento do cálculo (ou seja, sempre a partir da 2ª sincronização em
-  // diante — troca de aba, resize, rotação de tela), o scroll era
-  // descontado uma segunda vez na hora de renderizar (a pílula também rola
-  // com o conteúdo), e o desvio ia se acumulando a cada recálculo. Somar
-  // nav.scrollLeft de volta devolve a posição verdadeira dentro do
-  // conteúdo, que é o que o transform precisa carregar.
-  const x = linkRect.left - navRect.left + nav.value.scrollLeft;
-  const y = linkRect.top - navRect.top;
+  // offsetLeft/offsetTop (relativos à nav, que é o offsetParent) em vez de
+  // getBoundingClientRect: ignoram transforms, então a medida não pega os
+  // links no meio da animação de entrada da topbar (a pílula ficava
+  // deslocada para baixo na primeira carga) e já descontam o scroll da nav.
+  const linkRect = { width: link.offsetWidth, height: link.offsetHeight };
+  const x = link.offsetLeft;
+  const y = link.offsetTop;
   indicator.value.style.width = `${linkRect.width}px`;
   indicator.value.style.height = `${linkRect.height}px`;
   indicator.value.style.transform = `translate(${x}px, ${y}px)`;
@@ -117,7 +155,16 @@ async function syncIndicator() {
   // ativo simultaneamente com a aba de verdade em qualquer sub-página — e,
   // por vir primeiro no DOM, sempre "ganhava" do querySelector. Only a rota
   // atual bate com -exact-active.
-  const activeLink = nav.value?.querySelector<HTMLElement>('a.router-link-exact-active');
+  // Sub-rotas sem aba própria (a ficha /admin/pacientes/:id é rota irmã da
+  // lista, não filha, então o router não marca a aba) caem na aba cujo
+  // caminho é prefixo do atual, excluindo o Painel (/admin, prefixo de tudo).
+  const links = Array.from(nav.value?.querySelectorAll<HTMLAnchorElement>('a') ?? []);
+  const activeLink =
+    links.find((a) => a.classList.contains('router-link-exact-active')) ??
+    links.find((a) => {
+      const href = a.getAttribute('href') ?? '';
+      return href !== '/admin' && route.path.startsWith(`${href}/`);
+    });
   moveIndicatorTo(activeLink ?? null);
   activeLink?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
@@ -176,18 +223,56 @@ onUnmounted(() => resizeObserver?.disconnect());
 // então este onMounted só roda ao entrar no painel (login ou refresh), não
 // a cada clique de aba, exatamente onde uma entrada chamativa faz sentido
 // (repetir isso em toda troca de aba seria cansativo, não elegante).
+// Sequência: a logo se abre da esquerda para a direita (clip-path),
+// o brilho dourado percorre os traços, a saudação
+// sobe palavra por palavra, e só então conta, chips e abas assentam.
+let greetingSplit: SplitText | null = null;
 function playTopbarIntro() {
   if (prefersReducedMotion()) return;
-  const brand = document.querySelector('.admin__brand');
+  const logo = document.querySelector('.admin__brand-mark img');
+  const title = document.querySelector<HTMLElement>('.admin__brand-title');
+  const date = document.querySelector('.admin__brand-date');
+  const divider = document.querySelector('.admin__brand-divider');
   const account = document.querySelector('.admin__account');
   const navLinks = document.querySelectorAll('.admin__nav > a');
-  if (!brand) return;
+  if (!logo) return;
 
   const tl = gsap.timeline({ defaults: { ease: 'premium-out' } });
-  tl.fromTo(brand, { opacity: 0, y: -10, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.55 })
-    .fromTo(account, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.45 }, 0.1)
-    .fromTo(navLinks, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.05 }, 0.2);
+  tl.fromTo(logo, { clipPath: 'inset(0% 100% 0% 0%)', scale: 0.96 }, { clipPath: 'inset(0% 0% 0% 0%)', scale: 1, duration: 0.9, clearProps: 'clipPath' }, 0)
+    .add(shineLogo, 0.55)
+    .fromTo(divider, { scaleY: 0 }, { scaleY: 1, duration: 0.6 }, 0.3);
+
+  if (title) {
+    greetingSplit = SplitText.create(title, { type: 'words', mask: 'words' });
+    tl.from(greetingSplit.words, { yPercent: 110, duration: 0.8, stagger: 0.06 }, 0.35);
+  }
+  tl.fromTo(date, { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.6 }, 0.6)
+    .fromTo(account, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 }, 0.2)
+    .fromTo(navLinks, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.045 }, 0.4);
 }
+
+// Os números dos chips contam a partir de zero quando chegam (a busca é
+// assíncrona — roda depois da entrada do topo, não junto dela).
+watch(quickStats, async (stats) => {
+  if (!stats || prefersReducedMotion()) return;
+  await nextTick();
+  const chips = document.querySelectorAll('.admin__quickstat');
+  gsap.from(chips, { y: -8, scale: 0.94, duration: 0.6, stagger: 0.08, ease: 'back.out(2)', clearProps: 'transform' });
+  document.querySelectorAll<HTMLElement>('.admin__quickstat [data-count]').forEach((el) => {
+    const target = Number(el.dataset.value ?? 0);
+    const counter = { value: 0 };
+    gsap.to(counter, {
+      value: target,
+      duration: 1.1,
+      ease: 'power2.out',
+      onUpdate: () => {
+        el.textContent = String(Math.round(counter.value));
+      },
+    });
+  });
+});
+
+onUnmounted(() => greetingSplit?.revert());
 
 // Cada aba do painel (Painel/Serviços/Agenda/Financeiro/Estoque/Usuários) é
 // um chunk JS separado (import() dinâmico, ver router/index.ts) — na
@@ -209,6 +294,7 @@ function prefetchOtherTabs() {
   import('@/views/admin/AdminInventoryView.vue');
   if (auth.user?.role === 'ADMIN') {
     import('@/views/admin/AdminUsersView.vue');
+    import('@/views/admin/AdminWhatsappView.vue');
     import('@/views/admin/AdminAuditView.vue');
   }
 }
@@ -230,16 +316,15 @@ function onLogout() {
 <template>
   <div class="admin">
     <header class="admin__topbar">
-      <DecorativeDots :count="10" />
-      <span class="admin__topbar-glow" aria-hidden="true" />
 
       <div class="admin__topbar-row">
-        <RouterLink to="/" class="admin__brand">
+        <RouterLink to="/" class="admin__brand" @mouseenter="shineLogo">
           <span class="admin__brand-mark">
-            <span class="admin__brand-ring" aria-hidden="true" />
-            <span class="admin__brand-sparkle admin__brand-sparkle--1" aria-hidden="true">✦</span>
-            <span class="admin__brand-sparkle admin__brand-sparkle--2" aria-hidden="true">✦</span>
             <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" />
+            <!-- Brilho dourado recortado no formato exato da logo (mask com
+                 o próprio PNG): percorre só os traços do monograma e do
+                 nome, nunca o fundo em volta. -->
+            <span ref="shine" class="admin__brand-shine" aria-hidden="true" />
           </span>
           <span class="admin__brand-divider" aria-hidden="true" />
           <!-- Saudação dinâmica no lugar do rótulo estático "Painel
@@ -249,9 +334,12 @@ function onLogout() {
                repetir o nome da ferramenta. Cai de volta pro rótulo fixo
                só no instante entre montar e auth.user resolver (login
                "a frio"/refresh), pra nunca mostrar um espaço vazio. -->
-          <span class="admin__brand-title">
-            <template v-if="auth.user">{{ greeting }},<br />{{ firstName }}</template>
-            <template v-else>Painel<br />Administrativo</template>
+          <span class="admin__brand-text">
+            <span class="admin__brand-title">
+              <template v-if="auth.user">{{ greeting }}, <em>{{ firstName }}</em></template>
+              <template v-else>Painel administrativo</template>
+            </span>
+            <span class="admin__brand-date">{{ todayLabel }}</span>
           </span>
         </RouterLink>
 
@@ -280,36 +368,9 @@ function onLogout() {
         </div>
       </div>
 
-      <!-- Tira de estatísticas ao vivo: dados reais (nunca projeção),
-           visíveis em QUALQUER aba do painel — não só quando "Painel" está
-           aberto. Cada pílula é um ATALHO de verdade (RouterLink pra aba
-           relacionada), não só leitura — clicar em "estoque baixo" já leva
-           pra Estoque, sem precisar caçar a aba certa na nav. Só a partir
-           de 900px (ver media query abaixo): no celular a nav de abas já
-           disputa espaço, mais uma linha de números aqui viraria poluição
-           visual antes de virar utilidade. -->
-      <Transition name="fade-swap">
-      <div v-if="quickStats" class="admin__quickstats">
-        <RouterLink :to="{ name: 'admin-agenda' }" class="admin__quickstat">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-          <strong>{{ quickStats.appointmentsToday }}</strong> agendamento(s) hoje
-        </RouterLink>
-        <RouterLink :to="{ name: 'admin-finance' }" class="admin__quickstat">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" /></svg>
-          <strong>{{ formatQuickCurrency(quickStats.revenueThisMonthCents) }}</strong> receita do mês
-        </RouterLink>
-        <RouterLink
-          v-if="quickStats.lowStockCount > 0"
-          :to="{ name: 'admin-inventory' }"
-          class="admin__quickstat admin__quickstat--warning"
-        >
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
-          <strong>{{ quickStats.lowStockCount }}</strong> item(ns) com estoque baixo
-        </RouterLink>
-      </div>
-      </Transition>
-
-      <nav ref="nav" class="admin__nav" aria-label="Navegação do painel">
+      <div class="admin__navrow">
+      <nav ref="nav" class="admin__nav" aria-label="Navegação do painel" @mouseover="onNavHover" @mouseleave="onNavLeave">
+        <span ref="hoverPill" class="admin__nav-hover" aria-hidden="true" />
         <span ref="indicator" class="admin__nav-indicator" aria-hidden="true" />
         <RouterLink :to="{ name: 'admin-dashboard' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.2" /><rect x="14" y="3" width="7" height="5" rx="1.2" /><rect x="14" y="12" width="7" height="9" rx="1.2" /><rect x="3" y="16" width="7" height="5" rx="1.2" /></svg>
@@ -339,11 +400,55 @@ function onLogout() {
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" /></svg>
           Usuários
         </RouterLink>
+        <RouterLink v-if="auth.user?.role === 'ADMIN'" :to="{ name: 'admin-whatsapp' }">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3l-4.5 1.5Z" /><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a3.5 3.5 0 0 1-2-2l.8-1-1-2Z" /></svg>
+          WhatsApp
+        </RouterLink>
         <RouterLink v-if="auth.user?.role === 'ADMIN'" :to="{ name: 'admin-audit' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
           Auditoria
         </RouterLink>
       </nav>
+
+      <!-- Tira de estatísticas ao vivo: dados reais (nunca projeção),
+           visíveis em QUALQUER aba do painel — não só quando "Painel" está
+           aberto. Cada pílula é um ATALHO de verdade (RouterLink pra aba
+           relacionada), não só leitura. Divide a linha com as abas, à
+           direita (antes ocupava uma faixa inteira só sua no topo); some
+           abaixo de 1200px, onde as abas precisam da largura toda. -->
+      <Transition name="fade-swap">
+        <div v-if="quickStats" class="admin__quickstats">
+          <RouterLink
+            :to="{ name: 'admin-agenda' }"
+            class="admin__quickstat"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+            <strong data-count :data-value="quickStats.appointmentsToday">{{ quickStats.appointmentsToday }}</strong>
+            <span class="admin__quickstat-short">hoje</span>
+            <span class="admin__quickstat-label">{{ quickStats.appointmentsToday === 1 ? 'agendamento hoje' : 'agendamentos hoje' }}</span>
+          </RouterLink>
+          <RouterLink
+            :to="{ name: 'admin-finance' }"
+            class="admin__quickstat"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" /></svg>
+            <strong>{{ formatQuickCurrency(quickStats.revenueThisMonthCents) }}</strong>
+            <span class="admin__quickstat-short">no mês</span>
+            <span class="admin__quickstat-label">receita do mês</span>
+          </RouterLink>
+          <RouterLink
+            v-if="quickStats.lowStockCount > 0"
+            :to="{ name: 'admin-inventory' }"
+            class="admin__quickstat admin__quickstat--warning"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
+            <strong data-count :data-value="quickStats.lowStockCount">{{ quickStats.lowStockCount }}</strong>
+            <span class="admin__quickstat-short">em falta</span>
+            <span class="admin__quickstat-label">{{ quickStats.lowStockCount === 1 ? 'item com estoque baixo' : 'itens com estoque baixo' }}</span>
+          </RouterLink>
+        </div>
+      </Transition>
+      </div>
     </header>
 
     <main class="container admin__content">
@@ -390,24 +495,9 @@ function onLogout() {
   top: 0;
   z-index: 40;
   overflow: hidden;
-  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 160%);
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
-}
-
-/* Brilho ambiente sutil (mesma técnica de .hero__glow/.cta-final__glow no
-   site público) — dá ao topo uma presença de marca em vez de só uma faixa
-   utilitária lisa. Fixo (sem animação): já é um painel de trabalho, um
-   glow ANIMADO no topo da tela o tempo todo seria distração, não charme. */
-.admin__topbar-glow {
-  position: absolute;
-  top: -60%;
-  left: 55%;
-  width: min(640px, 80vw);
-  height: 220%;
-  background: radial-gradient(ellipse at center, rgba(185, 124, 127, 0.14), transparent 68%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 .admin__topbar-row {
@@ -427,124 +517,86 @@ function onLogout() {
   transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-base) var(--ease-premium);
 }
 
-.admin__brand:hover {
-  opacity: 0.85;
-  transform: scale(1.02);
-}
-
 .admin__brand-mark {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-/* Anel pontilhado girando bem devagar ao redor da logo — mesma assinatura
-   visual já usada no anel dourado do hero (site público) e nos cards da
-   página de Contato: um oval (border-radius:50% sobre uma caixa larga, não
-   o círculo/blob usado em ícones quase quadrados) porque a logo aqui é um
-   lockup largo (monograma + nome), não um ícone. */
-.admin__brand-ring {
-  position: absolute;
-  inset: -8px -20px;
-  border: 1.5px dashed var(--color-gold-500);
-  border-radius: 50%;
-  opacity: 0.45;
-  animation: admin-brand-ring-spin 32s linear infinite;
-  transition: opacity var(--duration-base) var(--ease-standard);
-}
-
-.admin__brand:hover .admin__brand-ring {
-  opacity: 0.85;
-}
-
-@keyframes admin-brand-ring-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin__brand-ring {
-    animation: none;
-  }
-}
-
-/* Sparkles dourados — mesmo glifo/flutuação do hero do site público e do
-   card de Instagram em Contato, replicados aqui numa escala discreta pra
-   não competir com o resto do topo (é a área mais "sempre visível" de todo
-   o painel, um brilho grande demais cansaria rápido). */
-.admin__brand-sparkle {
-  position: absolute;
-  color: var(--color-gold-500);
-  pointer-events: none;
-  animation: admin-brand-sparkle-float 5s ease-in-out infinite;
-}
-
-.admin__brand-sparkle--1 {
-  top: -6px;
-  right: -14px;
-  font-size: 0.85rem;
-}
-
-.admin__brand-sparkle--2 {
-  bottom: 2px;
-  left: -16px;
-  font-size: 0.6rem;
-  animation-delay: 1.8s;
-}
-
-@keyframes admin-brand-sparkle-float {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translateY(-5px) scale(1.15);
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin__brand-sparkle {
-    animation: none;
-  }
-}
-
 .admin__brand img {
-  /* Aumentada de novo a pedido explícito do cliente (era 56px, depois 72px)
-     — praticamente do tamanho do header do site público (96px) agora, sem
-     mais tentar "economizar" hierarquia visual por conta própria. */
-  height: 92px;
+  /* Tamanho grande mantido a pedido explícito do cliente (era 56px, depois
+     72px, depois 92px) — só levemente reduzido para caber na linha única
+     que agora também leva os chips de status. */
+  height: 84px;
   width: auto;
   flex-shrink: 0;
   position: relative;
-  transition: height var(--duration-base) var(--ease-premium);
+}
+
+/* Faixa de luz dourada recortada pela própria logo (mask-image com o PNG):
+   só os traços brilham. Parada fora do quadro (background-position) até o
+   GSAP passar a faixa de um lado ao outro — ver shineLogo no script. */
+.admin__brand-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(105deg, transparent 35%, rgba(255, 236, 196, 0.95) 48%, rgba(200, 164, 101, 0.9) 52%, transparent 65%);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: -60% 0;
+  -webkit-mask: url('/brand/logo-noely-cerqueira.png') center / contain no-repeat;
+  mask: url('/brand/logo-noely-cerqueira.png') center / contain no-repeat;
+  mix-blend-mode: screen;
 }
 
 .admin__brand-divider {
   width: 1px;
-  height: 32px;
-  margin-inline: var(--space-4);
+  height: 44px;
+  margin-inline: var(--space-5);
   background: var(--color-border);
   flex-shrink: 0;
 }
 
-.admin__brand-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--color-rose-900);
-  letter-spacing: 0.01em;
+.admin__brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Abaixo de 640px não sobra largura para logo + divisor + título de duas
-   linhas ao lado da pílula de função e do botão Sair sem colidir (testado:
-   colidia de verdade, não só "parecia apertado") — mantém só a logo, igual
-   já era antes deste título existir. */
+/* Saudação na serifada (o nome em itálico) — o mesmo tom do site público,
+   para o painel soar como parte da marca e não como um sistema genérico. */
+.admin__brand-title {
+  font-family: var(--font-serif);
+  font-size: 1.55rem;
+  font-weight: 350;
+  font-variation-settings: 'SOFT' 80;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--color-rose-900);
+  white-space: nowrap;
+}
+
+.admin__brand-title em {
+  font-style: italic;
+  color: var(--color-rose-700);
+}
+
+.admin__brand-date {
+  font-size: 0.82rem;
+  color: var(--color-ink-muted);
+  /* "segunda-feira, 2 de novembro" — a primeira letra em maiúscula. */
+  text-transform: lowercase;
+}
+
+.admin__brand-date::first-letter {
+  text-transform: none;
+}
+
+/* Abaixo de 640px não sobra largura para logo + divisor + saudação ao lado
+   da conta e do botão Sair sem colidir — mantém só a logo. */
 @media (max-width: 640px) {
   .admin__brand-divider,
-  .admin__brand-title {
+  .admin__brand-text {
     display: none;
   }
 
@@ -553,22 +605,48 @@ function onLogout() {
   }
 }
 
-/* Tira de estatísticas ao vivo (ver quickStats no script) — escondida
-   abaixo de 900px de propósito: no celular a nav de abas já briga por
-   espaço horizontal, mais uma linha de números aqui virava poluição antes
-   de virar utilidade. */
+/* Linha das abas: abas à esquerda (rolam na horizontal se faltar espaço),
+   chips de status à direita. */
+.admin__navrow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-right: var(--space-5);
+}
+
+/* Tira de estatísticas ao vivo (ver quickStats no script) — só a partir
+   de 1600px, onde sobra largura depois das nove abas; abaixo disso as abas
+   precisam da linha inteira (com a aba WhatsApp, a 1440px os chips já
+   cortavam a última aba). */
 .admin__quickstats {
   display: none;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1600px) {
   .admin__quickstats {
-    position: relative;
-    z-index: 1;
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: 0 var(--space-5) var(--space-3);
+    flex-shrink: 0;
+    gap: var(--space-2);
+    padding-bottom: var(--space-3);
+  }
+}
+
+/* Rótulo curto ("hoje", "no mês", "em falta") até 1600px, completo daí
+   para cima: com o rótulo longo, os chips roubavam largura das abas e
+   "Usuários"/"Auditoria" ficavam cortados a 1440px. */
+.admin__quickstat-label {
+  display: none;
+}
+
+@media (min-width: 1600px) {
+  .admin__quickstat-short {
+    display: none;
+  }
+
+  .admin__quickstat-label {
+    display: inline;
   }
 }
 
@@ -627,6 +705,8 @@ function onLogout() {
 .admin__nav {
   position: relative;
   z-index: 1;
+  flex: 1;
+  min-width: 0;
   display: flex;
   gap: var(--space-2);
   font-weight: 600;
@@ -640,13 +720,28 @@ function onLogout() {
   display: none;
 }
 
+/* Pílula de hover (ver onNavHover): clara, atrás dos links e da pílula
+   ativa, deslizando até a aba sob o mouse. */
+.admin__nav-hover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Aba ativa: tom rosé pálido com texto escuro — num painel, a cor forte
+   fica para os dados; uma pílula na cor da marca em cada aba ativa é
+   acento gasto na moldura. */
 .admin__nav-indicator {
   position: absolute;
   top: 0;
   left: 0;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-100);
   border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-sm);
   z-index: 0;
 }
 
@@ -689,11 +784,11 @@ function onLogout() {
    em QUALQUER página do painel, não só na home dele. Ver também o mesmo
    raciocínio em syncIndicator() no script acima. */
 .admin__nav a.router-link-exact-active {
-  color: #fff;
+  color: var(--color-rose-900);
 }
 
 .admin__nav a.router-link-exact-active:hover {
-  color: #fff;
+  color: var(--color-rose-900);
 }
 
 .admin__account {
@@ -735,7 +830,7 @@ function onLogout() {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
   font-family: var(--font-display);
   font-size: 0.95rem;
@@ -787,8 +882,8 @@ function onLogout() {
   align-self: flex-end;
   font-size: 0.65rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--color-rose-700);
   background: var(--color-rose-100);
   padding: 2px 9px;

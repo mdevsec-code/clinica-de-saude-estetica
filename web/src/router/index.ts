@@ -85,6 +85,12 @@ export const router = createRouter({
           component: () => import('@/views/admin/AdminUsersView.vue'),
         },
         {
+          path: 'whatsapp',
+          name: 'admin-whatsapp',
+          meta: { requiresRole: 'ADMIN' },
+          component: () => import('@/views/admin/AdminWhatsappView.vue'),
+        },
+        {
           path: 'auditoria',
           name: 'admin-audit',
           meta: { requiresRole: 'ADMIN' },

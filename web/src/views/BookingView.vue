@@ -265,7 +265,12 @@ function goBack() {
 
 <template>
   <div class="booking-page">
-    <PageHeroBand eyebrow="Reserve seu horário" title="Agendamento">
+    <PageHeroBand
+      title="Agende seu horário"
+      description="Escolha o procedimento, o dia e o horário. A confirmação chega pelo WhatsApp."
+      image="/services/micropigmentacao.jpg"
+      image-alt="Micropigmentação de sobrancelha em andamento"
+    >
       <BookingProgress v-if="step !== 'success'" :current="booking.currentStep" />
     </PageHeroBand>
 
@@ -276,7 +281,7 @@ function goBack() {
 
       <Transition name="step" mode="out-in">
       <section v-if="step === 'service'" class="booking-step" key="service">
-        <h1>Escolha o procedimento</h1>
+        <h2>Escolha o procedimento</h2>
         <LoadingState v-if="loadingCategories" label="Carregando serviços…" />
         <EmptyState v-else-if="!categories.length" title="Nenhum serviço disponível no momento." />
         <div v-else class="booking-step__list">
@@ -292,7 +297,7 @@ function goBack() {
       </section>
 
       <section v-else-if="step === 'date'" class="booking-step" key="date">
-        <h1>Escolha o dia</h1>
+        <h2>Escolha o dia</h2>
         <div class="date-strip" role="listbox" aria-label="Datas disponíveis">
           <button
             v-for="option in dateOptions"
@@ -310,7 +315,7 @@ function goBack() {
       </section>
 
       <section v-else-if="step === 'time'" class="booking-step" key="time">
-        <h1>Escolha o horário</h1>
+        <h2>Escolha o horário</h2>
         <LoadingState v-if="loadingSlots" label="Buscando horários…" />
         <EmptyState
           v-else-if="slotsError"
@@ -340,7 +345,7 @@ function goBack() {
       </section>
 
       <section v-else-if="step === 'details'" class="booking-step" key="details">
-        <h1>Seus dados</h1>
+        <h2>Seus dados</h2>
         <form class="details-form" @submit.prevent="goToConfirmation">
           <label>
             Nome completo
@@ -365,7 +370,7 @@ function goBack() {
       </section>
 
       <section v-else-if="step === 'confirmation'" class="booking-step" key="confirmation">
-        <h1>Confira e confirme</h1>
+        <h2>Confira e confirme</h2>
         <div class="confirmation-card">
           <p class="confirmation-card__row"><strong>Procedimento:</strong> {{ booking.selectedService?.name }}</p>
           <p class="confirmation-card__row"><strong>Data:</strong> {{ formattedSelectedDate }}</p>
@@ -388,7 +393,7 @@ function goBack() {
 
       <section v-else-if="step === 'success'" class="booking-step booking-step--success" key="success">
         <p class="success-check" aria-hidden="true">✓</p>
-        <h1>Atendimento confirmado</h1>
+        <h2>Atendimento confirmado</h2>
         <p>Seu horário foi reservado. Em breve você recebe a confirmação também pelo WhatsApp.</p>
         <button type="button" class="button button--ghost" @click="startOver">Fazer novo agendamento</button>
       </section>
@@ -455,7 +460,7 @@ function goBack() {
   }
 }
 
-.booking-step h1 {
+.booking-step h2 {
   font-size: 1.8rem;
   margin-bottom: var(--space-5);
 }

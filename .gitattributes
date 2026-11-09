@@ -1,0 +1,2 @@
+# Scripts rodam na VPS (Linux) — com CRLF o bash falha com "$'\r': command not found".
+*.sh text eol=lf

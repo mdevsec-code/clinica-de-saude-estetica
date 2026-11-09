@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import type { AdminUser } from '@/types';
 import { fetchMe, login as loginRequest } from '@/services/auth.service';
 import { ApiError } from '@/services/api';
+import { clearFileToken } from '@/services/admin-patients.service';
 
 const TOKEN_KEY = 'noely_admin_token';
 
@@ -49,6 +50,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = null;
       this.user = null;
       localStorage.removeItem(TOKEN_KEY);
+      clearFileToken();
     },
 
     // Chamado pelo guard de rota do painel: confirma que o token salvo ainda

@@ -36,6 +36,10 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-body);
+  /* 16px para o texto corrido. A base do rem continua em 85% (pedido do
+     cliente de um tamanho geral menor) — só o texto sem tamanho próprio
+     sobe para o mínimo legível de leitura. */
+  font-size: 1.18rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   /* Rede de segurança contra estouro horizontal: se alguma palavra específica
@@ -96,18 +100,66 @@ h1, h2, h3, h4 {
   color: var(--color-rose-900);
 }
 
+/* Títulos de página/seção na serifada (ver --font-serif em tokens.css).
+   Peso leve de propósito: em tamanho grande a Fraunces já tem presença de
+   sobra pelo contraste do traço — em 600 ficava pesada e competia com a
+   foto do hero. Só h1 e os h2 de SEÇÃO (animados com data-split ou dentro
+   de .section): os demais h2 do programa são títulos de card (gráficos do
+   painel, cards de contato), lidos em tamanho pequeno — ali a serifada
+   ficava fraca e a Manrope em negrito é mais clara. */
+h1,
+h2[data-split],
+.section h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-variation-settings: 'SOFT' 60;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
 /* SplitText com mask:'lines' (ver useSplitReveal.ts) envolve cada linha do
    título numa caixa com overflow:hidden — a altura dessa caixa vem do
-   line-height do elemento NO MOMENTO do split. Em 1.1 (a base acima, pensada
-   para corpo de texto comum) a Cormorant Garamond — uma serifada com
-   ascendentes/acentos bem altos — não cabe inteira: o topo de maiúsculas,
-   pontos de interrogação e diacríticos ficava cortado permanentemente (não
-   só durante a animação — a máscara continua no DOM depois dela terminar).
-   Título comum (sem quebra de linha) mal nota a diferença; título de duas
-   linhas ganha um respiro visualmente aceitável — troca melhor que continuar
-   cortando texto. */
+   line-height do elemento NO MOMENTO do split. Com line-height apertado, o
+   topo de maiúsculas acentuadas (É, Á) e o pé do "ç"/"g" da serifada ficam
+   cortados permanentemente (a máscara continua no DOM depois da animação),
+   então todo título animado ganha um respiro mínimo garantido. */
 [data-split] {
-  line-height: 1.28;
+  line-height: 1.2;
+}
+
+/* Rótulo acima de título (eyebrow) — antes cada view tinha o seu, todos em
+   CAIXA ALTA espaçada. Itálico da própria serifada em caixa normal: mantém a
+   função (situar o título) com o tom delicado da marca, sem o ar de
+   "etiqueta de sistema" que a caixa alta dava. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-variation-settings: 'SOFT' 100;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  color: var(--color-rose-700);
+  margin-bottom: var(--space-3);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+  transform-origin: left;
+}
+
+.eyebrow--gold {
+  color: var(--color-gold-700);
+}
+
+.eyebrow--light {
+  color: var(--color-gold-500);
 }
 
 p {
@@ -150,95 +202,72 @@ button, a.button, .tap-target {
 }
 
 /* --- Sistema de botões compartilhado ---
-   Centralizado aqui porque antes cada view (Home/Booking/NotFound) duplicava
-   sua própria versão de .button/.button--primary/.button--ghost — qualquer
-   ajuste de estilo exigia editar três lugares e eles já tinham divergido
-   entre si (padding, ease). O brilho (::before) e o "magnetismo" (JS, ver
-   useMagneticButton) são propositalmente independentes: o brilho é
-   puramente CSS/hover, então continua funcionando em touch/reduced-motion
-   mesmo se o JS do magnetismo nunca entrar em ação. */
+   Centralizado aqui porque antes cada view duplicava sua própria versão.
+   Chapados, uma cor só, sem brilho nem sombra: o acabamento caro está na
+   proporção (altura generosa, pílula inteira, peso firme) e na resposta ao
+   toque — o hover troca o tom do preenchimento e o clique "afunda" um
+   pouco (scale), em vez de levitar com sombra. O magnetismo (JS, ver
+   useMagneticButton) continua independente disto. */
 .button {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: 16px 30px;
+  min-height: 52px;
+  padding: 0 32px;
   border-radius: var(--radius-pill);
   border: none;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1.12rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   cursor: pointer;
-  transition: transform var(--duration-base) var(--ease-premium), box-shadow var(--duration-base) var(--ease-premium), border-color var(--duration-base) var(--ease-premium), background var(--duration-base) var(--ease-premium);
+  transition: background var(--duration-base) var(--ease-premium), color var(--duration-base) var(--ease-premium), scale var(--duration-fast) var(--ease-standard);
 }
 
-.button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.35) 48%, transparent 66%);
-  transform: translateX(-120%);
-  transition: transform 0.7s var(--ease-premium);
-}
-
-.button:hover::before,
-.button:active::before {
-  transform: translateX(120%);
+.button:active {
+  scale: 0.97;
 }
 
 .button--primary {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
-  box-shadow: var(--shadow-sm);
 }
 
 .button--primary:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-glow);
+  background: var(--color-dusk-700);
 }
 
 .button--primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
+  scale: 1;
 }
 
+/* Secundário: superfície um tom acima do fundo, sem contorno. */
 .button--ghost {
-  background: var(--color-surface);
-  border: 1px solid var(--color-rose-300);
+  background: var(--color-rose-100);
   color: var(--color-rose-900);
 }
 
 .button--ghost:hover {
-  transform: translateY(-3px);
-  border-color: var(--color-rose-700);
-  box-shadow: var(--shadow-md);
+  background: var(--color-rose-300);
 }
 
-/* :active cobre o toque: em touch, :hover não dispara de forma confiável
-   (às vezes fica "grudado" depois do tap) — sem isso, botões no mobile não
-   davam nenhum retorno visual imediato ao toque, só o resultado da ação
-   (navegação, submit) alguns instantes depois. */
-@media (hover: none) {
-  .button--primary:active,
-  .button--ghost:active {
-    transform: scale(0.96);
-  }
+/* Para campo escuro/rosé (CTA final, Instagram). */
+.button--light {
+  background: #fff;
+  color: var(--color-rose-900);
+}
 
-  .button--primary:active {
-    box-shadow: var(--shadow-sm);
-  }
+.button--light:hover {
+  background: var(--color-rose-100);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .button:hover,
   .button:active {
-    transform: none;
+    scale: 1;
   }
 }
 
@@ -339,23 +368,14 @@ button, a.button, .tap-target {
   white-space: nowrap;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  /* Segunda camada (um brilho diagonal) por cima do gradiente rosé base —
-     mesmo truque de "sweep" já usado no selo DESTAQUE dos cards
-     (.specialty-card__badge::after), só que aqui a posição do brilho é
-     controlada por background-position em vez de transform, pra poder
-     conviver com o resto do gradiente na mesma propriedade background. */
-  background-image: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.55) 48%, transparent 61%),
-    linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
-  background-size: 250% 100%, 100% 100%;
-  background-position: 150% 0, 0 0;
+  /* Balão chapado no rosé escuro da marca — flutua sobre a página, então é
+     um dos poucos elementos com sombra (--shadow-float). */
+  background: var(--color-dusk-800);
   color: #fff;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  /* Anel dourado sutil + brilho por baixo — mesmo acabamento "premium" dos
-     selos de destaque do site (ver .specialty-card__badge, kpi-card--gold),
-     em vez de um balão liso genérico. */
-  box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(200, 164, 101, 0.4), 0 0 20px -3px rgba(111, 61, 67, 0.55);
+  letter-spacing: 0;
+  box-shadow: var(--shadow-float);
   /* --tooltip-shift: 0px por padrão (não faz nada em 99% dos gatilhos, que
      têm espaço de sobra dos dois lados) — só elementos que sabem que podem
      ficar perto de uma borda (ex.: colunas do BarChart, ver JS lá) setam
@@ -367,7 +387,7 @@ button, a.button, .tap-target {
   /* Entrada com leve "estouro" (overshoot) em vez de um ease comum — dá a
      sensação de a pílula "pular" pra fora do ícone, não só desvanecer, e o
      brilho desliza da direita pra esquerda no mesmo tempo da entrada. */
-  transition: opacity var(--duration-fast) var(--ease-premium), transform var(--duration-base) cubic-bezier(0.34, 1.56, 0.64, 1), background-position 0.8s var(--ease-premium);
+  transition: opacity var(--duration-fast) var(--ease-premium), transform var(--duration-base) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Seta em triângulo (border-trick) em vez do quadrado rotacionado 45° de
@@ -387,7 +407,7 @@ button, a.button, .tap-target {
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 7px solid var(--color-rose-900);
+  border-top: 7px solid var(--color-dusk-800);
   transform: translateX(-50%);
   filter: drop-shadow(0 2px 2px rgba(111, 61, 67, 0.35));
 }
@@ -397,7 +417,6 @@ button, a.button, .tap-target {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(calc(-50% + var(--tooltip-shift, 0px))) translateY(0) scale(1);
-  background-position: -100% 0, 0 0;
 }
 
 [data-tooltip]:hover::before,
@@ -416,7 +435,7 @@ button, a.button, .tap-target {
   bottom: auto;
   top: calc(100% + 5px);
   border-top: none;
-  border-bottom: 7px solid var(--color-rose-900);
+  border-bottom: 7px solid var(--color-dusk-800);
 }
 
 [data-tooltip-pos='bottom']:hover::after,
@@ -526,71 +545,11 @@ button, a.button, .tap-target {
   }
 }
 
-/* Tooltip reutilizável: any elemento com data-tooltip="texto" ganha um
-   balão na paleta da marca no hover/foco, em vez do title nativo do
-   navegador (balão cinza do sistema, sem nada a ver com o resto do site —
-   ver header__admin-tooltip em AppHeader.vue, a origem deste padrão, hoje
-   generalizada aqui pra qualquer botão/link do painel usar sem duplicar
-   marcação). Usa position:relative do próprio elemento — não precisa de
-   wrapper extra. */
-[data-tooltip] {
-  position: relative;
-}
-
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  z-index: 40;
-  transform: translateX(-50%) translateY(4px) scale(0.94);
-  transform-origin: bottom center;
-  white-space: nowrap;
-  padding: 7px 14px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
-  color: #fff;
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  box-shadow: var(--shadow-md, var(--shadow-lg));
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
-}
-
-[data-tooltip]::before {
-  content: '';
-  position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
-  z-index: 40;
-  width: 9px;
-  height: 9px;
-  transform: translateX(-50%) translateY(4px) rotate(45deg);
-  background: var(--color-rose-700);
-  border-radius: 2px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
-}
-
-[data-tooltip]:hover::after,
-[data-tooltip]:hover::before,
-[data-tooltip]:focus-visible::after,
-[data-tooltip]:focus-visible::before {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
+/* Foco por clique (mouse) não deve abrir o tooltip — só foco por teclado.
+   (Antes existia aqui uma SEGUNDA cópia inteira do tooltip, mais antiga,
+   que por vir depois no arquivo sobrescrevia a versão de cima: a seta
+   voltava a ser o losango girado que a versão nova substituiu.) */
 [data-tooltip]:focus:not(:focus-visible)::after,
 [data-tooltip]:focus:not(:focus-visible)::before {
   opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-tooltip]::after,
-  [data-tooltip]::before {
-    transition: opacity var(--duration-fast) linear;
-  }
 }

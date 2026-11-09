@@ -43,6 +43,22 @@
      dezenas de usos existentes de var(--font-display) nos componentes. */
   --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: var(--font-body);
+  /* Serifada SÓ para títulos (h1/h2) e poucos momentos de marca (citação,
+     @ do Instagram) — token separado de --font-display justamente para não
+     repetir o problema descrito acima: --font-display continua sendo a
+     Manrope e é o que números (KPIs, valores, contadores) usam, então dado
+     nunca muda de fonte. Fraunces variável: eixo SOFT arredonda as serifas
+     (combina com o traço fino e orgânico do logo, sem a rigidez de uma
+     didone) e opsz ajusta o contraste sozinho conforme o tamanho. */
+  --font-serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+
+  /* Escala tipográfica de títulos — razão ~1.25 (terça maior), fluida entre
+     celular e desktop. Centralizada aqui porque cada view tinha seu próprio
+     clamp() e os tamanhos tinham divergido entre páginas equivalentes. */
+  --text-display: clamp(2.6rem, 6.4vw + 0.6rem, 5.6rem);
+  --text-h1: clamp(2.4rem, 5vw + 0.4rem, 3.8rem);
+  --text-h2: clamp(2rem, 3.6vw + 0.4rem, 3rem);
+  --text-h3: 1.2rem;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -59,9 +75,19 @@
   --radius-lg: 24px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 2px 8px rgba(58, 44, 42, 0.06);
-  --shadow-md: 0 8px 24px rgba(58, 44, 42, 0.1);
-  --shadow-lg: 0 16px 48px rgba(58, 44, 42, 0.14);
+  /* Nada em repouso tem sombra: superfícies se separam por um degrau de
+     tom (--color-surface sobre --color-bg), não por sombra — é o que mais
+     diferencia uma interface cara de um template (no estudo de 247 sites da
+     skill design-taste-frontend, sombras aparecem em 24% dos melhores contra
+     48% dos piores). Os três tokens antigos continuam existindo para não
+     quebrar os componentes que os usam, mas agora valem `none`.
+     --shadow-float é a ÚNICA sombra: só para o que realmente flutua sobre a
+     página — modal, menu suspenso, seletor de data, paleta de comandos,
+     barra fixa de agendamento, botão flutuante do WhatsApp. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-float: 0 1px 3px rgba(58, 38, 34, 0.08), 0 24px 60px -16px rgba(58, 38, 34, 0.28);
   --shadow-glow: 0 0 0 1px rgba(111, 61, 67, 0.06), 0 24px 64px -16px rgba(111, 61, 67, 0.32);
 
   --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);

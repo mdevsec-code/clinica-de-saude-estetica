@@ -90,9 +90,6 @@ async function toggleActive(user: AdminAccount) {
 <template>
   <div class="admin-users">
     <div class="admin-users__header">
-      <span class="admin-page-icon">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.5 3.5 0 0 1 0 6.8M21.5 20a6 6 0 0 0-5-6.2" /></svg>
-      </span>
       <div>
         <h1>Usuários</h1>
         <p>Contas de acesso ao painel administrativo — dono da clínica e recepção.</p>
@@ -131,7 +128,7 @@ async function toggleActive(user: AdminAccount) {
     <LoadingState v-if="loading" key="loading" label="Carregando contas…" />
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
 
-    <ul v-else key="content" class="admin-users__list">
+    <ul v-else key="content" v-stagger class="admin-users__list">
       <li v-for="user in users" :key="user.id" class="admin-card admin-users__row" :class="{ 'admin-users__row--inactive': !user.active }">
         <div class="admin-users__info">
           <span class="admin-users__name">
@@ -281,8 +278,8 @@ async function toggleActive(user: AdminAccount) {
 .admin-badge {
   font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   background: var(--color-rose-100);

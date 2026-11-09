@@ -27,13 +27,25 @@ catalogRouter.get(
 const adminRouter = Router();
 adminRouter.use(requireAuth, requireRole('ADMIN'));
 
+// Caminho do próprio site ("/services/x.jpg") ou endereço https://, sem
+// espaço, aspas, parênteses ou sinais de tag. O valor vai parar dentro de
+// `background-image: url(...)` (sem aspas) e de <img src> no site PÚBLICO:
+// antes qualquer texto era aceito, e um parêntese ou ponto e vírgula
+// fechava o url() e injetava CSS na página de quem visita.
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .regex(/^(\/(?!\/)|https:\/\/)[^\s"'()<>\\;]+$/, 'Use um caminho do site (ex.: /services/foto.jpg) ou um endereço https://.')
+  .nullable()
+  .optional();
+
 const categoryInputSchema = z.object({
   name: z.string().min(2, 'Informe um nome para a categoria.'),
   // Não exige URL absoluta: a maioria das imagens vem de /public do próprio
   // front (ex.: "/services/sobrancelha.jpg", mesmo padrão já usado pela logo
-  // em /brand) — uma URL absoluta funcionaria também, mas exigi-la rejeitaria
-  // o caso comum de asset local sem ganhar nada em validação real.
-  imageUrl: z.string().min(1).nullable().optional(),
+  // em /brand). Ver imageUrlSchema para o formato aceito.
+  imageUrl: imageUrlSchema,
   featured: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
@@ -50,9 +62,8 @@ const serviceInputSchema = z.object({
   priceCents: z.number().int().min(0).nullable().optional(),
   // Não exige URL absoluta: a maioria das imagens vem de /public do próprio
   // front (ex.: "/services/sobrancelha.jpg", mesmo padrão já usado pela logo
-  // em /brand) — uma URL absoluta funcionaria também, mas exigi-la rejeitaria
-  // o caso comum de asset local sem ganhar nada em validação real.
-  imageUrl: z.string().min(1).nullable().optional(),
+  // em /brand). Ver imageUrlSchema para o formato aceito.
+  imageUrl: imageUrlSchema,
   sortOrder: z.number().int().optional(),
   // Módulo de acompanhamento de pacientes: dias após o procedimento em que
   // cada retorno deve ser lembrado (ex.: [15, 122] para Botox). Vazio =

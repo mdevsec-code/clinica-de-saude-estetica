@@ -65,7 +65,7 @@ const timeLabel = computed(() => {
   gap: var(--space-4);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   padding: var(--space-3) var(--space-4);
   padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
 }
@@ -102,7 +102,7 @@ const timeLabel = computed(() => {
 
 .summary-bar__cta {
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
   border: none;
   padding: 12px 22px;

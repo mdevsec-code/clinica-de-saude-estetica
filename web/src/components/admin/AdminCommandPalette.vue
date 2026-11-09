@@ -28,6 +28,7 @@ const ICON_FINANCE = '<rect x="2.5" y="6" width="19" height="13" rx="2" /><path 
 const ICON_INVENTORY = '<path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" /><path d="M8 21v-7h8v7" />';
 const ICON_USERS = '<circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" />';
 const ICON_AUDIT = '<path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />';
+const ICON_WHATSAPP = '<path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3l-4.5 1.5Z" />';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -39,6 +40,7 @@ const ALL_COMMANDS: (CommandItem & { adminOnly?: boolean })[] = [
   { label: 'Financeiro', hint: 'Gastos, DRE e conciliação bancária', name: 'admin-finance', iconInner: ICON_FINANCE },
   { label: 'Estoque', hint: 'Itens e quantidades', name: 'admin-inventory', iconInner: ICON_INVENTORY },
   { label: 'Usuários', hint: 'Contas de acesso ao painel', name: 'admin-users', iconInner: ICON_USERS, adminOnly: true },
+  { label: 'WhatsApp', hint: 'Conexão e mensagens automáticas', name: 'admin-whatsapp', iconInner: ICON_WHATSAPP, adminOnly: true },
   { label: 'Auditoria', hint: 'Histórico de ações da equipe', name: 'admin-audit', iconInner: ICON_AUDIT, adminOnly: true },
 ];
 
@@ -209,7 +211,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydownGlobal));
   flex-direction: column;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
 }
 

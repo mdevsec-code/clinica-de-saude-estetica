@@ -78,7 +78,7 @@ function onLeave(el: Element, done: () => void) {
 .accordion {
   position: relative;
   scroll-margin-top: 96px;
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-md);
   background: var(--color-surface);
   overflow: hidden;
@@ -86,8 +86,6 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .accordion--open {
-  border-color: var(--color-rose-300);
-  box-shadow: var(--shadow-sm);
 }
 
 .accordion__header {
@@ -112,7 +110,7 @@ function onLeave(el: Element, done: () => void) {
   width: 56px;
   height: 56px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-rose-300));
+  background: var(--color-rose-100);
   color: var(--color-rose-900);
   display: flex;
   align-items: center;
@@ -147,13 +145,16 @@ function onLeave(el: Element, done: () => void) {
 
 .accordion__name {
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 1.65rem;
+  letter-spacing: -0.01em;
   font-weight: 600;
   color: var(--color-ink);
 }
 
 .accordion__count {
-  font-size: 0.85rem;
+  font-size: 1.05rem;
   color: var(--color-ink-muted);
 }
 

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue';
+import { computed, nextTick, ref } from 'vue';
+import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRoute, useRouter } from 'vue-router';
 import AppHeader from '@/components/AppHeader.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import WhatsAppButton from '@/components/WhatsAppButton.vue';
-import AmbientBackground from '@/components/AmbientBackground.vue';
-import GrainOverlay from '@/components/GrainOverlay.vue';
 import ScrollProgress from '@/components/ScrollProgress.vue';
 import AppIntroLoader from '@/components/AppIntroLoader.vue';
 import { refreshScroll, resetScrollTop } from '@/composables/useSmoothScroll';
@@ -38,15 +37,66 @@ const isAdminRoute = computed(() => route.path.startsWith('/admin'));
 // página de nível diferente de verdade (Home, Serviços, Agendar, Login).
 const pageKey = computed(() => route.matched[0]?.path ?? route.path);
 
-// Cada troca de rota muda a altura da página (e o Vue troca a view inteira
-// dentro da transição abaixo) — sem resetar o topo e recalcular os limites
-// de scroll, o ScrollSmoother/ScrollTrigger ficariam com posições da página
-// anterior por um instante.
-router.afterEach(async () => {
+// Cada troca de rota muda a altura da página — sem resetar o topo e
+// recalcular os limites de scroll, o ScrollSmoother/ScrollTrigger ficariam
+// com posições da página anterior. Quando a troca é de PÁGINA (a key muda e
+// a transição com véu abaixo roda), quem reseta é o onEnter, no instante em
+// que o véu está cobrindo a tela: resetar aqui, no afterEach, fazia a página
+// antiga pular para o topo à vista de todos antes de sumir. Aqui fica só o
+// caso sem transição de página — as abas do painel, que trocam dentro do
+// mesmo AdminLayout.
+router.afterEach(async (to, from) => {
+  if (to.matched[0]?.path !== from.matched[0]?.path) return;
   await nextTick();
   resetScrollTop();
   refreshScroll();
 });
+
+// Véu de transição: um painel rosé sobe cobrindo a página que sai e depois
+// se recolhe para cima, revelando a que entra — com a borda curva, a mesma
+// forma da saída da cortina de abertura (AppIntroLoader.vue). É um único
+// elemento fixo, teleportado para #overlay-slot (fora do conteúdo
+// suavizado). Com prefers-reduced-motion, vira uma troca direta, sem véu
+// nem deslocamento.
+const veil = ref<HTMLElement | null>(null);
+
+function onLeave(el: Element, done: () => void) {
+  if (prefersReducedMotion() || !veil.value) {
+    done();
+    return;
+  }
+  gsap
+    .timeline({ onComplete: done })
+    .set(veil.value, { visibility: 'visible' })
+    .fromTo(
+      veil.value,
+      { clipPath: 'ellipse(160% 0% at 50% 100%)' },
+      { clipPath: 'ellipse(160% 140% at 50% 100%)', duration: 0.55, ease: 'premium-in-out' },
+      0,
+    )
+    .to(el, { y: -40, opacity: 0.6, duration: 0.55, ease: 'premium-in-out' }, 0);
+}
+
+async function onEnter(el: Element, done: () => void) {
+  await nextTick();
+  resetScrollTop();
+  refreshScroll();
+
+  if (prefersReducedMotion() || !veil.value) {
+    done();
+    return;
+  }
+  gsap
+    .timeline({ onComplete: done })
+    .fromTo(
+      veil.value,
+      { clipPath: 'ellipse(160% 140% at 50% 0%)' },
+      { clipPath: 'ellipse(160% 0% at 50% 0%)', duration: 0.75, ease: 'premium-out' },
+      0,
+    )
+    .fromTo(el, { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: 'premium-out', clearProps: 'transform,opacity' }, 0.05)
+    .set(veil.value, { visibility: 'hidden' });
+}
 </script>
 
 <template>
@@ -58,14 +108,10 @@ router.afterEach(async () => {
        eles não precisam acompanhar o scroll suavizado, e --- no caso do
        fundo ambiente --- precisam continuar pintando ATRÁS de tudo, o que só
        dá pra garantir ficando fora do wrapper. -->
-  <Teleport to="#ambient-slot">
-    <AmbientBackground />
-  </Teleport>
-
   <AppHeader v-if="!isAdminRoute" />
   <main>
     <RouterView v-slot="{ Component }">
-      <Transition name="page" mode="out-in">
+      <Transition mode="out-in" :css="false" @leave="onLeave" @enter="onEnter">
         <component :is="Component" :key="pageKey" />
       </Transition>
     </RouterView>
@@ -75,24 +121,21 @@ router.afterEach(async () => {
   <Teleport to="#overlay-slot">
     <ScrollProgress v-if="!isAdminRoute" />
     <WhatsAppButton v-if="!isAdminRoute" variant="floating" />
-    <GrainOverlay />
     <AppIntroLoader v-if="!isAdminRoute" />
+    <div ref="veil" class="route-veil" aria-hidden="true" />
   </Teleport>
 </template>
 
 <style>
-.page-enter-active,
-.page-leave-active {
-  transition: opacity 0.45s var(--ease-premium), transform 0.45s var(--ease-premium);
-}
-
-.page-enter-from {
-  opacity: 0;
-  transform: translateY(18px) scale(0.994);
-}
-
-.page-leave-to {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.998);
+.route-veil {
+  position: fixed;
+  inset: 0;
+  /* Acima do header (40) e do WhatsApp (50), abaixo do grão (100). */
+  z-index: 90;
+  visibility: hidden;
+  clip-path: ellipse(160% 0% at 50% 100%);
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 120%, rgba(200, 164, 101, 0.28), transparent 60%),
+    linear-gradient(180deg, var(--color-rose-700), var(--color-rose-900) 60%, var(--color-dusk-800));
 }
 </style>

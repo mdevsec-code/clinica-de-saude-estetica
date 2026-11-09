@@ -48,9 +48,13 @@ const href = computed(() => {
   transition: transform var(--duration-fast) var(--ease-standard);
 }
 
+/* Verde mais fechado só na versão com TEXTO: branco sobre o #25d366 da
+   marca dá contraste de ~2:1, abaixo do legível. O botão flutuante (só
+   ícone) continua no verde original, que é o que se reconhece de longe. */
 .whatsapp-btn--inline {
-  padding: 12px 20px;
-  font-weight: 600;
+  padding: 12px 22px;
+  font-weight: 700;
+  background: #15803d;
 }
 
 .whatsapp-btn--floating {
@@ -60,7 +64,7 @@ const href = computed(() => {
   width: 56px;
   height: 56px;
   justify-content: center;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-float);
   z-index: 50;
 }
 

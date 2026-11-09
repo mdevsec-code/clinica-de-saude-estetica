@@ -309,11 +309,7 @@ function formatUpcoming(iso: string) {
          (mês, receita, gastos...) vem depois, na grade de KPIs, como
          detalhe de apoio. -->
     <header class="admin-dashboard__hero">
-      <span class="admin-dashboard__hero-glow" aria-hidden="true" />
       <div class="admin-dashboard__hero-intro">
-        <span class="admin-page-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
-        </span>
         <div>
           <h1>Painel</h1>
           <p>{{ todayLabel }}</p>
@@ -333,17 +329,11 @@ function formatUpcoming(iso: string) {
     <div v-else-if="stats" key="content">
       <div class="admin-dashboard__kpis">
         <div class="kpi-card" data-reveal>
-          <span class="kpi-card__icon">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-          </span>
           <span class="kpi-card__label">Este mês</span>
           <span class="kpi-card__value" :data-count="stats.appointmentsThisMonth">{{ stats.appointmentsThisMonth }}</span>
           <span class="kpi-card__hint">agendamentos no total</span>
         </div>
         <div class="kpi-card kpi-card--accent" data-reveal>
-          <span class="kpi-card__icon kpi-card__icon--on-accent">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" /></svg>
-          </span>
           <span class="kpi-card__label">Receita do mês</span>
           <span class="kpi-card__value" :data-count="stats.revenueThisMonthCents" data-count-currency>{{ formatCurrency(stats.revenueThisMonthCents) }}</span>
           <span v-if="revenueTrend" class="kpi-trend kpi-trend--on-accent">
@@ -353,9 +343,6 @@ function formatUpcoming(iso: string) {
           <span v-else class="kpi-card__hint">atendimentos concluídos</span>
         </div>
         <div class="kpi-card" data-reveal>
-          <span class="kpi-card__icon">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 17l-6-6-4 4-8-8M9 7H3v6" /></svg>
-          </span>
           <span class="kpi-card__label">Gastos do mês</span>
           <span class="kpi-card__value" :data-count="stats.expensesThisMonthCents" data-count-currency>{{ formatCurrency(stats.expensesThisMonthCents) }}</span>
           <span v-if="expensesTrend" class="kpi-trend" :class="expensesTrend.good ? 'kpi-trend--good' : 'kpi-trend--bad'">
@@ -365,9 +352,6 @@ function formatUpcoming(iso: string) {
           <span v-else class="kpi-card__hint">gastos cadastrados</span>
         </div>
         <div class="kpi-card" :class="{ 'kpi-card--negative': stats.balanceThisMonthCents < 0 }" data-reveal>
-          <span class="kpi-card__icon">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 7H5.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H8" /></svg>
-          </span>
           <span class="kpi-card__label">Saldo do mês</span>
           <span class="kpi-card__value" :data-count="stats.balanceThisMonthCents" data-count-currency>{{ formatCurrency(stats.balanceThisMonthCents) }}</span>
           <span class="kpi-card__hint">receita − gastos</span>
@@ -377,9 +361,6 @@ function formatUpcoming(iso: string) {
              premium" por tela — aqui, o ticket médio, por ser a métrica de
              qualidade/posicionamento do atendimento, não só de volume. -->
         <div class="kpi-card kpi-card--gold" data-reveal>
-          <span class="kpi-card__icon kpi-card__icon--gold">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12.5 12.5 20.5a2 2 0 0 1-2.83 0l-6.17-6.17a2 2 0 0 1 0-2.83L11.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5Z" /><circle cx="15.5" cy="8.5" r="1.25" fill="currentColor" stroke="none" /></svg>
-          </span>
           <span class="kpi-card__label">Ticket médio</span>
           <span class="kpi-card__value" :data-count="stats.avgTicketCents" data-count-currency>{{ formatCurrency(stats.avgTicketCents) }}</span>
           <span class="kpi-card__hint">por atendimento concluído</span>
@@ -400,9 +381,6 @@ function formatUpcoming(iso: string) {
              prefers-reduced-motion, ver bloco de motion no fim do <style>. -->
         <RouterLink :to="{ name: 'admin-inventory' }" class="kpi-card kpi-card--link" :class="{ 'kpi-card--warning': stats.lowStockCount > 0 }" data-reveal>
           <span v-if="stats.lowStockCount > 0" class="kpi-card__alert-dot" aria-hidden="true" />
-          <span class="kpi-card__icon" :class="{ 'kpi-card__icon--warning': stats.lowStockCount > 0 }">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z" /></svg>
-          </span>
           <span class="kpi-card__label">Estoque baixo</span>
           <span class="kpi-card__value" :data-count="stats.lowStockCount">{{ stats.lowStockCount }}</span>
           <span class="kpi-card__hint">{{ stats.lowStockCount ? 'itens precisam de reposição' : 'tudo em dia' }}</span>
@@ -420,9 +398,6 @@ function formatUpcoming(iso: string) {
         <div class="admin-card admin-card--chart admin-card--feature">
           <div class="admin-card__head">
             <h2>
-              <span class="admin-card__icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18M7 16l4-6 3 3 5-8" /></svg>
-              </span>
               Agendamentos — últimos {{ chartDays }} dias
             </h2>
             <div class="chart-range" role="group" aria-label="Período do gráfico">
@@ -448,9 +423,6 @@ function formatUpcoming(iso: string) {
 
         <div class="admin-card admin-card--feature">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
-            </span>
             Status dos agendamentos (mês)
           </h2>
           <div class="status-donut">
@@ -468,9 +440,6 @@ function formatUpcoming(iso: string) {
         <div class="admin-card admin-card--chart admin-card--inspector admin-card--feature">
           <div class="admin-card__head">
             <h2>
-              <span class="admin-card__icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-              </span>
               Inspecionar um dia
             </h2>
             <form class="day-inspector__form" @submit.prevent="inspectDay">
@@ -501,9 +470,6 @@ function formatUpcoming(iso: string) {
 
         <div v-if="revenueVsExpenses" class="admin-card admin-card--list">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-            </span>
             Receita x Gastos (mês)
           </h2>
           <div class="rev-exp">
@@ -526,25 +492,16 @@ function formatUpcoming(iso: string) {
 
         <div class="admin-card admin-card--list">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18" /></svg>
-            </span>
             Gastos por categoria (mês)
           </h2>
           <CategoryBarList v-if="stats.expensesByCategory.length" :data="stats.expensesByCategory" />
           <div v-else class="admin-card__empty">
-            <span class="admin-card__empty-icon">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l2-5h14l2 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M9 13h6" /></svg>
-            </span>
             <p>Nenhum gasto cadastrado este mês.</p>
           </div>
         </div>
 
         <div class="admin-card admin-card--list">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z" /></svg>
-            </span>
             Estoque baixo
           </h2>
           <ul v-if="stats.lowStockItems.length" class="low-stock-list">
@@ -557,18 +514,12 @@ function formatUpcoming(iso: string) {
                de itens é uma notícia BOA (nada abaixo do mínimo), não uma
                falta de dado — o ícone deve refletir isso. -->
           <div v-else class="admin-card__empty admin-card__empty--success">
-            <span class="admin-card__empty-icon admin-card__empty-icon--success">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 5-5" /></svg>
-            </span>
             <p>Nenhum item abaixo do mínimo cadastrado.</p>
           </div>
         </div>
 
         <div class="admin-card admin-card--list">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-            </span>
             Próximos agendamentos
           </h2>
           <ul v-if="stats.upcomingAppointments.length" class="upcoming-list">
@@ -581,18 +532,12 @@ function formatUpcoming(iso: string) {
             </li>
           </ul>
           <div v-else class="admin-card__empty">
-            <span class="admin-card__empty-icon">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l2-5h14l2 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M9 13h6" /></svg>
-            </span>
             <p>Nenhum agendamento confirmado pela frente.</p>
           </div>
         </div>
 
         <div class="admin-card admin-card--list">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            </span>
             Lembretes (7 dias)
           </h2>
           <ul v-if="stats.upcomingReminders.length" class="upcoming-list">
@@ -612,18 +557,12 @@ function formatUpcoming(iso: string) {
             </li>
           </ul>
           <div v-else class="admin-card__empty admin-card__empty--success">
-            <span class="admin-card__empty-icon admin-card__empty-icon--success">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 5-5" /></svg>
-            </span>
             <p>Nenhum lembrete de retorno ou aniversário nos próximos 7 dias.</p>
           </div>
         </div>
 
         <div class="admin-card admin-card--list">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M17 3H7a2 2 0 0 0-2 2v4a7 7 0 0 0 14 0V5a2 2 0 0 0-2-2Z" /><path d="M5 6H3a2 2 0 0 0 0 4h2M19 6h2a2 2 0 0 1 0 4h-2" /></svg>
-            </span>
             Serviços mais procurados (mês)
           </h2>
           <ul v-if="stats.topServices.length" class="top-services-list">
@@ -637,9 +576,6 @@ function formatUpcoming(iso: string) {
             </li>
           </ul>
           <div v-else class="admin-card__empty">
-            <span class="admin-card__empty-icon">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l2-5h14l2 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M9 13h6" /></svg>
-            </span>
             <p>Nenhum agendamento cadastrado este mês.</p>
           </div>
         </div>
@@ -661,34 +597,9 @@ function formatUpcoming(iso: string) {
   margin-bottom: var(--space-6);
   padding: var(--space-6);
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
   box-shadow: var(--shadow-lg);
-}
-
-.admin-dashboard__hero-glow {
-  position: absolute;
-  inset: -30% -10% auto auto;
-  width: 55%;
-  height: 130%;
-  background: radial-gradient(ellipse at center, rgba(200, 164, 101, 0.28), transparent 70%);
-  filter: blur(6px);
-  pointer-events: none;
-  /* Drift bem lento (18s) e discreto — presença de "coisa viva", não um
-     efeito chamativo que compete com quem está tentando ler os números
-     enquanto trabalha. Ver guarda de prefers-reduced-motion no fim do arquivo. */
-  animation: hero-glow-drift 18s ease-in-out infinite;
-}
-
-@keyframes hero-glow-drift {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.9;
-  }
-  50% {
-    transform: translate(-4%, 3%) scale(1.08);
-    opacity: 1;
-  }
 }
 
 .admin-dashboard__hero-intro {
@@ -726,8 +637,8 @@ function formatUpcoming(iso: string) {
 .admin-dashboard__hero-stat-label {
   font-size: 0.78rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: rgba(255, 255, 255, 0.75);
 }
 
@@ -821,7 +732,7 @@ a.kpi-card {
 }
 
 .kpi-card--accent {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   border-color: transparent;
   color: #fff;
 }
@@ -859,7 +770,7 @@ a.kpi-card {
    urgência real de "itens abaixo do mínimo". */
 .kpi-card--warning {
   border-color: var(--color-danger);
-  background: linear-gradient(160deg, var(--color-surface), color-mix(in srgb, var(--color-danger) 7%, var(--color-surface)));
+  background: var(--color-surface);
 }
 
 .kpi-card__alert-dot {
@@ -928,8 +839,8 @@ a.kpi-card {
 .kpi-card__label {
   font-size: 0.78rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--color-ink-soft);
 }
 
@@ -1002,7 +913,7 @@ a.kpi-card {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-rose-700), var(--color-gold-500));
+  background: transparent;
   opacity: 0;
   transition: opacity var(--duration-base) var(--ease-premium);
 }
@@ -1023,7 +934,7 @@ a.kpi-card {
    de apoio abaixo — o objetivo é que o olho pouse nestes primeiro. */
 .admin-card--feature {
   padding-block: var(--space-6);
-  background: linear-gradient(180deg, var(--color-surface), color-mix(in srgb, var(--color-rose-100) 32%, var(--color-surface)));
+  background: var(--color-surface);
 }
 
 .admin-card--feature::before {
@@ -1091,7 +1002,7 @@ a.kpi-card {
 }
 
 .chart-range__btn--active {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
 }
 
@@ -1368,7 +1279,7 @@ a.kpi-card {
 .top-services-list__fill {
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--color-rose-500), var(--color-rose-700));
+  background: var(--color-rose-700);
   min-width: 6px;
   transition: width 0.6s var(--ease-premium);
 }
@@ -1499,11 +1410,11 @@ a.kpi-card {
 }
 
 .rev-exp__fill--revenue {
-  background: linear-gradient(90deg, var(--color-success), #6fa87d);
+  background: var(--color-success);
 }
 
 .rev-exp__fill--expenses {
-  background: linear-gradient(90deg, var(--color-danger), #c2726c);
+  background: var(--color-danger);
 }
 
 .rev-exp__value {
@@ -1515,12 +1426,201 @@ a.kpi-card {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-dashboard__hero-glow {
-    animation: none;
-  }
-
   .kpi-card__alert-dot {
     animation: none;
+  }
+}
+
+/* --- Acabamento premium (regras de tela de aplicativo) ---
+   Declarado por último de propósito: sobrepõe o visual antigo mantendo
+   todas as classes, das quais dependem as animações de entrada e a
+   contagem dos números (script acima).
+   - Sem "hero": o topo é uma linha de título (substantivo + data) e o
+     número que responde a pergunta da tela — quantos atendimentos hoje —
+     à direita, em tipo grande, sem faixa colorida nem brilho.
+   - KPIs são tipografia: um contêiner único dividido por linhas finas,
+     rótulo em caixa normal acima do valor, valor em tinta; sem ícone em
+     círculo e sem cartão de fundo colorido. Cor só onde é dado (estoque
+     em falta, saldo negativo). */
+.admin-dashboard__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: 0 0 var(--space-6);
+  margin-bottom: 0;
+  background: none;
+  color: var(--color-ink);
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.admin-dashboard__hero h1 {
+  color: var(--color-rose-900);
+  font-size: 2.1rem;
+}
+
+.admin-dashboard__hero p {
+  color: var(--color-ink-muted);
+  font-size: 1.05rem;
+}
+
+.admin-dashboard__hero-stat {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.admin-dashboard__hero-stat-label,
+.admin-dashboard__hero-stat-hint {
+  color: var(--color-ink-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.admin-dashboard__hero-stat-hint {
+  font-weight: 400;
+}
+
+.admin-dashboard__hero-stat-value {
+  color: var(--color-rose-900);
+  font-family: var(--font-serif);
+  font-size: 2.6rem;
+  font-weight: 400;
+  line-height: 1.1;
+  text-shadow: none;
+}
+
+.admin-dashboard__kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  padding: 0;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* 7 indicadores em 4 colunas: o último ocupa duas, sem célula vazia (a
+   taxa de conclusão ocupava duas colunas no layout antigo e empurrava o
+   estoque para uma terceira linha). */
+.admin-dashboard__kpis > .kpi-card--ring {
+  grid-column: auto;
+}
+
+.admin-dashboard__kpis > :last-child {
+  grid-column: span 2;
+}
+
+.kpi-card,
+.kpi-card--accent,
+.kpi-card--gold,
+.kpi-card--warning,
+.kpi-card--negative {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--space-5);
+  min-height: 0;
+}
+
+.kpi-card::before,
+.kpi-card::after {
+  display: none;
+}
+
+.kpi-card:hover {
+  transform: none;
+  background: color-mix(in srgb, var(--color-rose-100) 45%, var(--color-surface));
+}
+
+.kpi-card__label,
+.kpi-card--accent .kpi-card__label,
+.kpi-card--gold .kpi-card__label {
+  color: var(--color-ink-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.kpi-card__value,
+.kpi-card--accent .kpi-card__value,
+.kpi-card--gold .kpi-card__value {
+  color: var(--color-ink);
+  font-size: 1.9rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin-top: 6px;
+}
+
+.kpi-card--negative .kpi-card__value,
+.kpi-card--warning .kpi-card__value {
+  color: var(--color-danger);
+}
+
+.kpi-card__hint,
+.kpi-card--accent .kpi-card__hint,
+.kpi-card--gold .kpi-card__hint {
+  color: var(--color-ink-muted);
+  font-size: 0.9rem;
+}
+
+.kpi-trend--on-accent {
+  color: var(--color-ink-muted);
+  background: none;
+}
+
+/* Cartões de gráfico: sem a faixa colorida no topo nem sombra; borda de
+   1px e um degrau de tom bastam num painel. */
+.admin-card::before {
+  display: none;
+}
+
+.admin-card,
+.admin-card--feature,
+.admin-card--chart {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.admin-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-card--feature h2,
+.admin-card h2 {
+  color: var(--color-ink);
+}
+
+@media (max-width: 900px) {
+  .admin-dashboard__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dashboard__kpis > :last-child {
+    grid-column: span 2;
+  }
+}
+
+/* No celular o título e o número de hoje empilham, alinhados à esquerda
+   (o align-items: flex-end acima é para a linha única do desktop). */
+@media (max-width: 600px) {
+  .admin-dashboard__hero {
+    align-items: flex-start;
+  }
+
+  .admin-dashboard__hero-stat {
+    align-items: flex-start;
+    text-align: left;
   }
 }
 </style>

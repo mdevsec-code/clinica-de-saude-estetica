@@ -16,18 +16,51 @@ import { inventoryRouter } from './modules/inventory/inventory.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { auditRouter } from './modules/audit/audit.routes';
 import { patientsRouter, remindersRouter } from './modules/patients/patients.routes';
+import { messagesRouter } from './modules/messages/messages.routes';
+import { whatsappRouter } from './modules/whatsapp/whatsapp.routes';
 
 export function createApp() {
   const app = express();
 
+  // Um único salto (o Nginx da VPS) — ver TRUST_PROXY em config/env.ts.
+  if (env.TRUST_PROXY) app.set('trust proxy', 1);
+
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN }));
-  // Limite padrão do Express (100kb) é apertado para o upload de extrato OFX
-  // (POST /finance/bank/import) e, agora, para fotos de paciente em base64
-  // (POST /patients/:id/photos, ver patients.service.ts) — uma foto de
-  // celular comprimida passa de 5mb com alguma folga.
-  app.use(express.json({ limit: '10mb' }));
-  app.use(pinoHttp());
+  // Corpo grande (10mb) SÓ nas rotas de upload — extrato OFX e foto/ficha
+  // digitalizada de paciente em base64 (uma foto de celular comprimida passa
+  // de 5mb com alguma folga). Todas as demais, incluindo as públicas
+  // (agendamento, login), ficam no padrão de 100kb: antes os 10mb valiam
+  // para tudo, e qualquer visitante podia mandar corpos de 10mb em série
+  // para o agendamento público e ocupar memória/CPU do servidor.
+  const UPLOAD_ROUTES = [
+    /^\/finance\/bank\/import$/,
+    /^\/patients\/[^/]+\/photos$/,
+    /^\/patients\/[^/]+\/fichas(\/[^/]+)?$/,
+  ];
+  const jsonLarge = express.json({ limit: '10mb' });
+  const jsonDefault = express.json({ limit: '100kb' });
+  app.use((req, res, next) =>
+    (UPLOAD_ROUTES.some((re) => re.test(req.path)) ? jsonLarge : jsonDefault)(req, res, next),
+  );
+  // Log de requisição SEM cabeçalhos: o padrão do pino-http grava todos, e
+  // com eles o `Authorization: Bearer <token>` de cada chamada do painel —
+  // qualquer pessoa com acesso aos logs (pm2 logs na VPS) poderia copiar um
+  // token e agir como a usuária por horas. A URL também sai com o `token=`
+  // mascarado (rotas de arquivo de paciente o recebem pela query string).
+  app.use(
+    pinoHttp({
+      serializers: {
+        req: (req: { id: unknown; method: string; url: string; remoteAddress?: string }) => ({
+          id: req.id,
+          method: req.method,
+          url: req.url.replace(/([?&]token=)[^&]*/g, '$1[redacted]'),
+          remoteAddress: req.remoteAddress,
+        }),
+        res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -52,6 +85,8 @@ export function createApp() {
   app.use('/audit', auditRouter);
   app.use('/patients', patientsRouter);
   app.use('/reminders', remindersRouter);
+  app.use('/message-templates', messagesRouter);
+  app.use('/whatsapp', whatsappRouter);
 
   app.use(errorHandler);
 

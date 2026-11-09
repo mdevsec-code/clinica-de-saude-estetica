@@ -290,9 +290,6 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
   <div class="admin-finance">
     <div class="admin-finance__header">
       <div class="admin-finance__title">
-        <span class="admin-page-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="13" rx="2" /><path d="M2.5 10h19M6 15h4" /></svg>
-        </span>
         <div>
           <h1>Financeiro</h1>
           <p>Gastos, DRE e conciliação bancária da clínica.</p>
@@ -319,45 +316,30 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
     <div v-if="activeTab === 'overview'">
       <div class="admin-finance__stats">
         <div class="admin-finance__stat">
-          <span class="admin-finance__stat-icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="13" rx="2" /><path d="M2.5 10h19" /></svg>
-          </span>
           <div>
             <span class="admin-finance__stat-label">Total listado</span>
             <strong class="admin-finance__stat-value">{{ formatCurrency(total) }}</strong>
           </div>
         </div>
         <div class="admin-finance__stat">
-          <span class="admin-finance__stat-icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-          </span>
           <div>
             <span class="admin-finance__stat-label">Gastos pagos este mês</span>
             <strong class="admin-finance__stat-value">{{ formatCurrency(monthTotal) }}</strong>
           </div>
         </div>
         <div v-if="topCategory" class="admin-finance__stat">
-          <span class="admin-finance__stat-icon" :style="{ color: CATEGORY_COLORS[topCategory[0]] }">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18M7 16l4-6 3 3 5-8" /></svg>
-          </span>
           <div>
             <span class="admin-finance__stat-label">Maior categoria</span>
             <strong class="admin-finance__stat-value">{{ CATEGORY_LABELS[topCategory[0]] }}</strong>
           </div>
         </div>
         <div class="admin-finance__stat admin-finance__stat--due">
-          <span class="admin-finance__stat-icon admin-finance__stat-icon--danger">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
-          </span>
           <div>
             <span class="admin-finance__stat-label">Vencimentos de hoje</span>
             <strong class="admin-finance__stat-value">{{ todayLoading ? '…' : formatCurrency(today?.vencimentosHojeCents ?? 0) }}</strong>
           </div>
         </div>
         <div class="admin-finance__stat admin-finance__stat--received">
-          <span class="admin-finance__stat-icon admin-finance__stat-icon--success">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v14M6 11l6 6 6-6" /><path d="M5 21h14" /></svg>
-          </span>
           <div>
             <span class="admin-finance__stat-label">Recebimentos de hoje</span>
             <strong class="admin-finance__stat-value">{{ todayLoading ? '…' : formatCurrency(today?.recebimentosHojeCents ?? 0) }}</strong>
@@ -389,9 +371,6 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
       <div class="admin-card admin-finance__revenue-card">
         <div class="admin-finance__revenue-header">
           <h2>
-            <span class="admin-card__icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18M7 15l4-5 3 3 5-7" /></svg>
-            </span>
             Faturamento diário (últimos 30 dias)
           </h2>
           <div v-if="revenueHistory" class="admin-finance__revenue-avg">
@@ -403,16 +382,13 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
         <BarChart
           v-else-if="revenueHistory"
           :data="revenueChartData"
-          color="var(--chart-seq-500)"
+          color="var(--color-rose-300)"
           :value-formatter="(v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })"
         />
       </div>
 
       <form class="admin-card admin-finance__form" @submit.prevent="onCreate">
         <h2>
-          <span class="admin-card__icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          </span>
           Novo gasto
         </h2>
         <div class="admin-form-row">
@@ -458,7 +434,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
       <EmptyState v-else-if="!expenses.length" key="empty" title="Nenhum gasto cadastrado ainda." />
 
-      <ul v-else key="content" class="admin-finance__list">
+      <ul v-else key="content" v-stagger class="admin-finance__list">
         <li v-for="expense in expenses" :key="expense.id" class="admin-card admin-finance__row" :class="{ 'admin-finance__row--pending': expense.status === 'PENDING' }">
           <div class="admin-finance__info">
             <span class="admin-finance__description">
@@ -496,9 +472,6 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
     <!-- ================= DRE ================= -->
     <div v-else-if="activeTab === 'dre'" class="admin-card admin-finance__dre">
       <h2>
-        <span class="admin-card__icon">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v16h16" /><path d="M8 15l3-4 3 2 4-6" /></svg>
-        </span>
         DRE — Demonstração do Resultado
       </h2>
       <p class="admin-finance__dre-hint">
@@ -612,69 +585,44 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
 }
 
 .admin-finance__tab--active {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   border-color: transparent;
   color: #fff;
 }
 
+/* Indicadores numa faixa só, divididos por linhas finas (mesmo desenho do
+   Painel): o número é o conteúdo, sem ícone nem cartão por valor. */
 .admin-finance__stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
   margin-bottom: var(--space-5);
 }
 
 .admin-finance__stat {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  transition: transform var(--duration-base) var(--ease-premium), box-shadow var(--duration-base) var(--ease-premium), border-color var(--duration-base) var(--ease-premium);
-}
-
-.admin-finance__stat:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-  border-color: var(--color-rose-300);
-}
-
-.admin-finance__stat-icon {
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-sm);
-  background: var(--color-rose-100);
-  color: var(--color-rose-700);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.admin-finance__stat-icon--danger {
-  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
-  color: var(--color-danger);
-}
-
-.admin-finance__stat-icon--success {
-  background: color-mix(in srgb, var(--color-success) 14%, transparent);
-  color: var(--color-success);
+  padding: var(--space-4) var(--space-5);
 }
 
 .admin-finance__stat-label {
   display: block;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+  margin-bottom: 6px;
 }
 
 .admin-finance__stat-value {
   font-family: var(--font-display);
-  font-size: 1.3rem;
-  color: var(--color-rose-900);
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-finance__today-grid {
@@ -768,7 +716,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-rose-700), var(--color-gold-500));
+  background: transparent;
   opacity: 0;
   transition: opacity var(--duration-base) var(--ease-premium);
 }
@@ -903,8 +851,8 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
 .admin-finance__badge {
   font-size: 0.68rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 2px 9px;
   border-radius: var(--radius-pill);
 }

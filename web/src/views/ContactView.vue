@@ -12,7 +12,6 @@ import { prefersReducedMotion } from '@/lib/motion';
 import WhatsAppButton from '@/components/WhatsAppButton.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import PageHeroBand from '@/components/PageHeroBand.vue';
-import DecorativeDots from '@/components/DecorativeDots.vue';
 
 const settings = useSettingsStore();
 settings.load();
@@ -194,16 +193,16 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
     <PageHeroBand
       eyebrow="Fale com a gente"
       title="Fale conosco"
-      description="Estamos à disposição para tirar dúvidas ou ajudar no seu agendamento."
+      description="WhatsApp, Instagram, endereço e horários da clínica em Camaçari (BA)."
+      image="/services/massagens-terapias-corporais.jpg"
+      image-alt="Massagem terapêutica nas costas, com toalha branca"
     />
 
     <div class="container contact-page__body">
       <LoadingState v-if="settings.loading" />
       <div v-else class="contact-grid">
         <div class="contact-card contact-card--whatsapp">
-          <DecorativeDots :count="6" tone="light" />
           <span class="contact-card__icon-wrap">
-            <span class="contact-card__icon-ring contact-card__icon-ring--light" aria-hidden="true" />
             <span class="contact-card__icon contact-card__icon--whatsapp">
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
                 <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.28-1.39a9.9 9.9 0 0 0 4.76 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2Zm0 18.02a8.17 8.17 0 0 1-4.16-1.14l-.3-.18-3.13.82.84-3.05-.19-.31a8.13 8.13 0 0 1-1.25-4.35c0-4.5 3.66-8.16 8.19-8.16 4.52 0 8.19 3.66 8.19 8.16 0 4.51-3.67 8.21-8.19 8.21Zm4.48-6.13c-.24-.12-1.44-.71-1.66-.79-.22-.08-.39-.12-.55.12-.16.24-.63.79-.78.95-.14.16-.28.18-.53.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.35-1.67-.14-.24-.02-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.33-.76-1.82-.2-.48-.4-.42-.55-.42h-.47c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.11 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28Z" />
@@ -219,7 +218,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
               <div v-if="chatBubbleState !== 'hidden'" class="whatsapp-preview whatsapp-preview--customer">
                 <div class="whatsapp-preview__bubble-col whatsapp-preview__bubble-col--customer">
                   <div class="whatsapp-preview__bubble whatsapp-preview__bubble--customer">
-                    Oi! Gostaria de agendar um horário 💆‍♀️
+                    Oi! Gostaria de agendar um horário.
                   </div>
                   <!-- Ticks de leitura: cinza (enviado) -> cinza duplo (entregue) ->
                        azul duplo (lido), exatamente a progressão real do WhatsApp.
@@ -247,7 +246,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
                     <span v-if="chatBubbleState === 'typing'" key="typing" class="whatsapp-preview__typing" aria-hidden="true">
                       <span /><span /><span />
                     </span>
-                    <span v-else key="text">Olá! 😊 Me conta qual procedimento você tem interesse!</span>
+                    <span v-else key="text">Olá! Me conta qual procedimento te interessa?</span>
                   </Transition>
                 </div>
               </div>
@@ -262,12 +261,8 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
         </div>
 
         <a v-if="igHref" :href="igHref" target="_blank" rel="noopener" class="contact-card contact-card--instagram" data-icon-card>
-          <DecorativeDots :count="8" tone="light" />
-          <span class="instagram-sparkle instagram-sparkle--1" aria-hidden="true">✦</span>
-          <span class="instagram-sparkle instagram-sparkle--2" aria-hidden="true">✦</span>
           <div class="instagram-header">
             <span class="contact-card__icon-wrap">
-              <span class="contact-card__icon-ring contact-card__icon-ring--gold" aria-hidden="true" />
               <span class="contact-card__icon contact-card__icon--instagram">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                   <rect x="3" y="3" width="18" height="18" rx="5" />
@@ -290,9 +285,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
         </a>
 
         <div class="contact-card contact-card--hours" v-if="hours.length" data-icon-card>
-          <DecorativeDots :count="6" tone="rose" />
           <span class="contact-card__icon-wrap">
-            <span class="contact-card__icon-ring contact-card__icon-ring--rose" aria-hidden="true" />
             <span class="contact-card__icon">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
@@ -406,7 +399,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   position: relative;
   overflow: hidden;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-md);
   padding: var(--space-5);
   transition: border-color var(--duration-base) var(--ease-premium), box-shadow var(--duration-base) var(--ease-premium), transform var(--duration-base) var(--ease-premium);
@@ -449,7 +442,10 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   margin-bottom: var(--space-3);
 }
 
-.contact-card a {
+/* :not(.whatsapp-btn): este seletor é mais específico que o do próprio
+   WhatsAppButton e pintava o texto do botão verde de rosé — ficava
+   praticamente ilegível. */
+.contact-card a:not(.whatsapp-btn) {
   color: var(--color-rose-700);
   font-weight: 600;
 }
@@ -459,7 +455,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   border-color: transparent;
   color: #fff;
 }
@@ -478,7 +474,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 
 .contact-card--whatsapp:hover {
   border-color: transparent;
-  box-shadow: var(--shadow-glow);
+  box-shadow: none;
 }
 
 /* --- Prévia de conversa (WhatsApp) --- */
@@ -652,7 +648,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   border-color: transparent;
   color: #fff;
   text-decoration: none;
@@ -669,7 +665,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 .contact-card__icon--instagram {
   background: rgba(255, 255, 255, 0.16);
   color: var(--color-gold-100);
-  box-shadow: inset 0 0 0 1.5px rgba(200, 164, 101, 0.5);
+  box-shadow: none;
 }
 
 .contact-card__handle {
@@ -712,7 +708,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   margin-bottom: var(--space-4);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  box-shadow: none;
 }
 
 .instagram-grid img {
@@ -759,7 +755,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 
 .contact-card--instagram:hover {
   border-color: transparent;
-  box-shadow: var(--shadow-glow);
+  box-shadow: none;
 }
 
 /* Anel pontilhado girando devagar ao redor do ícone — mesma assinatura
@@ -1030,7 +1026,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   margin-top: var(--space-5);
   border-radius: var(--radius-md);
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: none;
   box-shadow: var(--shadow-sm);
 }
 
@@ -1042,7 +1038,6 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   background: var(--color-surface);
   color: var(--color-ink);
   font-weight: 600;
-  border-bottom: 1px solid var(--color-border);
 }
 
 .contact-map__caption svg {

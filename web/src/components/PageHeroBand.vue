@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { nextTick, onMounted } from 'vue';
-import DecorativeDots from './DecorativeDots.vue';
+import { nextTick, onMounted, onUnmounted } from 'vue';
 import { useScrollReveal } from '@/composables/useScrollReveal';
 import { applySplitHeadingReveal } from '@/composables/useSplitReveal';
 
-withDefaults(defineProps<{ eyebrow?: string; title?: string; description?: string }>(), {
+// `image`: foto real à direita do título no desktop (abaixo, no celular) —
+// fecha a metade da primeira tela que ficaria vazia ao lado do texto.
+withDefaults(defineProps<{ eyebrow?: string; title?: string; description?: string; image?: string; imageAlt?: string }>(), {
   eyebrow: undefined,
   title: undefined,
   description: undefined,
+  image: undefined,
+  imageAlt: '',
 });
 
 // Auto-contido de propósito: nenhuma das views que usam este componente
@@ -19,67 +22,98 @@ withDefaults(defineProps<{ eyebrow?: string; title?: string; description?: strin
 // próprio elemento chamador, só descendentes) e `.page-hero` como item.
 useScrollReveal('body', '.page-hero');
 
+let revertSplit: () => void = () => {};
+
 onMounted(async () => {
   await nextTick();
-  applySplitHeadingReveal('.page-hero__title');
+  revertSplit = applySplitHeadingReveal('.page-hero__title');
 });
+
+onUnmounted(() => revertSplit());
 </script>
 
 <template>
   <header class="page-hero">
-    <DecorativeDots :count="10" />
-    <div class="container page-hero__inner">
-      <p v-if="eyebrow" class="page-hero__eyebrow">{{ eyebrow }}</p>
-      <h1 v-if="title" class="page-hero__title">{{ title }}</h1>
-      <p v-if="description" class="page-hero__description">{{ description }}</p>
-      <div v-if="$slots.default" class="page-hero__extra">
-        <slot />
+    <div class="container page-hero__inner" :class="{ 'page-hero__inner--image': image }">
+      <div class="page-hero__text">
+        <h1 v-if="title" class="page-hero__title">{{ title }}</h1>
+        <p v-if="description" class="page-hero__description">{{ description }}</p>
+        <div v-if="$slots.default" class="page-hero__extra">
+          <slot />
+        </div>
       </div>
+      <figure v-if="image" class="page-hero__figure">
+        <img :src="image" :alt="imageAlt" />
+      </figure>
     </div>
   </header>
 </template>
 
 <style scoped>
+/* Campo rosé claro chapado com o título grande — sem rótulo acima dele
+   (a prop `eyebrow` ainda é aceita, mas não é mais exibida: a informação
+   vai no próprio título e na descrição) e sem degradê de fundo. */
 .page-hero {
   position: relative;
   overflow: hidden;
-  padding-block: var(--space-8) var(--space-6);
-  background-color: var(--color-bg);
-  background-image: radial-gradient(circle at 15% 15%, var(--color-rose-100) 0%, transparent 55%),
-    radial-gradient(circle at 92% 10%, var(--color-surface-muted) 0%, transparent 50%);
+  padding-block: var(--space-8) var(--space-7);
+  background: var(--color-rose-100);
 }
 
 .page-hero__inner {
   position: relative;
 }
 
-.page-hero__eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--color-rose-700);
-  margin-bottom: var(--space-2);
-}
-
 .page-hero__title {
-  font-size: clamp(2.4rem, 6vw, 3.4rem);
-  /* 1.28, não a base de 1.1 do h1: SplitText mask:'lines' (applySplitHeadingReveal
-     acima) corta o topo de maiúsculas/acentos numa serifada tão alta quanto a
-     Cormorant Garamond se a caixa da linha for calculada com line-height
-     apertado — ver o mesmo ajuste/motivo em [data-split] no global.css. */
-  line-height: 1.28;
-  margin-bottom: var(--space-3);
+  font-size: clamp(2.8rem, 6vw + 0.6rem, 5.4rem);
+  font-weight: 350;
+  letter-spacing: -0.03em;
+  /* Não a base de 1.1 do h1: SplitText mask:'lines' corta o topo de
+     maiúsculas acentuadas se a caixa da linha for apertada demais. */
+  line-height: 1.08;
+  margin-bottom: var(--space-4);
   overflow-wrap: break-word;
 }
 
 .page-hero__description {
-  color: var(--color-ink-muted);
-  font-size: 1.15rem;
-  max-width: 56ch;
+  color: var(--color-ink);
+  font-size: 1.35rem;
+  line-height: 1.5;
+  max-width: 44ch;
 }
 
 .page-hero__extra {
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
+}
+
+/* Só no desktop: no celular a foto empurraria o conteúdo da página (o
+   formulário de agendamento, a lista de serviços) para longe da primeira
+   tela, e ali o espaço vale mais do que a imagem. */
+.page-hero__figure {
+  display: none;
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-rose-300);
+}
+
+.page-hero__figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (min-width: 900px) {
+  .page-hero__inner--image {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  .page-hero__figure {
+    display: block;
+    aspect-ratio: 4 / 3;
+  }
 }
 </style>

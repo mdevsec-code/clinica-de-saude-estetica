@@ -2,18 +2,24 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { prisma } from '../../lib/prisma';
 import { NotFoundError } from '../../utils/errors';
 import { isWhatsappConfigured, sendWhatsappMessage } from '../../lib/whatsapp-client';
+import { isWhatsappConnected, sendWhatsappText } from '../whatsapp/whatsapp-connection';
 
-// Disparo é sempre manual (clique de um ADMIN — ver requireRole na rota),
-// nunca automático em background: o projeto não tem worker/cron rodando
-// hoje, então "lembrete automático" aqui significa "aparece sozinho no
-// dashboard/agenda quando o procedimento é concluído" (ver reminders.service),
-// e o envio por WhatsApp é um botão dentro daquele lembrete, não um job
-// silencioso disparando mensagem sem ninguém decidir o momento.
-export async function sendReturnReminderWhatsapp(tenantId: string, reminderId: string) {
-  if (!isWhatsappConfigured()) {
-    throw new Error('WhatsApp Cloud API não configurada. Peça para o responsável técnico definir as credenciais no servidor.');
+// Canal de envio: o WhatsApp da clínica conectado por QR code (painel >
+// WhatsApp) quando estiver conectado; senão a Cloud API da Meta, se
+// configurada no .env. Sem nenhum dos dois, erro claro para a tela.
+async function sendThroughAvailableChannel(tenantId: string, to: string, body: string) {
+  if (isWhatsappConnected(tenantId)) {
+    await sendWhatsappText(tenantId, to, body);
+    return { messageId: '' };
   }
+  if (isWhatsappConfigured()) return sendWhatsappMessage({ to, body });
+  throw new Error('WhatsApp não conectado. Conecte o WhatsApp da clínica na aba WhatsApp do painel.');
+}
 
+// Lembrete de RETORNO e felicitação de aniversário: disparo manual (clique
+// de um ADMIN — ver requireRole na rota). Os envios automáticos (boas-vindas,
+// confirmação, lembrete do dia) ficam em modules/whatsapp.
+export async function sendReturnReminderWhatsapp(tenantId: string, reminderId: string) {
   const reminder = await prisma.returnReminder.findFirst({
     where: { id: reminderId, tenantId },
     include: {
@@ -27,7 +33,7 @@ export async function sendReturnReminderWhatsapp(tenantId: string, reminderId: s
   const firstName = reminder.customer.name.trim().split(/\s+/)[0];
   const body = `Oi, ${firstName}! Passando para lembrar do seu retorno de ${reminder.procedureRecord.service.name}, previsto para ${dueAtStr}. Quer agendar um horário? 😊`;
 
-  const result = await sendWhatsappMessage({ to: reminder.customer.whatsapp, body });
+  const result = await sendThroughAvailableChannel(tenantId, reminder.customer.whatsapp, body);
 
   await prisma.returnReminder.update({
     where: { id: reminder.id },
@@ -38,15 +44,11 @@ export async function sendReturnReminderWhatsapp(tenantId: string, reminderId: s
 }
 
 export async function sendBirthdayWhatsapp(tenantId: string, customerId: string) {
-  if (!isWhatsappConfigured()) {
-    throw new Error('WhatsApp Cloud API não configurada. Peça para o responsável técnico definir as credenciais no servidor.');
-  }
-
   const customer = await prisma.customer.findFirst({ where: { id: customerId, tenantId } });
   if (!customer) throw new NotFoundError('Paciente não encontrado.');
 
   const firstName = customer.name.trim().split(/\s+/)[0];
   const body = `Feliz aniversário, ${firstName}! 🎉 A equipe da Noely Cerqueira deseja um dia lindo, cheio de motivos para sorrir. Um abraço!`;
 
-  return sendWhatsappMessage({ to: customer.whatsapp, body });
+  return sendThroughAvailableChannel(tenantId, customer.whatsapp, body);
 }

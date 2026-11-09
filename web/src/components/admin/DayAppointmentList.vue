@@ -65,8 +65,16 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
           </a>
           <span v-if="appt.notes" class="day-item__notes">Obs.: {{ appt.notes }}</span>
         </div>
-        <span class="admin-badge" :class="`admin-badge--${appt.status.toLowerCase()}`">
-          {{ STATUS_LABELS[appt.status] }}
+        <span class="day-item__badges">
+          <span class="admin-badge" :class="`admin-badge--${appt.status.toLowerCase()}`">
+            {{ STATUS_LABELS[appt.status] }}
+          </span>
+          <!-- Resposta à confirmação automática do WhatsApp (só para
+               agendamentos ativos que de fato receberam a confirmação). -->
+          <template v-if="appt.status === 'CONFIRMED'">
+            <span v-if="appt.clientConfirmedAt" class="day-item__wa day-item__wa--yes">Paciente confirmou ✓</span>
+            <span v-else-if="appt.confirmationSentAt" class="day-item__wa">Aguardando SIM</span>
+          </template>
         </span>
       </div>
 
@@ -176,8 +184,8 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
   flex-shrink: 0;
   font-size: 0.7rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   background: var(--color-rose-100);
@@ -197,6 +205,25 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
 .admin-badge--no_show {
   background: #f3e2df;
   color: var(--color-danger);
+}
+
+.day-item__badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.day-item__wa {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-gold-700);
+  white-space: nowrap;
+}
+
+.day-item__wa--yes {
+  color: var(--color-success);
 }
 
 .day-item__actions {

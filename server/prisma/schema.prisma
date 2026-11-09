@@ -39,6 +39,8 @@ model Tenant {
   returnReminders   ReturnReminder[]
   patientPhotos     PatientPhoto[]
   patientFichas     PatientFicha[]
+  messageTemplates  MessageTemplate[]
+  whatsappContacts  WhatsappContact[]
 }
 
 enum UserRole {
@@ -380,6 +382,13 @@ model Appointment {
   notes       String?
   createdAt   DateTime          @default(now()) @db.Timestamptz(3)
   cancelledAt DateTime?         @db.Timestamptz(3)
+  // Envios automáticos de WhatsApp (ver modules/whatsapp) — marcados ao
+  // enviar, para nunca mandar a mesma mensagem duas vezes.
+  confirmationSentAt      DateTime? @db.Timestamptz(3)
+  reminderDayBeforeSentAt DateTime? @db.Timestamptz(3)
+  reminder2hSentAt        DateTime? @db.Timestamptz(3)
+  // Paciente respondeu "SIM" à mensagem de confirmação.
+  clientConfirmedAt       DateTime? @db.Timestamptz(3)
 
   procedureRecord ProcedureRecord?
 
@@ -488,4 +497,44 @@ model InventoryItem {
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, name])
+}
+
+// Modelos das mensagens de WhatsApp enviadas pela equipe (painel > Mensagens).
+// Uma linha só existe depois que a clínica edita o modelo — até lá vale o
+// texto padrão de message-defaults.ts. As variáveis ({Cliente}, {Data}...)
+// ficam no texto e são preenchidas no momento do envio.
+enum MessageTemplateKey {
+  WELCOME
+  CONFIRMATION
+  CONFIRMATION_THANKS
+  REMINDER_DAY_BEFORE
+  REMINDER_2H
+}
+
+model MessageTemplate {
+  id        String             @id @default(cuid())
+  tenantId  String
+  tenant    Tenant             @relation(fields: [tenantId], references: [id])
+  key       MessageTemplateKey
+  body      String             @db.Text
+  // Envio automático ligado/desligado para este modelo.
+  enabled   Boolean            @default(true)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, key])
+}
+
+// Quem já escreveu para o WhatsApp da clínica — qualquer número, paciente
+// cadastrada ou não. Só controla a Saudação automática: no máximo uma a cada
+// 14 dias por contato (ver whatsapp-automation.ts).
+model WhatsappContact {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  // DDD + 8 últimos dígitos (ver phoneKey): o mesmo celular pode chegar com
+  // ou sem o 9º dígito e com ou sem o 55.
+  phoneKey      String
+  lastWelcomeAt DateTime @db.Timestamptz(3)
+
+  @@unique([tenantId, phoneKey])
 }

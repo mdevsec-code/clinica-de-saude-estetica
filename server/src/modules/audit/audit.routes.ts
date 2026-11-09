@@ -12,7 +12,10 @@ export const auditRouter = Router();
 // em Usuários, outra tela restrita a dono da clínica).
 auditRouter.use(requireAuth, requireRole('ADMIN'));
 
-const AUDIT_ACTIONS = ['CREATE', 'UPDATE', 'DELETE'] as const;
+// VIEW = acesso a dado sensível de paciente (ver enum AuditAction no
+// schema) — precisa ser filtrável também: é exatamente a pergunta "quem
+// abriu a ficha desta paciente?" que o registro existe para responder.
+const AUDIT_ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'VIEW'] as const;
 
 const listQuerySchema = z.object({
   userId: z.string().optional(),

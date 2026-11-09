@@ -1,8 +1,24 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { gsap } from '@/lib/motion';
+import { useChartEntrance } from '@/composables/useChartEntrance';
 import type { ExpenseCategory } from '@/types';
 
 const props = defineProps<{ data: { category: ExpenseCategory; totalCents: number }[] }>();
+
+// Cada barra enche da esquerda para a direita, uma após a outra.
+const root = useChartEntrance(
+  () => props.data,
+  (el) => {
+    gsap.from(el.querySelectorAll('.category-bars__fill'), {
+      scaleX: 0,
+      transformOrigin: '0% 50%',
+      duration: 0.9,
+      stagger: 0.08,
+      ease: 'premium-out',
+    });
+  },
+);
 
 // Paleta categórica: hue fixo por categoria, SEMPRE na mesma ordem/slot,
 // independente de quais categorias aparecem nos dados filtrados — nunca
@@ -39,7 +55,7 @@ function formatCurrency(cents: number) {
 </script>
 
 <template>
-  <ul class="category-bars">
+  <ul ref="root" class="category-bars">
     <li v-for="row in rows" :key="row.category" class="category-bars__row">
       <span class="category-bars__label">{{ row.label }}</span>
       <div class="category-bars__track">
@@ -84,7 +100,6 @@ function formatCurrency(cents: number) {
   height: 100%;
   border-radius: var(--radius-pill);
   min-width: 4px;
-  transition: width 0.6s var(--ease-premium);
 }
 
 .category-bars__value {

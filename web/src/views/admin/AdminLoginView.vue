@@ -3,7 +3,6 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
-import DecorativeDots from '@/components/DecorativeDots.vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -33,7 +32,6 @@ async function onSubmit() {
 
 <template>
   <div class="admin-login">
-    <DecorativeDots :count="12" />
     <div class="admin-login__glow" aria-hidden="true" />
 
     <form ref="card" class="admin-login__card" @submit.prevent="onSubmit">
@@ -73,15 +71,14 @@ async function onSubmit() {
   justify-content: center;
   padding: var(--space-5);
   background-color: var(--color-dusk-900);
-  background-image: radial-gradient(circle at 18% 14%, var(--color-rose-900) 0%, transparent 55%),
-    radial-gradient(circle at 84% 82%, var(--color-dusk-700) 0%, transparent 60%);
+  background-image: none;
 }
 
 .admin-login__glow {
   position: absolute;
   inset: -20% -10% auto -10%;
   height: 55%;
-  background: radial-gradient(ellipse at top, rgba(220, 171, 168, 0.22), transparent 70%);
+  background: none;
   pointer-events: none;
 }
 
@@ -106,7 +103,7 @@ async function onSubmit() {
   margin-inline: auto;
   margin-bottom: var(--space-2);
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-surface));
+  background: var(--color-rose-100);
   border: 1px solid var(--color-rose-300);
   display: flex;
   align-items: center;

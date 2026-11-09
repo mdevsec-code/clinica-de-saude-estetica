@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import { fetchAppointments } from '@/services/admin-appointments.service';
@@ -124,17 +125,36 @@ function formatReminderDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'UTC' });
 }
 
+// Direção da última navegação: o rótulo do período ("Novembro de 2026")
+// entra pelo lado para onde se andou — avançar traz o próximo mês da
+// direita, voltar traz o anterior da esquerda. O calendário em si já
+// replica a onda de entrada (v-stagger.grid) a cada recarga de dados.
+let navDirection = 0;
+watch(rangeLabel, async () => {
+  if (prefersReducedMotion()) return;
+  await nextTick();
+  gsap.fromTo(
+    '.admin-agenda__range',
+    { x: navDirection * 18, opacity: 0 },
+    { x: 0, opacity: 1, duration: 0.5, ease: 'premium-out', clearProps: 'transform,opacity' },
+  );
+  navDirection = 0;
+});
+
 function goToday() {
+  navDirection = referenceDate.value > new Date() ? -1 : 1;
   referenceDate.value = new Date();
 }
 
 function goPrev() {
+  navDirection = -1;
   if (viewMode.value === 'month') referenceDate.value = addMonths(referenceDate.value, -1);
   else if (viewMode.value === 'week') referenceDate.value = addDays(referenceDate.value, -7);
   else referenceDate.value = addDays(referenceDate.value, -1);
 }
 
 function goNext() {
+  navDirection = 1;
   if (viewMode.value === 'month') referenceDate.value = addMonths(referenceDate.value, 1);
   else if (viewMode.value === 'week') referenceDate.value = addDays(referenceDate.value, 7);
   else referenceDate.value = addDays(referenceDate.value, 1);
@@ -190,9 +210,6 @@ function onAppointmentCreated() {
   <div class="admin-agenda">
     <div class="admin-agenda__header">
       <div class="admin-agenda__title">
-        <span class="admin-page-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-        </span>
         <div>
           <h1>Agenda</h1>
           <p>Calendário de atendimentos da clínica.</p>
@@ -251,7 +268,7 @@ function onAppointmentCreated() {
     <Transition name="fade-swap">
       <LoadingState v-if="loading" key="loading" label="Carregando agenda…" />
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
-      <div v-else key="content">
+      <div v-else key="content" v-stagger.grid="'.calendar-day'">
         <Transition name="fade-swap">
           <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" />
           <CalendarGrid
@@ -346,7 +363,11 @@ function onAppointmentCreated() {
 }
 
 .admin-agenda__range {
-  font-weight: 700;
+  display: inline-block;
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--color-rose-900);
   /* Sem text-transform:capitalize: monthLabel/weekRangeLabel/dayLabel
      (calendar.ts) já devolvem a string corretamente capitalizada em
@@ -414,7 +435,7 @@ function onAppointmentCreated() {
 }
 
 .admin-agenda__view-btn--active {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
   box-shadow: var(--shadow-sm);
 }

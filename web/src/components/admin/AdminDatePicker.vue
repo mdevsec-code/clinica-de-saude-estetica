@@ -269,7 +269,7 @@ watch(
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   padding: var(--space-3);
 }
 
@@ -368,7 +368,7 @@ watch(
 }
 
 .admin-date__day--selected {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff;
   font-weight: 700;
 }

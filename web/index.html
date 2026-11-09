@@ -6,24 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#F7EFEC" />
     <title>Noely Cerqueira — Estética e Micropigmentação</title>
-    <script>
-      // Precisa ser inline e no <head> — script síncrono, roda ANTES do
-      // navegador sequer começar a desenhar a página. A mesma linha dentro
-      // de main.ts (um <script type="module">, que só executa depois do
-      // HTML inteiro já ter sido processado) chegava tarde demais: o
-      // navegador já tinha restaurado sozinho a posição de scroll da visita
-      // anterior antes desse módulo rodar, então desligar a restauração ali
-      // não desfazia o que já tinha acontecido. Aqui, roda a tempo.
-      if ('scrollRestoration' in history) {
-        history.scrollRestoration = 'manual';
-      }
-      // Alguns navegadores preservam a posição de rolagem de antes do reload
-      // por conta própria, à parte da History API acima — sem isto, essa
-      // posição antiga (ex.: perto do rodapé) fica visível por um instante
-      // ao recarregar, antes da cortina de abertura (AppIntroLoader.vue)
-      // terminar de revelar a página já no topo.
-      window.scrollTo(0, 0);
-    </script>
+    <!-- Síncrono e no <head> de propósito: precisa rodar antes da primeira
+         pintura (ver o próprio arquivo). Fora do HTML para a CSP do site
+         poder proibir script inline. -->
+    <script src="/scroll-reset.js"></script>
     <meta
       name="description"
       content="Clínica de estética e micropigmentação da Noely Cerqueira, em Camaçari (BA). Agende seu atendimento online."
@@ -40,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&family=Manrope:wght@400..800&display=swap"
       rel="stylesheet"
     />
   </head>

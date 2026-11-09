@@ -1,34 +1,83 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { gsap, ScrollTrigger } from '@/lib/motion';
+import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { applyScrollReveal } from '@/composables/useScrollReveal';
-import { applyStaggerReveal, useStaggerReveal } from '@/composables/useStaggerReveal';
+import { applyPhotoReveal } from '@/composables/useStaggerReveal';
 import { useHeroIntro } from '@/composables/useHeroIntro';
-import { applyTiltHover, useTiltHover } from '@/composables/useTiltHover';
+import { applyTiltHover } from '@/composables/useTiltHover';
 import { applySplitHeadingReveal } from '@/composables/useSplitReveal';
 import { applyMagneticButtons } from '@/composables/useMagneticButton';
-import { applySpotlightHover, useSpotlightHover } from '@/composables/useSpotlightHover';
-import { applyIconDraw } from '@/composables/useDrawIcon';
 import { refreshScroll } from '@/composables/useSmoothScroll';
+import { useGsapContext } from '@/composables/useGsapContext';
 import { fetchCategories } from '@/services/catalog.service';
 import { useSettingsStore } from '@/stores/settings';
 import { instagramLink } from '@/services/settings.service';
 import type { ServiceCategory } from '@/types';
 import { FALLBACK_CATEGORIES } from '@/data/fallback';
-import CategoryIcon from '@/components/CategoryIcon.vue';
-import DecorativeDots from '@/components/DecorativeDots.vue';
 import MarqueeRibbon from '@/components/MarqueeRibbon.vue';
 
-useStaggerReveal('.differentials', '.differential');
-useTiltHover('.differentials', '.differential');
-useSpotlightHover('.differentials', '.differential');
 useHeroIntro('.hero');
 
 const settings = useSettingsStore();
 settings.load();
 
 const categories = ref<ServiceCategory[]>([]);
+const motion = useGsapContext();
+// Listeners de hover (tilt/magnético) não são tweens — o gsap.context não
+// os conhece, então saem por aqui.
+let cleanupHovers: Array<() => void> = [];
+onUnmounted(() => cleanupHovers.forEach((fn) => fn()));
+
+// "Como funciona" e "Diferenciais" entram como listas: cada item sobe em
+// sequência quando a lista chega à tela — o título primeiro, depois o
+// texto (a ordem de leitura), nunca o bloco inteiro de uma vez.
+function animateLists() {
+  if (prefersReducedMotion()) return;
+  gsap.utils.toArray<HTMLElement>('[data-list-reveal]').forEach((list) => {
+    const items = list.querySelectorAll(':scope > li');
+    gsap.from(items, {
+      y: 32,
+      opacity: 0,
+      duration: 1,
+      stagger: 0.09,
+      ease: 'premium-out',
+      scrollTrigger: { trigger: list, start: 'top 82%', once: true },
+    });
+  });
+}
+
+// Profundidade nas fotos: a imagem anda um pouco mais devagar que a janela
+// que a contém enquanto a página rola (scrub preso ao scroll).
+function applyPhotoParallax() {
+  if (prefersReducedMotion()) return;
+
+  // O zoom de hover da foto usa a propriedade CSS `scale` (não `transform`)
+  // justamente para conviver com este `transform` inline do GSAP.
+  gsap.utils.toArray<HTMLElement>('.specialty-card__media').forEach((media) => {
+    const photo = media.firstElementChild;
+    if (!photo) return;
+    gsap.fromTo(
+      photo,
+      { y: '-8%' },
+      { y: '8%', ease: 'none', scrollTrigger: { trigger: media, start: 'top bottom', end: 'bottom top', scrub: true } },
+    );
+  });
+
+  const featuredImg = document.querySelector('.featured__photo img');
+  if (featuredImg) {
+    gsap.fromTo(
+      featuredImg,
+      { scale: 1.16, yPercent: -5 },
+      {
+        scale: 1.02,
+        yPercent: 5,
+        ease: 'none',
+        scrollTrigger: { trigger: '.featured', start: 'top bottom', end: 'bottom top', scrub: true },
+      },
+    );
+  }
+}
 
 onMounted(async () => {
   try {
@@ -39,56 +88,31 @@ onMounted(async () => {
   }
 
   // Tudo abaixo depende de conteúdo alimentado pela API (cards de
-  // especialidade, o bloco de destaque em `.featured`): só existe no DOM
-  // depois que os v-if acima liberam, então precisa rodar depois de um
-  // nextTick — chamar mais cedo não encontraria nenhum elemento. Por isso
-  // applyScrollReveal (não useScrollReveal) roda só aqui: um único
-  // useScrollReveal('.home') no topo do componente rodaria ANTES desta
-  // busca resolver e nunca encontraria `.featured__grid` — ele ficaria
-  // com opacity:0 para sempre (regra global), mesmo com o restante do
-  // conteúdo estático da Home revelado normalmente.
+  // especialidade, o bloco de destaque): só existe no DOM depois que os
+  // v-if liberam, então roda depois de um nextTick.
   await nextTick();
-  applyScrollReveal('.home');
-  applyStaggerReveal('.specialties', '.specialty-card');
-  applyTiltHover('.specialties', '.specialty-card', 6);
-  applySpotlightHover('.specialties', '.specialty-card');
-  applyIconDraw('.specialties', '.specialty-card__icon svg');
-  applyIconDraw('.featured', '.featured__icon svg', 0.3);
-  applyIconDraw('.differentials', '.differential__icon svg');
-  applySplitHeadingReveal('[data-split]');
-  applyMagneticButtons('.button--primary');
+  motion.run(() => {
+    applyScrollReveal('.home');
+    applyPhotoReveal('.specialties', '.specialty-card--photo');
+    applySplitHeadingReveal('[data-split]');
+    animateLists();
+    applyPhotoParallax();
+  });
+  cleanupHovers = [
+    applyTiltHover('.specialties', '.specialty-card', 4),
+    applyMagneticButtons('.home .button--primary, .home .button--light'),
+  ];
   refreshScroll();
-
-  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const line = document.querySelector<HTMLElement>('.how-it-works__line-fill');
-  if (line) {
-    if (prefersReduced) {
-      line.style.transform = 'scaleX(1)';
-    } else {
-      gsap.fromTo(
-        line,
-        { scaleX: 0 },
-        {
-          scaleX: 1,
-          duration: 1,
-          ease: 'power2.inOut',
-          scrollTrigger: { trigger: '.how-it-works', start: 'top 70%' },
-        },
-      );
-    }
-  }
 });
 
-// Harmonização Facial e Corporal é o carro-chefe confirmado pela própria
-// clínica — ganha uma seção de destaque só dela, logo depois do hero, em vez
-// de aparecer só como mais um card igual aos outros na grade de especialidades.
+// Harmonização é o carro-chefe confirmado pela própria clínica — ganha uma
+// seção de destaque só dela, logo depois do hero.
 const featuredCategory = computed(() => categories.value.find((c) => c.featured) ?? null);
 
 const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings.data.instagram) : null));
 
-// Mesmas fotos reais das categorias usadas na grade "print do Instagram" do
-// card de contato (ver ContactView.vue) — reaproveitadas aqui em vez de
-// fabricar conteúdo, já que `categories` já vem carregado nesta view.
+// Mesmas fotos reais das categorias, reaproveitadas na prévia do Instagram
+// em vez de fabricar conteúdo.
 const igPreviewPhotos = computed(() =>
   categories.value
     .map((c) => c.imageUrl)
@@ -97,109 +121,95 @@ const igPreviewPhotos = computed(() =>
 );
 
 const differentials = [
-  {
-    title: 'Atendimento individual',
-    text: 'Cada procedimento pensado para a sua pele, o seu tempo e o seu conforto.',
-    icon: 'M12 21s-7-4.35-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6C19 16.65 12 21 12 21Z',
-  },
-  {
-    title: 'Ambiente acolhedor',
-    text: 'Um espaço tranquilo, pensado do início ao fim para o seu bem-estar.',
-    icon: 'M4 21V10l8-6 8 6v11M9 21v-6h6v6',
-  },
-  {
-    title: 'Agendamento simples',
-    text: 'Escolha o serviço, a data e o horário em poucos toques, direto do celular.',
-    icon: 'M7 3v3M17 3v3M4 9h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z',
-  },
+  { title: 'Atendimento individual', text: 'Cada procedimento pensado para a sua pele, o seu tempo e o seu conforto.' },
+  { title: 'Ambiente acolhedor', text: 'Um espaço tranquilo, pensado do início ao fim para o seu bem-estar.' },
+  { title: 'Agendamento simples', text: 'Escolha o serviço, a data e o horário em poucos toques, direto do celular.' },
 ];
 
+// Ordem real (é um passo a passo), então lista ordenada de verdade — mas a
+// ordem é dita pela posição e pelas palavras, não por "01 / 02 / 03".
 const steps = [
-  { number: '01', title: 'Escolha o serviço', text: 'Navegue pelas especialidades e encontre o procedimento ideal para você.' },
-  { number: '02', title: 'Escolha o dia e o horário', text: 'Veja a agenda real da clínica e selecione o horário que encaixa na sua rotina.' },
-  { number: '03', title: 'Confirme e pronto', text: 'Informe seus dados, confirme e receba os detalhes também pelo WhatsApp.' },
+  { title: 'Escolha o serviço', text: 'Navegue pelas especialidades e encontre o procedimento ideal para você.' },
+  { title: 'Escolha o dia e o horário', text: 'Veja a agenda real da clínica e selecione o horário que encaixa na sua rotina.' },
+  { title: 'Confirme e pronto', text: 'Informe seus dados e receba a confirmação do horário pelo WhatsApp.' },
 ];
 </script>
 
 <template>
   <div class="home">
+    <!-- Hero: o título diz o que é; a frase logo abaixo diz quem, onde e
+         como. A foto da Noely ocupa a metade direita da primeira tela. -->
     <section class="hero">
-      <DecorativeDots :count="14" />
-      <div class="hero__glow" aria-hidden="true" />
       <div class="container hero__grid">
         <div class="hero__text">
-          <p class="hero__eyebrow" data-hero-fade>Noely Cerqueira</p>
           <h1 class="hero__title">Estética e Micropigmentação</h1>
           <p class="hero__lead" data-hero-fade>
-            Cuidado estético personalizado, com técnica e atenção aos detalhes, em Camaçari (BA).
+            Clínica da Noely Cerqueira em Camaçari (BA): cuidado estético personalizado, com técnica e atenção a cada
+            detalhe.
           </p>
           <div class="hero__actions" data-hero-fade>
             <RouterLink to="/agendar" class="button button--primary">Agendar atendimento</RouterLink>
-            <RouterLink to="/servicos" class="button button--ghost">Conhecer procedimentos</RouterLink>
+            <RouterLink to="/servicos" class="button button--ghost">Ver procedimentos</RouterLink>
           </div>
+          <dl class="hero__facts" data-hero-fade>
+            <div v-if="categories.length">
+              <dt>{{ categories.length }}</dt>
+              <dd>especialidades</dd>
+            </div>
+            <div>
+              <dt>Online</dt>
+              <dd>agendamento a qualquer hora</dd>
+            </div>
+            <div>
+              <dt>Camaçari</dt>
+              <dd>Bahia</dd>
+            </div>
+          </dl>
         </div>
-        <div class="hero__photo-wrap">
+        <figure class="hero__photo-wrap">
           <div class="hero__photo" data-parallax>
-            <img src="/brand/noely-cerqueira-foto.jpeg" alt="Noely Cerqueira" />
+            <img src="/brand/noely-cerqueira-foto.jpeg" alt="Noely Cerqueira de jaleco branco, sorrindo" />
           </div>
-          <span class="hero__ring" aria-hidden="true" />
-          <span class="hero__ring hero__ring--gold" aria-hidden="true" />
-          <span class="hero__sparkle hero__sparkle--1" aria-hidden="true">✦</span>
-          <span class="hero__sparkle hero__sparkle--2" aria-hidden="true">✦</span>
-        </div>
+          <figcaption class="hero__caption">Noely Cerqueira, especialista em estética</figcaption>
+        </figure>
       </div>
-      <div class="hero__scroll-cue" aria-hidden="true"><span /></div>
     </section>
 
-    <section v-if="featuredCategory" class="section featured">
-      <DecorativeDots :count="10" />
+    <!-- Destaque: o carro-chefe em campo rosé, foto grande à esquerda. -->
+    <section v-if="featuredCategory" class="featured">
       <div class="container featured__grid" data-reveal>
-        <div class="featured__photo-wrap">
-          <div class="featured__photo">
-            <img v-if="featuredCategory.imageUrl" :src="featuredCategory.imageUrl" :alt="featuredCategory.name" />
-            <div v-else class="featured__icon" data-icon-card><CategoryIcon :slug="featuredCategory.slug" /></div>
-          </div>
-          <span class="featured__ring" aria-hidden="true" />
+        <div class="featured__photo">
+          <img v-if="featuredCategory.imageUrl" :src="featuredCategory.imageUrl" :alt="featuredCategory.name" />
         </div>
         <div class="featured__text">
-          <span class="featured__eyebrow">Destaque da clínica</span>
           <h2 class="featured__title" data-split>{{ featuredCategory.name }}</h2>
           <p class="featured__description">
-            O procedimento mais procurado da Noely Cerqueira: planejamento personalizado e técnica
-            refinada, para realçar sua beleza natural com equilíbrio e harmonia — do primeiro
-            atendimento ao resultado.
+            O procedimento mais procurado da clínica: planejamento personalizado e técnica refinada para realçar a
+            sua beleza natural com equilíbrio, do primeiro atendimento ao resultado.
           </p>
           <RouterLink to="/agendar" class="button button--primary">Agendar harmonização</RouterLink>
         </div>
       </div>
     </section>
 
-    <section class="section section--dark">
-      <DecorativeDots :count="10" tone="light" />
-      <div class="container section__about" data-reveal>
-        <span class="section__quote-mark" aria-hidden="true">“</span>
+    <!-- Sobre: campo escuro, título à esquerda, a frase da clínica em tipo
+         grande à direita. -->
+    <section class="about">
+      <div class="container about__grid" data-reveal>
         <h2 data-split>Sobre a clínica</h2>
-        <p>
-          A clínica da Noely Cerqueira reúne especialidades em estética e micropigmentação, com
-          procedimentos que vão de sobrancelha e limpeza de pele a massagens terapêuticas — sempre
-          com atendimento próximo, técnico e personalizado.
+        <p class="about__statement">
+          Estética e micropigmentação, da sobrancelha às massagens terapêuticas, com atendimento próximo, técnico e
+          feito para você.
         </p>
       </div>
     </section>
 
-    <section class="section section--muted section--specialties" v-if="categories.length">
-      <span class="specialties__glow" aria-hidden="true" />
-      <DecorativeDots :count="10" />
+    <section v-if="categories.length" class="specialties-section">
       <div class="container">
         <div class="specialties__heading">
-          <p class="specialties__eyebrow" data-reveal>
-            <span class="specialties__eyebrow-line" aria-hidden="true" />
-            O que oferecemos
-          </p>
           <h2 data-split>Especialidades</h2>
           <p class="specialties__lead" data-reveal>
-            Um procedimento para cada etapa do seu cuidado — da limpeza de pele à micropigmentação,
-            sempre com técnica e atenção aos detalhes.
+            Um procedimento para cada etapa do seu cuidado, da limpeza de pele à micropigmentação.
           </p>
         </div>
         <div class="specialties">
@@ -208,15 +218,13 @@ const steps = [
             :key="category.id"
             to="/servicos"
             class="specialty-card"
-            data-icon-card
             :class="{ 'specialty-card--featured': category.featured, 'specialty-card--photo': category.imageUrl }"
-            :style="category.imageUrl ? { backgroundImage: `url(${category.imageUrl})` } : undefined"
           >
-            <span v-if="category.featured" class="specialty-card__badge">Destaque</span>
+            <span v-if="category.imageUrl" class="specialty-card__media" aria-hidden="true">
+              <span class="specialty-card__photo" :style="{ backgroundImage: `url(${category.imageUrl})` }" />
+            </span>
             <span v-if="category.imageUrl" class="specialty-card__scrim" aria-hidden="true" />
-            <span class="specialty-card__icon"><CategoryIcon :slug="category.slug" /></span>
             <span class="specialty-card__name">{{ category.name }}</span>
-            <span class="specialty-card__arrow" aria-hidden="true">→</span>
           </RouterLink>
         </div>
       </div>
@@ -224,44 +232,39 @@ const steps = [
 
     <MarqueeRibbon />
 
-    <section class="section how-it-works">
-      <div class="container">
-        <h2 data-split>Como funciona o agendamento</h2>
-        <div class="how-it-works__line" aria-hidden="true"><span class="how-it-works__line-fill" /></div>
-        <div class="how-it-works__steps">
-          <div v-for="step in steps" :key="step.number" class="how-it-works__step" data-reveal>
-            <span class="how-it-works__number">{{ step.number }}</span>
+    <section class="steps">
+      <div class="container steps__grid">
+        <div class="steps__heading">
+          <h2 data-split>Como funciona o agendamento</h2>
+          <RouterLink to="/agendar" class="button button--primary steps__cta">Agendar atendimento</RouterLink>
+        </div>
+        <ol class="steps__list" data-list-reveal>
+          <li v-for="step in steps" :key="step.title">
             <h3>{{ step.title }}</h3>
             <p>{{ step.text }}</p>
-          </div>
-        </div>
-        <div class="how-it-works__cta" data-reveal>
-          <RouterLink to="/agendar" class="button button--primary">Agendar atendimento</RouterLink>
-        </div>
+          </li>
+        </ol>
       </div>
     </section>
 
-    <section class="section">
-      <div class="container">
-        <h2 data-split>Diferenciais</h2>
-        <div class="differentials">
-          <div v-for="item in differentials" :key="item.title" class="differential" data-icon-card>
-            <span class="differential__icon">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path :d="item.icon" />
-              </svg>
-            </span>
+    <section class="values">
+      <div class="container values__grid">
+        <h2 data-split>Por que a Noely</h2>
+        <ul class="values__list" data-list-reveal>
+          <li v-for="item in differentials" :key="item.title">
             <h3>{{ item.title }}</h3>
             <p>{{ item.text }}</p>
-          </div>
-        </div>
+          </li>
+        </ul>
       </div>
     </section>
 
-    <section v-if="igHref" class="section">
+    <section v-if="igHref" class="instagram">
       <div class="container">
-        <a :href="igHref" target="_blank" rel="noopener" class="instagram-card" data-reveal>
-          <DecorativeDots :count="8" tone="light" />
+        <!-- Sem data-reveal: as configurações (o @ do Instagram) chegam da API
+             depois que as entradas da página já foram preparadas — um card
+             que nasce oculto ficaria oculto para sempre. -->
+        <a :href="igHref" target="_blank" rel="noopener" class="instagram-card">
           <div v-if="igPreviewPhotos.length" class="instagram-card__grid" aria-hidden="true">
             <span
               v-for="(photo, i) in igPreviewPhotos"
@@ -271,84 +274,55 @@ const steps = [
             />
           </div>
           <div class="instagram-card__text">
-            <span class="instagram-card__eyebrow">Instagram</span>
-            <span class="instagram-card__handle">{{ settings.data?.instagram }}</span>
+            <h2 class="instagram-card__handle">{{ settings.data?.instagram }}</h2>
+            <p>Procedimentos, resultados e bastidores da clínica no Instagram.</p>
+            <span class="button button--light instagram-card__cta">Seguir no Instagram</span>
           </div>
-          <span class="instagram-card__cta">Seguir →</span>
         </a>
       </div>
     </section>
 
-    <section class="section cta-final" data-reveal>
-      <span class="cta-final__glow" aria-hidden="true" />
-      <DecorativeDots :count="16" tone="light" />
+    <section class="cta-final" data-reveal>
       <div class="container cta-final__inner">
-        <h2 data-split>Pronta para agendar seu atendimento?</h2>
-        <RouterLink to="/agendar" class="button button--primary">Agendar atendimento</RouterLink>
+        <h2 data-split>Vamos agendar seu horário?</h2>
+        <RouterLink to="/agendar" class="button button--light">Agendar atendimento</RouterLink>
       </div>
     </section>
   </div>
 </template>
 
 <style scoped>
+/* Campos de cor chapados, um por seção, sem degradê entre eles — creme
+   (--color-bg), rosé claro, marrom escuro, rosé escuro. A troca de campo é
+   o que separa as seções; nenhuma linha, sombra ou brilho faz isso. */
+
 /* --- Hero --- */
 .hero {
   position: relative;
   overflow: hidden;
-  padding-block: var(--space-9) var(--space-9);
-  /* background-color de base sob os dois gradientes: sem isso, as áreas fora
-     do alcance de ambos ficam transparentes de verdade e mostram o fundo
-     ambiente de forma inconsistente/desalinhada em vez de uma base sólida. */
-  background-color: var(--color-bg);
-  background-image: radial-gradient(circle at 20% 10%, var(--color-rose-100) 0%, transparent 55%),
-    radial-gradient(circle at 85% 30%, var(--color-surface-muted) 0%, transparent 50%);
-}
-
-.hero__glow {
-  position: absolute;
-  inset: -20% -10% auto -10%;
-  height: 60%;
-  background: radial-gradient(ellipse at top, rgba(185, 124, 127, 0.18), transparent 70%);
-  pointer-events: none;
+  padding-block: var(--space-7) var(--space-9);
+  background: var(--color-bg);
 }
 
 .hero__grid {
-  position: relative;
   display: grid;
   gap: var(--space-7);
-}
-
-.hero__eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.9rem;
-  color: var(--color-rose-700);
-  font-weight: 700;
-  margin-bottom: var(--space-3);
+  align-items: center;
 }
 
 .hero__title {
-  /* Em telas muito estreitas (320-360px), "Micropigmentação" sozinha já é uma
-     palavra longa — o mínimo aqui é deliberadamente mais contido que o resto
-     da escala para não arriscar estourar a largura da tela mesmo com o
-     overflow-wrap de segurança do global.css. */
-  font-size: clamp(2rem, 7.5vw + 0.4rem, 5.4rem);
-  /* splitHeroTitle (useSplitReveal.ts) também usa mask:'lines' — mesmo motivo
-     do ajuste em [data-split]/global.css: sem isso, o topo de "Estética" e
-     "Micropigmentação" ficava cortado pela máscara depois da animação. */
-  line-height: 1.22;
+  font-size: clamp(2.8rem, 8.4vw + 0.4rem, 6.6rem);
+  font-weight: 350;
+  font-variation-settings: 'SOFT' 80, 'opsz' 144;
+  letter-spacing: -0.03em;
+  /* splitHeroTitle (useSplitReveal.ts) usa mask:'lines' — o line-height
+     precisa deixar caber o acento do "É" e o pé do "ç"/"g". */
+  line-height: 1.04;
   overflow-wrap: break-word;
   margin-bottom: var(--space-5);
   perspective: 700px;
-  /* Mesmo problema que a foto do hero tinha (ver comentário em .hero__photo):
-     splitHeroTitle (useSplitReveal.ts) só esconde o título quando o SplitText
-     roda, dentro de onAppIntroReady — e isso só dispara DEPOIS que a cortina
-     de abertura termina de deslizar pra fora. Sem esconder o título já no
-     CSS, ele ficava visível por inteiro (texto puro, sem split) enquanto a
-     cortina saía de cena, e só then era desmontado/escondido e reanimado —
-     lia como o texto carregando duas vezes. splitHeroTitle volta a deixar
-     isto opacity:1 no exato instante em que faz o split (ver useSplitReveal.ts).
-     Revertido em prefers-reduced-motion, onde o split nunca roda. */
+  /* Nasce oculto: splitHeroTitle volta a mostrar no instante do split,
+     depois da cortina de abertura (ver useHeroIntro). */
   opacity: 0;
 }
 
@@ -359,9 +333,10 @@ const steps = [
 }
 
 .hero__lead {
-  color: var(--color-ink-muted);
-  font-size: 1.2rem;
-  max-width: 46ch;
+  color: var(--color-ink);
+  font-size: 1.4rem;
+  line-height: 1.5;
+  max-width: 34ch;
   margin-bottom: var(--space-6);
 }
 
@@ -371,34 +346,54 @@ const steps = [
   gap: var(--space-3);
 }
 
-.hero__photo-wrap {
-  position: relative;
-  justify-self: center;
+/* Fatos: o número/nome em serifada grande, a explicação logo abaixo —
+   separados por espaço, sem fio entre eles. */
+.hero__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5) var(--space-7);
+  margin: var(--space-7) 0 0;
 }
 
-.hero__photo {
-  width: min(380px, 78vw);
-  aspect-ratio: 4 / 5;
-  border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
+.hero__facts dt {
+  font-family: var(--font-serif);
+  font-size: 2.2rem;
+  font-weight: 350;
+  line-height: 1;
+  color: var(--color-rose-900);
+}
+
+.hero__facts dd {
+  margin: 6px 0 0;
+  font-size: 1.18rem;
+  color: var(--color-ink-muted);
+}
+
+.hero__photo-wrap {
   position: relative;
-  z-index: 2;
-  background: var(--color-bg);
-  /* border-radius + overflow:hidden sozinhos deixam uma franja cinza de
-     anti-aliasing na borda orgânica no Chrome (bug antigo e conhecido do
-     motor de renderização). Uma máscara com o mesmo raio força o navegador
-     a suavizar a borda corretamente — é o fix definitivo, o border-radius
-     acima cuida só do formato do box-shadow. */
-  -webkit-mask-image: radial-gradient(white, black);
-  mask-image: radial-gradient(white, black);
-  /* Mesmo estado inicial que useHeroIntro.ts define via GSAP fromTo — precisa
-     existir já no CSS (não só depois que o JS roda) porque a cortina de
-     abertura (AppIntroLoader) desliza pra fora ANTES do onComplete que
-     dispara essa timeline: sem isso, a foto ficava visível "pronta" por um
-     instante enquanto a cortina saía de cena, e só depois era escondida e
-     reanimada — lia como a foto/título carregando duas vezes. Revertido em
-     prefers-reduced-motion (useHeroIntro.ts não anima nesse caso). */
+  margin: 0;
+  justify-self: stretch;
+}
+
+/* Deslocamento de profundidade com o cursor (useHeroIntro.ts escreve
+   --px/--py via gsap.quickTo) — na propriedade `translate`, que se soma ao
+   transform da saída de scroll sem anulá-lo. */
+.hero__photo-wrap {
+  translate: calc(var(--px, 0) * 1px) calc(var(--py, 0) * 1px);
+}
+
+/* A foto em arco ocupa a metade direita da primeira tela: é a pessoa
+   por trás da clínica, o maior argumento da página. */
+.hero__photo {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  aspect-ratio: 4 / 5;
+  border-radius: 999px 999px 0 0;
+  overflow: hidden;
+  background: var(--color-surface-muted);
+  /* Mesmo estado inicial da timeline do hero (clip-path) — sem isso a foto
+     aparecia pronta por um instante antes de se revelar. */
   clip-path: inset(100% 0% 0% 0%);
 }
 
@@ -412,927 +407,412 @@ const steps = [
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Sem isso o Chrome deixa uma franja cinza de anti-aliasing entre o
-     border-radius orgânico do container e a borda reta da imagem
-     recortada — replicar o mesmo raio na própria img elimina a costura. */
-  border-radius: inherit;
+  object-position: 50% 20%;
   display: block;
 }
 
-.hero__ring {
-  position: absolute;
-  inset: -18px;
-  border: 1.5px solid var(--color-rose-300);
-  border-radius: 45% 55% 58% 42% / 45% 45% 55% 55%;
-  z-index: 1;
-  animation: ring-spin 26s linear infinite;
-}
-
-.hero__ring--gold {
-  inset: -32px;
-  border-color: var(--color-gold-500);
-  opacity: 0.55;
-  border-style: dashed;
-  animation: ring-spin-reverse 40s linear infinite;
-}
-
-@keyframes ring-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes ring-spin-reverse {
-  to {
-    transform: rotate(-360deg);
-  }
-}
-
-.hero__sparkle {
-  position: absolute;
-  z-index: 3;
-  color: var(--color-gold-500);
+.hero__caption {
+  max-width: 560px;
+  margin: var(--space-3) auto 0;
   font-size: 1.1rem;
-  animation: sparkle-float 5s ease-in-out infinite;
+  color: var(--color-ink-muted);
 }
 
-.hero__sparkle--1 {
-  top: 6%;
-  right: 4%;
-  animation-delay: 0.4s;
-}
-
-.hero__sparkle--2 {
-  bottom: 14%;
-  left: -2%;
-  font-size: 0.85rem;
-  animation-delay: 1.6s;
-}
-
-@keyframes sparkle-float {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translateY(-8px) scale(1.15);
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero__ring,
-  .hero__ring--gold,
-  .hero__sparkle {
-    animation: none;
-  }
-}
-
-.hero__scroll-cue {
-  display: none;
-}
-
-/* --- Sections --- */
-.section {
-  padding-block: var(--space-8);
+/* --- Seções: ritmo comum --- */
+.featured,
+.about,
+.specialties-section,
+.steps,
+.values,
+.instagram,
+.cta-final {
   position: relative;
-}
-
-.section--muted {
-  /* Antes havia um SectionDivider (onda em SVG) entre `.section--dark` e esta
-     seção — mesma classe de costura de subpixel já resolvida abaixo em
-     `.cta-final` (ver comentário lá), só que aqui ainda não tinha sido
-     corrigida: qualquer arredondamento de subpixel na borda curva da onda
-     deixava uma linha de 1px da cor escura vazando bem na fronteira com o
-     creme. Mesma solução — sem onda nenhuma: o próprio gradiente desta seção
-     nasce na cor exata da seção anterior (--color-dusk-900) e clareia até
-     --color-surface-muted DENTRO da própria caixa, então não há fronteira
-     entre dois elementos para uma costura aparecer.
-     A transição em si precisou virar uma curva suave tipo smoothstep em
-     pixels fixos, não um ramp linear com um trecho plano na entrada: cor
-     batendo nas duas pontas não basta, e mesmo um platô plano seguido de
-     rampa linear ainda deixava uma "dobra" visível (o olho humano enxerga
-     mudança BRUSCA de inclinação como uma linha — Mach band — mesmo sem
-     nenhuma descontinuidade real de cor; confirmado aqui: a diferença de
-     cor pixel-a-pixel na costura é mínima, mas a linha continuava visível).
-     smoothstep (t²(3-2t)) tem inclinação zero nas DUAS pontas por
-     construção, então casa naturalmente com o platô plano de
-     `.section--dark` acima e o platô plano desta seção abaixo, sem nenhum
-     ponto de inflexão abrupta em lugar nenhum da curva. */
-  /* Encurtado de 280px pra 190px: o texto "Especialidades" (padding-top do
-     .section, ~64px) ainda caía bem dentro da metade escura da transição
-     original, ficando pouco legível em cima do fundo ainda escuro. Mais
-     curta, a mesma curva smoothstep (sem platô nem inclinação abrupta —
-     ver comentário acima) clareia a tempo do texto, sem trazer de volta a
-     costura que a versão longa foi feita pra evitar. */
-  background: linear-gradient(
-    180deg,
-    var(--color-dusk-900) 0px,
-    color-mix(in srgb, var(--color-surface-muted) 2.8%, var(--color-dusk-900)) 19px,
-    color-mix(in srgb, var(--color-surface-muted) 10.4%, var(--color-dusk-900)) 38px,
-    color-mix(in srgb, var(--color-surface-muted) 21.6%, var(--color-dusk-900)) 57px,
-    color-mix(in srgb, var(--color-surface-muted) 35.2%, var(--color-dusk-900)) 76px,
-    color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-dusk-900)) 95px,
-    color-mix(in srgb, var(--color-surface-muted) 64.8%, var(--color-dusk-900)) 114px,
-    color-mix(in srgb, var(--color-surface-muted) 78.4%, var(--color-dusk-900)) 133px,
-    color-mix(in srgb, var(--color-surface-muted) 89.6%, var(--color-dusk-900)) 152px,
-    color-mix(in srgb, var(--color-surface-muted) 97.2%, var(--color-dusk-900)) 171px,
-    var(--color-surface-muted) 190px,
-    var(--color-surface-muted) 100%
-  );
-}
-
-.section h2 {
-  font-size: clamp(2rem, 4.6vw, 2.8rem);
-  margin-bottom: var(--space-5);
-}
-
-.section__about {
-  position: relative;
-}
-
-.section__quote-mark {
-  font-family: var(--font-display);
-  font-size: 5.5rem;
-  color: var(--color-rose-500);
-  line-height: 1;
-  display: block;
-}
-
-.section__about p {
-  color: rgba(255, 255, 255, 0.72);
-  max-width: 64ch;
-  font-size: 1.2rem;
-  font-family: var(--font-display);
-  font-weight: 500;
-}
-
-/* --- Sobre a clínica: seção de contraste dramático --- */
-.section--dark {
-  /* A 1ª camada (topo) força os últimos ~160px a ser dusk-900 sólido e
-     garantido, não importa o quanto o brilho radial abaixo ainda esteja
-     ativo naquela altura: numa seção larga (raio "55%" do radial é relativo
-     à distância até o canto mais distante, dominada pela largura), o brilho
-     pode não ter decaído a zero ainda perto da borda inferior — o que fazia
-     a borda real ficar um pouco mais clara que --color-dusk-900 puro,
-     descasando com o gradiente de .section--muted logo abaixo (que começa
-     assumindo dusk-900 exato) e deixando uma linha visível na costura. */
-  background: linear-gradient(to top, var(--color-dusk-900) 0px, var(--color-dusk-900) 60px, transparent 160px),
-    radial-gradient(circle at 15% 20%, var(--color-dusk-700) 0%, transparent 55%),
-    var(--color-dusk-900);
   padding-block: var(--space-9);
-  /* Mesmo raciocínio do overlap em `.cta-final` (ver comentário lá): mesmo
-     com a cor batendo EXATAMENTE dos dois lados da fronteira (confirmado
-     medindo os pixels reais em repouso), o navegador ainda rasteriza os
-     dois elementos como caixas separadas e pode deixar um fio de costura
-     por arredondamento de subpixel. Em repouso 1px já bastava, mas a
-     costura reaparecia durante o SCROLL em si (ScrollSmoother move a
-     página inteira via transform, e o compositor pode arredondar a borda
-     de cada elemento de forma levemente diferente quadro a quadro enquanto
-     esse transform está em movimento) — por isso o overlap subiu para 3px
-     e as duas seções ganharam translateZ(0), forçando as duas para o mesmo
-     tipo de camada de composição em vez de uma ficar "promovida" e a outra
-     não (a causa mais comum desse tipo de costura intermitente ligada a
-     scroll/animação). */
-  margin-bottom: -3px;
-  transform: translateZ(0);
-  position: relative;
-  overflow: hidden;
 }
 
-.section--dark h2 {
-  color: #fff;
+h2 {
+  font-size: var(--text-h2);
 }
 
-/* --- Destaque (carro-chefe) --- */
+/* --- Destaque --- */
 .featured {
-  position: relative;
+  background: var(--color-rose-100);
   overflow: hidden;
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-surface-muted));
-}
-
-.featured::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 8%;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  transform: translateY(-50%);
-  background: radial-gradient(circle, rgba(200, 164, 101, 0.16), transparent 70%);
-  pointer-events: none;
 }
 
 .featured__grid {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: var(--space-7);
   align-items: center;
-  gap: var(--space-6);
-  text-align: center;
-}
-
-.featured__photo-wrap {
-  position: relative;
-  flex-shrink: 0;
 }
 
 .featured__photo {
-  position: relative;
-  z-index: 2;
-  width: min(280px, 70vw);
-  aspect-ratio: 1;
-  border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  -webkit-mask-image: radial-gradient(white, black);
-  mask-image: radial-gradient(white, black);
-  box-shadow: var(--shadow-lg);
-  border: 3px solid var(--color-surface);
+  background: var(--color-rose-300);
 }
 
 .featured__photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: inherit;
   display: block;
-}
-
-.featured__icon {
-  width: 100%;
-  height: 100%;
-  background: var(--color-surface);
-  color: var(--color-rose-700);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.featured__icon svg {
-  width: 58px;
-  height: 58px;
-}
-
-.featured__ring {
-  position: absolute;
-  inset: -14px;
-  z-index: 1;
-  border: 1.5px dashed var(--color-gold-500);
-  border-radius: 45% 55% 58% 42% / 45% 45% 55% 55%;
-  opacity: 0.6;
-}
-
-.featured__eyebrow {
-  display: block;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--color-gold-700);
-  margin-bottom: var(--space-2);
 }
 
 .featured__title {
-  margin-bottom: var(--space-3);
-}
-
-.featured__description {
-  color: var(--color-ink-muted);
-  font-size: 1.08rem;
-  max-width: 52ch;
-  margin-inline: auto;
   margin-bottom: var(--space-5);
 }
 
-@media (min-width: 780px) {
-  .featured__grid {
-    flex-direction: row;
-    text-align: left;
-    gap: var(--space-8);
-  }
-
-  .featured__photo {
-    width: 320px;
-  }
-
-  .featured__description {
-    margin-inline: 0;
-  }
-}
-
-/* --- Especialidades --- */
-.section--specialties {
-  position: relative;
-  overflow: hidden;
-}
-
-.specialties__glow {
-  position: absolute;
-  top: -10%;
-  right: -8%;
-  width: min(640px, 70%);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(200, 164, 101, 0.22), transparent 70%);
-  filter: blur(10px);
-  pointer-events: none;
-}
-
-.specialties__heading {
-  max-width: 640px;
+.featured__description {
+  font-size: 1.35rem;
+  line-height: 1.55;
+  color: var(--color-ink);
+  max-width: 38ch;
   margin-bottom: var(--space-6);
-  position: relative;
 }
 
-.specialties__eyebrow {
-  /* Fica sempre no topo da seção, ainda dentro do trecho escuro da
-     transição de .section--muted (ver comentário lá) — rose-700 (pensado
-     pra fundo claro, como em .page-hero__eyebrow) ficava pouco legível
-     nessa faixa ainda escura. Gold-500 é o tom já usado pros acentos sobre
-     fundo escuro no resto do site (ex.: selo "Destaque"), com bom contraste
-     aqui; o h2 logo abaixo já cai no trecho claro do gradiente e mantém a
-     cor padrão. Text-shadow reforça a leitura bem no início da faixa escura
-     (logo abaixo do padding-top), onde o gradiente ainda não clareou nada;
-     a linha decorativa dá peso visual ao invés de deixar o texto flutuando
-     sozinho no vazio escuro. */
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.9rem;
-  color: var(--color-gold-500);
-  font-weight: 700;
-  margin-bottom: var(--space-3);
-  text-shadow: 0 1px 16px rgba(200, 164, 101, 0.5);
+/* --- Sobre --- */
+.about {
+  background: var(--color-dusk-900);
 }
 
-.specialties__eyebrow-line {
-  width: 26px;
-  height: 2px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, transparent, var(--color-gold-500));
-}
-
-.specialties__heading h2 {
-  /* rose-900 (cor padrão de h1-h4, igual aos outros títulos da página)
-     some no meio-termo do gradiente de .section--muted: mesmo mais abaixo
-     que o eyebrow, o h2 ainda cai numa faixa só parcialmente clareada
-     (~50-65% em direção ao creme, não o creme quase puro do restante da
-     seção), e cor escura sobre fundo médio-escuro dá contraste fraco. Em
-     vez de mudar a cor (o que destoaria dos outros títulos da página, todos
-     rose-900), um halo claro correndo por trás do texto resolve o
-     contraste sem depender da mistura exata do gradiente naquele ponto —
-     igual à técnica de sombra clara usada em texto sobre foto. */
-  text-shadow: 0 2px 30px rgba(244, 233, 227, 0.95), 0 1px 4px rgba(244, 233, 227, 0.7);
-}
-
-.specialties__lead {
-  color: var(--color-ink-muted);
-  font-size: 1.1rem;
-  max-width: 56ch;
-  margin-top: var(--space-3);
-}
-
-.specialties {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-  /* align-items:stretch (o padrão do grid) faz TODO card da mesma linha
-     esticar até bater a altura do mais alto — como o card em destaque
-     (grid-column: span 2, ver .specialty-card--featured) tem nome maior e
-     puxa mais altura, isso distorcia a proporção 3:4 dos cards com foto ao
-     lado dele, deixando tudo desproporcional. Cada card passa a assumir
-     sua própria altura natural (aspect-ratio, no caso das fotos). */
-  align-items: start;
-}
-
-.specialty-card {
-  --spot-x: 50%;
-  --spot-y: 0%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-5) var(--space-4);
-  color: var(--color-rose-900);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard), transform var(--duration-base) var(--ease-premium);
-}
-
-/* Cards com foto de categoria: a imagem cobre o card inteiro (background,
-   não <img>, porque o holofote/tilt já usa transform no próprio elemento —
-   um <img> filho exigiria object-fit + z-index extra sem ganhar nada) e o
-   texto sobe para branco sobre um escurecimento gradual no rodapé, alto o
-   bastante para o nome/seta continuarem legíveis em qualquer foto. */
-.specialty-card--photo {
-  aspect-ratio: 3 / 4;
-  justify-content: flex-end;
-  background-size: cover;
-  background-position: center;
-  color: #fff;
-  border-color: transparent;
-}
-
-.specialty-card__scrim {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(28, 18, 16, 0.05) 0%, rgba(28, 18, 16, 0.15) 45%, rgba(28, 18, 16, 0.82) 100%);
-  pointer-events: none;
-}
-
-.specialty-card--photo:hover {
-  border-color: transparent;
-  transform: translateY(-4px);
-}
-
-.specialty-card::before {
-  /* Sem overflow:hidden no .specialty-card de propósito: o selo "Destaque"
-     (ver .specialty-card__badge) precisa poder ultrapassar a borda superior
-     do card (top negativo) para flutuar como uma fita — overflow:hidden ali
-     cortaria o selo pela metade. O próprio raio da borda do ::before abaixo
-     já é suficiente para conter o brilho do holofote na prática (o
-     radial-gradient já esmaece bem antes de alcançar os cantos). */
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0;
-  background: radial-gradient(220px circle at var(--spot-x) var(--spot-y), var(--color-rose-100), transparent 70%);
-  transition: opacity var(--duration-base) var(--ease-premium);
-  pointer-events: none;
-}
-
-.specialty-card.is-spotlit::before {
-  opacity: 1;
-}
-
-.specialty-card:hover {
-  border-color: var(--color-rose-500);
-  box-shadow: var(--shadow-md), 0 0 0 1px rgba(156, 91, 96, 0.12);
-}
-
-.specialty-card--featured {
-  /* O card marcado "Destaque na home" no admin (ver AdminCatalogView) merece
-     se destacar de verdade na grade, não só ganhar um selo — ocupa a largura
-     de 2 colunas (span total no grid de 2 colunas do mobile; 2 de 5 no
-     desktop) e ganha um contorno/glow dourado sutil, coerente com o acento
-     "champagne" reservado a destaques premium (ver tokens.css). */
-  grid-column: 1 / -1;
-  border-color: var(--color-gold-500);
-  box-shadow: var(--shadow-md), 0 0 0 1px rgba(200, 164, 101, 0.35);
-}
-
-.specialty-card--featured:hover {
-  border-color: var(--color-gold-500);
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(200, 164, 101, 0.5);
-}
-
-.specialty-card--featured .specialty-card__name {
-  font-size: 1.15rem;
-}
-
-@media (min-width: 620px) {
-  .specialty-card--featured {
-    grid-column: span 2;
-  }
-}
-
-.specialty-card__badge {
-  position: absolute;
-  top: -10px;
-  right: var(--space-3);
-  overflow: hidden;
-  background: linear-gradient(135deg, var(--color-gold-700), var(--color-gold-500));
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-sm);
-  z-index: 1;
-}
-
-.specialty-card__badge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 48%, transparent 66%);
-  transform: translateX(-140%);
-  animation: badge-shine 3.2s ease-in-out infinite;
-}
-
-@keyframes badge-shine {
-  0%, 40% {
-    transform: translateX(-140%);
-  }
-  70%, 100% {
-    transform: translateX(140%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .specialty-card__badge::after {
-    animation: none;
-    display: none;
-  }
-}
-
-.specialty-card__icon {
-  position: relative;
-  z-index: 1;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--color-rose-100);
-  color: var(--color-rose-700);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-sm);
-}
-
-.specialty-card--photo .specialty-card__icon {
-  position: absolute;
-  top: var(--space-4);
-  left: var(--space-4);
-}
-
-.specialty-card__name {
-  position: relative;
-  z-index: 1;
-  font-weight: 700;
-}
-
-.specialty-card--photo .specialty-card__name {
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-
-.specialty-card__arrow {
-  position: relative;
-  z-index: 1;
-  color: var(--color-rose-500);
-  font-weight: 700;
-  margin-top: auto;
-  transition: transform var(--duration-base) var(--ease-premium);
-}
-
-.specialty-card--photo .specialty-card__arrow {
-  color: #fff;
-  /* margin-top:auto (regra base, logo abaixo) existe para empurrar só a
-     seta para o rodapé quando ela é o ÚLTIMO item de uma coluna com nome+
-     ícone todos em fluxo normal (variante sem foto). Na variante com foto o
-     ícone saiu do fluxo (position:absolute) e é o próprio container que já
-     empurra nome+seta para baixo via justify-content:flex-end — um
-     margin-top:auto aqui absorveria sozinho todo o espaço livre ANTES do
-     justify-content agir, colando o nome no topo do card (por trás do
-     ícone) em vez de ficar ao lado da seta no rodapé. */
-  margin-top: 0;
-}
-
-.specialty-card:hover .specialty-card__arrow {
-  transform: translateX(4px);
-}
-
-/* --- Como funciona --- */
-.how-it-works__line {
-  position: relative;
-  height: 1px;
-  background: var(--color-border);
-  margin-bottom: var(--space-6);
-  display: none;
-}
-
-.how-it-works__line-fill {
-  position: absolute;
-  inset: 0;
-  background: var(--color-rose-700);
-  transform: scaleX(0);
-  transform-origin: left;
-}
-
-.how-it-works__steps {
-  display: grid;
-  gap: var(--space-6);
-}
-
-.how-it-works__step {
-  transition: transform var(--duration-base) var(--ease-premium);
-}
-
-.how-it-works__step:hover {
-  transform: translateY(-4px);
-}
-
-.how-it-works__number {
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 600;
-  color: var(--color-rose-700);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-rose-300);
-  box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-3);
-}
-
-.how-it-works__step h3 {
-  font-size: 1.2rem;
-  margin-bottom: var(--space-2);
-}
-
-.how-it-works__step p {
-  color: var(--color-ink-muted);
-}
-
-.how-it-works__cta {
-  margin-top: var(--space-7);
-  text-align: center;
-}
-
-/* --- Diferenciais --- */
-.differentials {
+.about__grid {
   display: grid;
   gap: var(--space-5);
 }
 
-.differential {
-  --spot-x: 50%;
-  --spot-y: 0%;
-  position: relative;
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
-  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+.about h2 {
+  color: #fff;
 }
 
-.differential::before {
-  content: '';
+.about__statement {
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 30ch;
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 1.6vw + 1rem, 2.6rem);
+  font-weight: 300;
+  font-variation-settings: 'SOFT' 100;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+/* --- Especialidades --- */
+.specialties-section {
+  background: var(--color-surface-muted);
+}
+
+.specialties__heading {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-7);
+}
+
+.specialties__heading h2 {
+  margin: 0;
+}
+
+.specialties__lead {
+  color: var(--color-ink);
+  font-size: 1.3rem;
+  max-width: 40ch;
+}
+
+/* Mosaico: o destaque ocupa a coluna da esquerda em duas linhas de altura
+   (no celular, a largura toda); grid-auto-flow:dense tampa qualquer vão se
+   o número de categorias mudar no painel. */
+.specialties {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: dense;
+  gap: var(--space-3);
+}
+
+.specialty-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 180px;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  color: var(--color-rose-900);
+  overflow: hidden;
+}
+
+.specialty-card--photo {
+  aspect-ratio: 4 / 5;
+  color: #fff;
+  background: var(--color-dusk-800);
+}
+
+/* Janela da foto: a imagem é mais alta que o card — a sobra é o curso do
+   parallax de scroll (applyPhotoParallax). */
+.specialty-card__media {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  background: radial-gradient(220px circle at var(--spot-x) var(--spot-y), var(--color-rose-100), transparent 70%);
-  transition: opacity var(--duration-base) var(--ease-premium);
+  overflow: hidden;
   pointer-events: none;
 }
 
-.differential.is-spotlit::before {
-  opacity: 1;
+.specialty-card__photo {
+  position: absolute;
+  inset: -12% 0;
+  background-size: cover;
+  background-position: center;
+  /* `scale`, não `transform: scale()`: o parallax (GSAP) é dono do
+     transform deste elemento, e as duas propriedades se compõem. */
+  transition: scale 0.9s var(--ease-premium);
 }
 
-.differential:hover {
-  /* Sem transform aqui de propósito: em dispositivos com mouse, o GSAP
-     (useTiltHover) já controla o transform deste elemento para a inclinação
-     3D + leve escala — uma regra de :hover competindo pelo mesmo transform
-     nunca venceria um estilo inline, então só geraria confusão. Em touch ou
-     com prefers-reduced-motion (onde o GSAP nem entra em ação), a borda e a
-     sombra abaixo já dão o feedback de hover. */
-  box-shadow: var(--shadow-md);
+.specialty-card:hover .specialty-card__photo,
+.specialty-card:focus-visible .specialty-card__photo {
+  scale: 1.06;
 }
 
-.differential__icon {
+/* Escurecimento neutro só na faixa de baixo, onde está o nome — a única
+   forma de degradê permitida: legibilidade de texto sobre foto. */
+.specialty-card__scrim {
+  position: absolute;
+  inset: 40% 0 0;
+  background: linear-gradient(180deg, rgba(20, 12, 10, 0), rgba(20, 12, 10, 0.72));
+  pointer-events: none;
+}
+
+.specialty-card__name {
   position: relative;
-  z-index: 1;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--color-rose-100);
-  color: var(--color-rose-700);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-4);
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
-.differential h3 {
-  position: relative;
-  z-index: 1;
-  font-size: 1.2rem;
+.specialty-card--featured {
+  grid-column: 1 / -1;
+}
+
+.specialty-card--featured.specialty-card--photo {
+  aspect-ratio: 16 / 11;
+}
+
+.specialty-card--featured .specialty-card__name {
+  font-size: clamp(1.8rem, 2.2vw + 1rem, 2.8rem);
+}
+
+/* Celular (2 colunas): com número par de categorias sobra um card sozinho
+   na última linha — ele vira faixa larga, como o destaque. */
+@media (max-width: 899px) {
+  .specialty-card:last-child:nth-child(even):not(.specialty-card--featured) {
+    grid-column: 1 / -1;
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* --- Como funciona --- */
+.steps {
+  background: var(--color-bg);
+}
+
+.steps__grid {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.steps__heading h2 {
+  margin-bottom: var(--space-5);
+}
+
+.steps__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-6);
+}
+
+.steps__list h3,
+.values__list h3 {
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
   margin-bottom: var(--space-2);
 }
 
-.differential p {
-  position: relative;
-  z-index: 1;
-  color: var(--color-ink-muted);
+.steps__list p,
+.values__list p {
+  font-size: 1.2rem;
+  line-height: 1.55;
+  color: var(--color-ink);
+  max-width: 42ch;
+}
+
+/* --- Diferenciais --- */
+.values {
+  background: var(--color-surface);
+}
+
+.values__grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.values__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-6);
 }
 
 /* --- Instagram --- */
-.instagram-card {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
-  color: #fff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  transition: transform var(--duration-base) var(--ease-premium), box-shadow var(--duration-base) var(--ease-premium);
+.instagram {
+  background: var(--color-bg);
+  padding-top: 0;
 }
 
-.instagram-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-glow);
+.instagram-card {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-6);
+  background: var(--color-rose-900);
+  color: #fff;
 }
 
 .instagram-card__grid {
-  /* width:100% por garantia mesmo com align-items:stretch já sendo o
-     padrão aqui (ver .instagram-card acima) — mesma classe de bug de
-     grid 1fr colapsando pra 0px já vista no card de Instagram da página
-     de Contato (ver comentário lá), então mais vale prevenir. */
   width: 100%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 3px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  gap: 4px;
 }
 
 .instagram-card__cell {
   aspect-ratio: 1;
   background-size: cover;
   background-position: center;
-  transition: transform var(--duration-slow) var(--ease-premium);
+  transition: scale var(--duration-slow) var(--ease-premium);
 }
 
 .instagram-card:hover .instagram-card__cell {
-  transform: scale(1.06);
-}
-
-.instagram-card__eyebrow {
-  display: block;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 0.8rem;
-  opacity: 0.8;
-  margin-bottom: var(--space-1);
+  scale: 1.04;
 }
 
 .instagram-card__handle {
-  font-family: var(--font-display);
-  font-size: 1.6rem;
-}
-
-.instagram-card__cta {
-  font-weight: 700;
-  align-self: flex-start;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  padding: 10px 20px;
-  border-radius: var(--radius-pill);
-}
-
-/* --- CTA final ---
-   Antes havia um SectionDivider (onda em SVG) entre a seção do Instagram e
-   esta — como as duas caixas terminam/começam exatamente na mesma cor
-   (bg-before = --color-bg = fundo da seção anterior), qualquer arredondamento
-   de subpixel na borda da onda deixava uma linha de 1px visível bem no meio
-   do que devia ser um gradiente contínuo. Trocado por uma solução sem junta
-   nenhuma: o PRÓPRIO gradiente desta seção já nasce na cor da seção anterior
-   (--color-bg) e escurece até o rosé só DENTRO da própria caixa — não hÁ
-   fronteira entre dois elementos para uma costura aparecer. O brilho animado
-   abaixo (mesma técnica de "aurora" do AmbientBackground.vue) substitui a
-   onda estática por uma transição com movimento próprio. */
-.cta-final {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(
-    180deg,
-    var(--color-bg) 0%,
-    var(--color-rose-900) 18%,
-    var(--color-rose-900) 55%,
-    var(--color-rose-700) 100%
-  );
   color: #fff;
-  /* Mesmo raciocínio: a base desta seção termina exatamente na cor onde o
-     rodapé começa (ver AppFooter.vue) — o overlap evita a mesma classe de
-     costura de subpixel nessa segunda junta. */
-  margin-bottom: -1px;
+  font-size: var(--text-h2);
+  margin-bottom: var(--space-3);
 }
 
-.cta-final__glow {
-  position: absolute;
-  top: -10%;
-  left: 50%;
-  width: min(900px, 140%);
-  height: 60%;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(200, 164, 101, 0.28), transparent 70%);
-  filter: blur(10px);
-  animation: cta-glow-drift 14s ease-in-out infinite;
-  pointer-events: none;
+.instagram-card__text p {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.86);
+  margin-bottom: var(--space-5);
+  max-width: 36ch;
 }
 
-@keyframes cta-glow-drift {
-  0%, 100% {
-    transform: translateX(-50%) translateY(0) scale(1);
-    opacity: 0.85;
-  }
-  50% {
-    transform: translateX(-50%) translateY(3%) scale(1.12);
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cta-final__glow {
-    animation: none;
-  }
+/* --- CTA final: rosé escuro chapado; o rodapé continua no mesmo campo. --- */
+.cta-final {
+  background: var(--color-rose-900);
+  color: #fff;
 }
 
 .cta-final__inner {
-  position: relative;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-5);
+  display: grid;
+  gap: var(--space-6);
+  justify-items: start;
 }
 
 .cta-final h2 {
   color: #fff;
+  font-size: var(--text-h1);
+  max-width: 14ch;
 }
 
-/* Breakpoint próprio (menor que os 900px usados pelo resto da home) pra
-   "Como funciona" e "Diferenciais": são grades de só 3 itens de conteúdo
-   enxuto (ícone + título curto + 1-2 linhas), que cabem confortavelmente
-   em 3 colunas bem antes dos 900px que o hero/especialidades precisam —
-   um tablet em retrato (ex.: 820px) ficava preso na mesma coluna única do
-   celular por causa do breakpoint único e alto, desperdiçando bastante
-   espaço horizontal disponível à toa. */
 @media (min-width: 700px) {
-  .how-it-works__steps {
+  .steps__list,
+  .values__list {
     grid-template-columns: repeat(3, 1fr);
-  }
-
-  .differentials {
-    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
   }
 }
 
 @media (min-width: 900px) {
+  .hero {
+    padding-block: var(--space-6) var(--space-9);
+  }
+
   .hero__grid {
-    grid-template-columns: 1.1fr 0.9fr;
-    align-items: center;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: var(--space-8);
   }
 
-  .hero__scroll-cue {
-    display: block;
-    position: absolute;
-    bottom: var(--space-5);
-    left: 50%;
-    transform: translateX(-50%);
+  .featured__grid {
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: var(--space-9);
   }
 
-  .hero__scroll-cue span {
-    display: block;
-    width: 1px;
-    height: 40px;
-    background: linear-gradient(var(--color-rose-500), transparent);
+  .about__grid {
+    grid-template-columns: 0.7fr 1.3fr;
+    align-items: start;
+    gap: var(--space-8);
+  }
+
+  .specialties__heading {
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
   }
 
   .specialties {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
-  .how-it-works__line {
-    display: block;
+  .specialty-card--featured {
+    grid-column: span 1;
+    grid-row: span 2;
+  }
+
+  .specialty-card--featured.specialty-card--photo {
+    aspect-ratio: auto;
+  }
+
+  .specialty-card--photo {
+    aspect-ratio: 5 / 4;
+  }
+
+  .steps__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .steps__heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-6);
+  }
+
+  .steps__heading h2 {
+    margin-bottom: 0;
+    max-width: 14ch;
+  }
+
+  /* Título numa linha, os três diferenciais lado a lado abaixo dele, na
+     largura toda — ao lado do título eles ficavam espremidos. */
+  .values__list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-7);
   }
 
   .instagram-card {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: var(--space-8);
+    padding: var(--space-7);
   }
 
-  /* A grade de fotos precisa de uma largura própria contida (não esticar
-     igual aos outros dois itens do flex-row) pra continuar parecendo um
-     grid de perfil, não 6 quadrados minúsculos espremidos ao lado do texto. */
-  .instagram-card__grid {
-    width: 220px;
-    flex-shrink: 0;
-    order: -1;
-  }
-
-  .instagram-card__text {
-    flex: 1;
+  .cta-final__inner {
+    grid-template-columns: 1fr auto;
+    align-items: end;
   }
 }
 </style>

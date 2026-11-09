@@ -269,9 +269,6 @@ async function toggleServiceActive(service: AdminService) {
   <div class="admin-catalog">
     <div class="admin-catalog__header">
       <div class="admin-catalog__title">
-        <span class="admin-page-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12.5 12.5 20.5a2 2 0 0 1-2.83 0l-6.17-6.17a2 2 0 0 1 0-2.83L11.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5Z" /><circle cx="15.5" cy="8.5" r="1.25" fill="currentColor" stroke="none" /></svg>
-        </span>
         <div>
           <h1>Serviços e categorias</h1>
           <p>Cadastre aqui o que aparece no site público e no agendamento.</p>
@@ -293,12 +290,9 @@ async function toggleServiceActive(service: AdminService) {
     <LoadingState v-if="loading" key="loading" label="Carregando catálogo…" />
     <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
 
-    <div v-else key="content">
+    <div v-else key="content" v-stagger>
       <form class="admin-card admin-catalog__new-category" @submit.prevent="submitNewCategory">
         <h2>
-          <span class="admin-card__icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          </span>
           Nova categoria
         </h2>
         <div class="admin-form-row">
@@ -524,8 +518,8 @@ async function toggleServiceActive(service: AdminService) {
 
 .admin-catalog__stat span {
   font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--color-ink-soft);
 }
 
@@ -555,7 +549,7 @@ async function toggleServiceActive(service: AdminService) {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-rose-700), var(--color-gold-500));
+  background: transparent;
   opacity: 0;
   transition: opacity var(--duration-base) var(--ease-premium);
 }
@@ -711,7 +705,7 @@ async function toggleServiceActive(service: AdminService) {
   border-radius: var(--radius-md);
   overflow: hidden;
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--color-rose-100), var(--color-rose-300));
+  background: var(--color-rose-100);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -817,8 +811,8 @@ async function toggleServiceActive(service: AdminService) {
 .admin-badge {
   font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 3px 10px;
   border-radius: var(--radius-pill);
 }
@@ -1001,17 +995,23 @@ async function toggleServiceActive(service: AdminService) {
   color: var(--color-ink);
 }
 
+/* flex-wrap + nowrap nas pílulas: na grade de 3 colunas o card fica
+   estreito, e sem quebrar a LINHA as pílulas quebravam o próprio TEXTO —
+   "60 min" virava "60 / min" empilhado e "Retorno em 15/122d" ocupava
+   quatro linhas. Agora cada pílula fica inteira e desce como um bloco. */
 .admin-service__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: 2px;
+  gap: 6px var(--space-2);
+  margin-top: 4px;
 }
 
 .admin-service__meta-pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-ink-soft);
@@ -1024,6 +1024,8 @@ async function toggleServiceActive(service: AdminService) {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--color-rose-700);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* "Sob consulta" (priceCents null) não é um preço de verdade — dar o mesmo
@@ -1051,6 +1053,36 @@ async function toggleServiceActive(service: AdminService) {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+/* Com mouse: as ações flutuam no canto e só aparecem no hover/foco — antes
+   ocupavam uma coluna fixa ao lado do texto e espremiam o nome do serviço
+   em duas linhas no card estreito da grade. Em toque (sem hover) continuam
+   sempre visíveis, no fluxo normal. :focus-within mantém o acesso por
+   teclado: tabular até um botão já revela o grupo. */
+@media (hover: hover) and (pointer: fine) {
+  .admin-service {
+    position: relative;
+  }
+
+  .admin-service__actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+    box-shadow: var(--shadow-sm);
+    opacity: 0;
+    translate: 0 -4px;
+    transition: opacity var(--duration-fast) var(--ease-standard), translate var(--duration-base) var(--ease-premium);
+  }
+
+  .admin-service:hover .admin-service__actions,
+  .admin-service:focus-within .admin-service__actions {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 .admin-service__edit {

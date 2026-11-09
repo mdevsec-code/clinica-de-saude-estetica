@@ -48,6 +48,6 @@ onUnmounted(() => {
   width: 100%;
   transform-origin: left center;
   transform: scaleX(0);
-  background: linear-gradient(90deg, var(--color-rose-500), var(--color-rose-900));
+  background: var(--color-gold-500);
 }
 </style>

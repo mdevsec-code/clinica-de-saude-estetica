@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
 import { instagramLink, whatsappLink } from '@/services/settings.service';
 import { scrollToTopAnimated } from '@/composables/useSmoothScroll';
-import DecorativeDots from '@/components/DecorativeDots.vue';
 
 const settings = useSettingsStore();
 settings.load();
@@ -27,7 +26,6 @@ const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings
 
 <template>
   <footer class="footer">
-    <DecorativeDots :count="10" tone="light" />
     <div class="container footer__grid">
       <div class="footer__brand">
         <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" />
@@ -101,13 +99,11 @@ const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings
   /* Sem margin-top: um espaçamento aqui abriria uma faixa visível da cor de
      fundo padrão (ou do fundo ambiente, fixo atrás de tudo) entre a última
      seção da página e o rodapé — a transição de cor precisa ser direta.
-     180deg começando em rose-700 (não rose-900) de propósito: casa
-     exatamente com a cor na borda inferior do .cta-final da Home (ver
-     HomeView.vue), que termina nessa mesma cor de ponta a ponta — sem isso
-     haveria uma costura visível entre as duas seções. Páginas sem
-     .cta-final antes do rodapé (Serviços, Contato) não sofrem com isso: a
-     diferença de tom ali é sutil o bastante para não chamar atenção. */
-  background: linear-gradient(180deg, var(--color-rose-700), var(--color-dusk-900));
+     Começa em rose-900, a mesma cor em que o .cta-final da Home (ver
+     HomeView.vue) termina — sem costura entre as duas seções e sem a faixa
+     mais clara que aparecia quando um terminava e o outro recomeçava em
+     rose-700. */
+  background: var(--color-dusk-900);
   color: var(--color-rose-100);
   padding-block: var(--space-9) var(--space-5);
 }
@@ -133,12 +129,13 @@ const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings
 }
 
 .footer h3 {
-  color: #fff;
-  font-family: var(--font-body);
-  font-size: 0.85rem;
+  color: var(--color-gold-500);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-variation-settings: 'SOFT' 100;
+  font-size: 1.2rem;
   line-height: 1.4;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-bottom: var(--space-4);
 }
 
@@ -201,7 +198,6 @@ a.footer__link:hover {
   position: relative;
   margin-top: var(--space-7);
   padding-top: var(--space-5);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
   display: flex;
   flex-wrap: wrap;
   align-items: center;

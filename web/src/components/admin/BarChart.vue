@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { gsap } from '@/lib/motion';
+import { useChartEntrance } from '@/composables/useChartEntrance';
 
 // Gráfico de barras sequencial (magnitude — "quantos agendamentos por dia"),
 // uma única cor conforme o método de dataviz usado no projeto: sequencial =
@@ -11,10 +13,25 @@ const props = withDefaults(
     color?: string;
     valueFormatter?: (value: number) => string;
   }>(),
-  { color: 'var(--chart-seq-500)', valueFormatter: (v: number) => String(v) },
+  { color: 'var(--color-rose-300)', valueFormatter: (v: number) => String(v) },
 );
 
 const max = computed(() => Math.max(1, ...props.data.map((d) => d.value)));
+
+// Barras crescem a partir do eixo, da esquerda para a direita.
+const root = useChartEntrance(
+  () => props.data,
+  (el) => {
+    gsap.from(el.querySelectorAll('.bar-chart__bar'), {
+      scaleY: 0,
+      transformOrigin: '50% 100%',
+      duration: 0.8,
+      stagger: { each: 0.018, from: 'start' },
+      ease: 'premium-out',
+      clearProps: 'transform',
+    });
+  },
+);
 
 // Com o seletor de período (7/14/30/60/90 dias, ver AdminDashboardView),
 // espremer todas as colunas na mesma largura fixa do card virava exatamente
@@ -30,6 +47,28 @@ const max = computed(() => Math.max(1, ...props.data.map((d) => d.value)));
 const MIN_COL_WIDTH = 16;
 const needsScroll = computed(() => props.data.length > 24);
 const colWidthPx = computed(() => (needsScroll.value ? MIN_COL_WIDTH : null));
+
+// As colunas crescem (flex 1 0 16px) para preencher o card quando há espaço;
+// a dica de arrastar só aparece quando o conteúdo de fato transborda.
+const scrollEl = ref<HTMLElement | null>(null);
+const overflowing = ref(false);
+function measureOverflow() {
+  // Compara a largura do bloco interno, não scrollWidth: os tooltips
+  // (::after absolutos das colunas) também contam no scrollWidth.
+  const el = scrollEl.value;
+  const inner = el?.firstElementChild as HTMLElement | null;
+  overflowing.value = !!el && !!inner && inner.offsetWidth > el.clientWidth + 1;
+}
+let ro: ResizeObserver | null = null;
+onMounted(() => {
+  measureOverflow();
+  if (scrollEl.value) {
+    ro = new ResizeObserver(measureOverflow);
+    ro.observe(scrollEl.value);
+  }
+});
+onBeforeUnmount(() => ro?.disconnect());
+watch(() => props.data.length, () => requestAnimationFrame(measureOverflow));
 const innerMinWidth = computed(() => (needsScroll.value ? `${props.data.length * (MIN_COL_WIDTH + 4)}px` : '100%'));
 
 const labelStep = computed(() => Math.max(1, Math.ceil(props.data.length / 14)));
@@ -84,8 +123,8 @@ function onColHover(event: MouseEvent) {
 </script>
 
 <template>
-  <div class="bar-chart">
-    <div class="bar-chart__scroll" :class="{ 'bar-chart__scroll--active': needsScroll }">
+  <div ref="root" class="bar-chart">
+    <div ref="scrollEl" class="bar-chart__scroll" :class="{ 'bar-chart__scroll--active': needsScroll }">
       <div class="bar-chart__inner" :style="{ minWidth: innerMinWidth }">
         <div class="bar-chart__plot">
           <div
@@ -93,7 +132,7 @@ function onColHover(event: MouseEvent) {
             :key="i"
             class="bar-chart__col"
             :data-tooltip="valueFormatter(d.value)"
-            :style="colWidthPx ? { flex: `0 0 ${colWidthPx}px` } : undefined"
+            :style="colWidthPx ? { flex: `1 0 ${colWidthPx}px` } : undefined"
             @mouseenter="onColHover"
           >
             <div
@@ -109,12 +148,12 @@ function onColHover(event: MouseEvent) {
             :key="i"
             class="bar-chart__labels-item"
             :class="{ 'bar-chart__labels--today': i === data.length - 1 }"
-            :style="colWidthPx ? { flex: `0 0 ${colWidthPx}px` } : undefined"
+            :style="colWidthPx ? { flex: `1 0 ${colWidthPx}px` } : undefined"
           >{{ showLabel(i) ? d.label : '' }}</span>
         </div>
       </div>
     </div>
-    <p v-if="needsScroll" class="bar-chart__hint">Arraste para o lado para ver o período completo</p>
+    <p v-if="overflowing" class="bar-chart__hint">Arraste para o lado para ver o período completo</p>
   </div>
 </template>
 
@@ -181,19 +220,22 @@ function onColHover(event: MouseEvent) {
   width: 100%;
   max-width: 22px;
   border-radius: 4px 4px 0 0;
-  background: linear-gradient(180deg, color-mix(in srgb, v-bind(color) 60%, white), v-bind(color));
-  transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  background: v-bind(color);
+  /* `scale` (propriedade independente), não `transform`: o crescimento de
+     entrada das barras é um transform do GSAP (ver useChartEntrance), e uma
+     transition CSS em transform "perseguia" cada quadro dele com atraso. */
+  transition: opacity var(--duration-fast) var(--ease-standard), scale var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
   transform-origin: bottom center;
 }
 
 .bar-chart__bar--today {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-rose-700) 55%, white), var(--color-rose-900));
+  background: var(--color-rose-900);
   box-shadow: 0 0 0 2px var(--color-rose-100);
 }
 
 .bar-chart__col:hover .bar-chart__bar {
   opacity: 0.8;
-  transform: scaleX(1.15);
+  scale: 1.15 1;
 }
 
 .bar-chart__labels {

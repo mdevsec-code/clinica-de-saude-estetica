@@ -135,7 +135,7 @@ function formatTime(iso: string) {
 }
 
 .calendar-day--today {
-  background: linear-gradient(180deg, var(--color-rose-100) 0%, var(--color-surface) 46px);
+  background: var(--color-rose-100);
   box-shadow: inset 0 0 0 1.5px var(--color-rose-500);
   z-index: 1;
 }

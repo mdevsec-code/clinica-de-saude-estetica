@@ -269,7 +269,7 @@ onUnmounted(() => {
      (mais perceptível quando "Contato", o último item, estava ativo). */
   top: 0;
   left: 0;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-sm);
   z-index: 0;
@@ -326,7 +326,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: var(--color-rose-900);
   color: #fff !important;
   padding: 11px 22px;
   border-radius: var(--radius-pill);

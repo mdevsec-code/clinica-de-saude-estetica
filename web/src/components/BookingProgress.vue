@@ -55,7 +55,7 @@ const progressPercent = computed(() => `${((currentIndex.value + 1) / steps.leng
 
 .progress__compact {
   display: none;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--color-ink);
   margin-bottom: var(--space-2);
@@ -91,8 +91,8 @@ const progressPercent = computed(() => `${((currentIndex.value + 1) / steps.leng
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
-  color: var(--color-ink-soft);
-  font-size: 0.88rem;
+  color: var(--color-ink);
+  font-size: 1rem;
 }
 
 .progress__dot {

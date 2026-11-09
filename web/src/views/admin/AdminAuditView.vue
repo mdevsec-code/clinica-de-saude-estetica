@@ -90,6 +90,15 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   inventory_item: 'Item de estoque',
   user: 'Usuário',
   appointment: 'Agendamento',
+  // Módulo de pacientes — sem estas entradas a lista mostrava o nome
+  // técnico cru ("acessou patient_ficha").
+  patient: 'Paciente',
+  patient_ficha: 'Ficha do paciente',
+  patient_photo: 'Foto do paciente',
+  return_reminder: 'Lembrete de retorno',
+  whatsapp_notification: 'Mensagem de WhatsApp',
+  whatsapp_connection: 'Conexão do WhatsApp',
+  message_template: 'Mensagem automática',
 };
 
 const entityTypeOptions = computed<AdminSelectOption[]>(() => [
@@ -102,19 +111,22 @@ const actionOptions: AdminSelectOption<AuditAction | ''>[] = [
   { value: 'CREATE', label: 'Criação' },
   { value: 'UPDATE', label: 'Alteração' },
   { value: 'DELETE', label: 'Exclusão' },
+  { value: 'VIEW', label: 'Acesso a ficha' },
 ];
 
 const ACTION_VERBS: Record<AuditAction, string> = {
   CREATE: 'criou',
   UPDATE: 'atualizou',
   DELETE: 'excluiu',
+  VIEW: 'acessou',
 };
 
-const ACTION_ICON: Record<AuditAction, string> = {
-  CREATE: 'M12 5v14M5 12h14',
-  UPDATE: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z',
-  DELETE: 'M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-7 0 1 12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-12',
-};
+// Nas ações de escrita o servidor grava a rota já com o método na frente
+// ("POST /whatsapp/disconnect"), nas leituras só o caminho; sem isto a
+// linha saía com o método repetido.
+function routeLabel(log: { method: string; path: string }): string {
+  return log.path.startsWith(`${log.method} `) ? log.path : `${log.method} ${log.path}`;
+}
 
 function entityTypeLabel(type: string): string {
   return (ENTITY_TYPE_LABELS[type] ?? type).toLowerCase();
@@ -138,12 +150,6 @@ function formatChanges(changes: Record<string, unknown> | null): string {
 <template>
   <div class="admin-audit">
     <div class="admin-audit__header">
-      <span class="admin-page-icon">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M9 11l3 3L22 4" />
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-        </svg>
-      </span>
       <div>
         <h1>Auditoria</h1>
         <p>Histórico de tudo que a equipe registrou ou alterou no painel.</p>
@@ -182,12 +188,9 @@ function formatChanges(changes: Record<string, unknown> | null): string {
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
       <EmptyState v-else-if="!result?.logs.length" key="empty" title="Nenhum registro de auditoria encontrado." description="Ações de criação, alteração e exclusão feitas pela equipe aparecem aqui." />
 
-      <div v-else key="content">
+      <div v-else key="content" v-stagger="'.admin-audit__row'">
         <ul class="admin-audit__list">
           <li v-for="log in result.logs" :key="log.id" class="admin-card admin-audit__row" :class="`admin-audit__row--${log.action.toLowerCase()}`">
-            <span class="admin-audit__icon" :class="`admin-audit__icon--${log.action.toLowerCase()}`">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="ACTION_ICON[log.action]" /></svg>
-            </span>
             <div class="admin-audit__body">
               <p class="admin-audit__desc">
                 <strong>{{ log.userName }}</strong>
@@ -195,7 +198,7 @@ function formatChanges(changes: Record<string, unknown> | null): string {
                 {{ entityTypeLabel(log.entityType) }}
                 <span v-if="log.entityLabel" class="admin-audit__entity">"{{ log.entityLabel }}"</span>
               </p>
-              <p class="admin-audit__meta">{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }}</p>
+              <p class="admin-audit__meta">{{ formatDateTime(log.createdAt) }} · {{ routeLabel(log) }}</p>
               <button type="button" class="admin-link-btn admin-audit__toggle" @click="toggleDetails(log)">
                 {{ expandedId === log.id ? 'Ocultar detalhes' : 'Ver detalhes' }}
               </button>
@@ -292,52 +295,6 @@ function formatChanges(changes: Record<string, unknown> | null): string {
 .admin-audit__row {
   display: flex;
   gap: var(--space-3);
-  border-left: 3px solid var(--color-border);
-  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
-}
-
-.admin-audit__row:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.admin-audit__row--create {
-  border-left-color: var(--color-success);
-}
-
-.admin-audit__row--update {
-  border-left-color: var(--color-gold-500);
-}
-
-.admin-audit__row--delete {
-  border-left-color: var(--color-danger);
-}
-
-.admin-audit__icon {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-muted);
-  color: var(--color-ink-muted);
-}
-
-.admin-audit__icon--create {
-  background: rgba(79, 122, 92, 0.12);
-  color: var(--color-success);
-}
-
-.admin-audit__icon--update {
-  background: var(--color-gold-100);
-  color: var(--color-gold-700);
-}
-
-.admin-audit__icon--delete {
-  background: rgba(164, 69, 63, 0.12);
-  color: var(--color-danger);
 }
 
 .admin-audit__body {

@@ -1,3 +1,4 @@
+import { ref } from 'vue';
 import { apiRequest } from './api';
 import type { FichaField, PatientDetail, PatientFicha, PatientListItem, PatientPhotoCategory } from '@/types';
 
@@ -53,13 +54,36 @@ export function removePatientPhoto(patientId: string, photoId: string) {
   return apiRequest<void>(`/patients/${patientId}/photos/${photoId}`, { method: 'DELETE' });
 }
 
-// <img> não manda header Authorization — a rota aceita o token também via
-// query string só para servir arquivo (ver requireAuthFromHeaderOrQuery no
-// backend). Nunca usar esse padrão de token-na-URL em outra chamada.
-export function patientPhotoUrl(patientId: string, photoId: string): string {
+// <img> e links não mandam header Authorization — as rotas de arquivo
+// aceitam token pela query string, mas SÓ o token de arquivo (escopo
+// restrito, 1h — ver signFileToken no backend), nunca o de sessão. Fica em
+// um ref para as URLs se recalcularem sozinhas quando ele for renovado.
+const fileToken = ref<string | null>(null);
+let fileTokenExpiresAt = 0;
+
+// Garante um token de arquivo válido por pelo menos mais 10 minutos —
+// chame antes de exibir fotos/fichas e periodicamente enquanto a tela
+// estiver aberta (ver AdminPatientDetailView).
+export async function ensureFileToken() {
+  if (fileToken.value && Date.now() < fileTokenExpiresAt - 10 * 60_000) return;
+  const { token, expiresInSeconds } = await apiRequest<{ token: string; expiresInSeconds: number }>('/auth/file-token');
+  fileToken.value = token;
+  fileTokenExpiresAt = Date.now() + expiresInSeconds * 1000;
+}
+
+// Chamado no logout (stores/auth.ts): o token é da conta que saiu.
+export function clearFileToken() {
+  fileToken.value = null;
+  fileTokenExpiresAt = 0;
+}
+
+function fileUrl(path: string) {
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
-  const token = localStorage.getItem('noely_admin_token') ?? '';
-  return `${API_URL}/patients/${patientId}/photos/${photoId}/file?token=${encodeURIComponent(token)}`;
+  return `${API_URL}${path}?token=${encodeURIComponent(fileToken.value ?? '')}`;
+}
+
+export function patientPhotoUrl(patientId: string, photoId: string): string {
+  return fileUrl(`/patients/${patientId}/photos/${photoId}/file`);
 }
 
 export function notifyBirthday(patientId: string) {
@@ -94,12 +118,10 @@ export function createFicha(patientId: string, payload: FichaPayload) {
   });
 }
 
-// Mesmo padrão de token-na-URL de patientPhotoUrl acima (só pra abrir/
-// imprimir o arquivo direto num link, que não manda header Authorization).
+// Mesmo token de arquivo de patientPhotoUrl acima (abrir/imprimir a ficha
+// digitalizada direto num link).
 export function fichaFileUrl(patientId: string, fichaId: string): string {
-  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333';
-  const token = localStorage.getItem('noely_admin_token') ?? '';
-  return `${API_URL}/patients/${patientId}/fichas/${fichaId}/file?token=${encodeURIComponent(token)}`;
+  return fileUrl(`/patients/${patientId}/fichas/${fichaId}/file`);
 }
 
 export function updateFicha(patientId: string, fichaId: string, payload: Partial<FichaPayload>) {

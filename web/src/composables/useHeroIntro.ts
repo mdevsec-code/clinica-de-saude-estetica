@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from 'vue';
-import { gsap, ScrollTrigger, prefersReducedMotion } from '@/lib/motion';
+import { gsap, ScrollTrigger, prefersReducedMotion, supportsFinePointer } from '@/lib/motion';
 import { splitHeroTitle } from './useSplitReveal';
 import { onAppIntroReady } from './useAppIntro';
 
@@ -13,6 +13,7 @@ import { onAppIntroReady } from './useAppIntro';
 export function useHeroIntro(rootSelector: string) {
   let scrollTriggers: ScrollTrigger[] = [];
   let revertTitleSplit: () => void = () => {};
+  let removePointer: () => void = () => {};
 
   onMounted(() => {
     const root = document.querySelector<HTMLElement>(rootSelector);
@@ -58,6 +59,16 @@ export function useHeroIntro(rootSelector: string) {
           0.1,
         );
 
+        // Depois da foto: o fundo rosé sobe atrás dela, o fio dourado se
+        // DESENHA contornando o arco (base esquerda → topo → base direita)
+        // e o cartão flutuante desliza para o lugar.
+        const archBg = root.querySelector('.hero__arch-bg');
+        const archLine = root.querySelector('.hero__arch-line path');
+        const badge = root.querySelector('.hero__badge');
+        if (archBg) tl.fromTo(archBg, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 1.1 }, 0.35);
+        if (archLine) tl.fromTo(archLine, { drawSVG: '0%' }, { drawSVG: '100%', duration: 1.8, ease: 'premium-in-out' }, 0.5);
+        if (badge) tl.fromTo(badge, { opacity: 0, x: -30, scale: 0.92 }, { opacity: 1, x: 0, scale: 1, duration: 0.9, ease: 'back.out(1.6)' }, 1.1);
+
         // scrub:true liga o progresso do tween direto à posição de scroll —
         // não precisa (e não deve) recriar um tween a cada evento de scroll via
         // onUpdate, isso só gera jank e tweens concorrentes se sobrepondo.
@@ -93,6 +104,41 @@ export function useHeroIntro(rootSelector: string) {
         if (photoWrap) exit.to(photoWrap, { opacity: 0, y: -30, scale: 0.92, ease: 'none' }, 0);
         if (exit.scrollTrigger) scrollTriggers.push(exit.scrollTrigger);
       }
+
+      // Profundidade com o cursor: foto, anéis e estrelinhas são camadas a
+      // distâncias diferentes — quanto mais "perto", mais se deslocam. As
+      // camadas animadas aqui (anéis/estrelas) já têm @keyframes de giro em
+      // `transform`, então o deslocamento vai nas propriedades independentes
+      // `translate` via CSS custom property, para não brigar com o giro.
+      if (photoWrap && supportsFinePointer()) {
+        // Profundidade negativa = camada "atrás" (anda ao contrário do
+        // cursor): o fundo rosé recua enquanto o fio dourado e o cartão
+        // avançam, abrindo o espaço entre as camadas.
+        const layer = (selector: string, depth: number) =>
+          Array.from(photoWrap.querySelectorAll<HTMLElement>(selector)).map((el, i) => ({ el, depth: depth + i * 16 }));
+        const layers = [
+          { el: photoWrap, depth: 10 },
+          ...layer('.hero__arch-bg', -14),
+          ...layer('.hero__arch-line', 22),
+          ...layer('.hero__badge', 30),
+          ...layer('.hero__sparkle', 40),
+        ].map(({ el, depth }) => ({
+          depth,
+          x: gsap.quickTo(el, '--px', { duration: 1.2, ease: 'power3.out' }),
+          y: gsap.quickTo(el, '--py', { duration: 1.2, ease: 'power3.out' }),
+        }));
+
+        const onMove = (event: PointerEvent) => {
+          const nx = event.clientX / window.innerWidth - 0.5;
+          const ny = event.clientY / window.innerHeight - 0.5;
+          layers.forEach((layer) => {
+            layer.x(nx * layer.depth);
+            layer.y(ny * layer.depth);
+          });
+        };
+        window.addEventListener('pointermove', onMove, { passive: true });
+        removePointer = () => window.removeEventListener('pointermove', onMove);
+      }
     });
   });
 
@@ -100,5 +146,6 @@ export function useHeroIntro(rootSelector: string) {
     scrollTriggers.forEach((t) => t.kill());
     scrollTriggers = [];
     revertTitleSplit();
+    removePointer();
   });
 }

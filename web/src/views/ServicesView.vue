@@ -56,7 +56,9 @@ const totalServices = computed(() => categories.value.reduce((sum, c) => sum + c
     <PageHeroBand
       eyebrow="Catálogo"
       title="Nossos serviços"
-      description="Escolha o procedimento e siga direto para o agendamento."
+      description="Os procedimentos da clínica, com duração e valor. Escolha um e siga direto para o agendamento."
+      image="/services/limpeza-de-pele.jpg"
+      image-alt="Profissional preparando uma limpeza de pele"
     />
 
     <div class="container services-page__body">

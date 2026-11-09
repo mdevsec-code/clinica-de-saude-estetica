@@ -33,6 +33,12 @@ function str(value: unknown): string | undefined {
 // — o mesmo padrão com :params, não a URL real com ids, então a tabela fica
 // pequena e estável independente de quantos registros existirem.
 const AUDIT_RULES: Record<string, AuditRule> = {
+  // WhatsApp: quem mudou o texto que as pacientes recebem e quem vinculou/
+  // desvinculou o número da clínica ao sistema.
+  'PUT /message-templates/:key': { entityType: 'message_template', action: 'UPDATE', label: () => 'Modelo de mensagem do WhatsApp' },
+  'DELETE /message-templates/:key': { entityType: 'message_template', action: 'UPDATE', label: () => 'Modelo restaurado ao padrão' },
+  'POST /whatsapp/connect': { entityType: 'whatsapp_connection', action: 'CREATE', label: () => 'Conexão do WhatsApp' },
+  'POST /whatsapp/disconnect': { entityType: 'whatsapp_connection', action: 'DELETE', label: () => 'Conexão do WhatsApp' },
   'POST /auth/users': { entityType: 'user', action: 'CREATE', label: (body) => str(body.name) },
   'PATCH /auth/users/:id': {
     entityType: 'user',
