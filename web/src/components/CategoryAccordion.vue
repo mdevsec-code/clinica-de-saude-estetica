@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import type { Service, ServiceCategory } from '@/types';
 import ServiceCard from './ServiceCard.vue';
+import { refreshScroll } from '@/composables/useSmoothScroll';
 
 const props = defineProps<{ category: ServiceCategory; selectedServiceId?: string | null; defaultOpen?: boolean }>();
 const emit = defineEmits<{ selectService: [service: Service] }>();
@@ -18,6 +19,14 @@ function toggle() {
 // apenas anima entre "auto" medido via getBoundingClientRect, e o usuário com
 // a preferência ativada já tem as transições CSS zeradas globalmente; aqui
 // reduzimos a duração também no JS quando aplicável.
+// Abrir/fechar muda a altura da página: sem recalcular, os pontos de
+// disparo do reveal das categorias de baixo ficam onde estavam com o painel
+// aberto e, ao fechar, elas nunca aparecem (ficam em opacity 0).
+function settle(done: () => void) {
+  done();
+  refreshScroll();
+}
+
 function onEnter(el: Element, done: () => void) {
   const element = el as HTMLElement;
   const reduced = prefersReducedMotion();
@@ -25,14 +34,14 @@ function onEnter(el: Element, done: () => void) {
   gsap.fromTo(
     element,
     { height: 0, opacity: 0 },
-    { height, opacity: 1, duration: reduced ? 0.01 : 0.45, ease: 'premium-out', onComplete: done },
+    { height, opacity: 1, duration: reduced ? 0.01 : 0.45, ease: 'premium-out', onComplete: () => settle(done) },
   );
 }
 
 function onLeave(el: Element, done: () => void) {
   const element = el as HTMLElement;
   const reduced = prefersReducedMotion();
-  gsap.to(element, { height: 0, opacity: 0, duration: reduced ? 0.01 : 0.32, ease: 'premium-in-out', onComplete: done });
+  gsap.to(element, { height: 0, opacity: 0, duration: reduced ? 0.01 : 0.32, ease: 'premium-in-out', onComplete: () => settle(done) });
 }
 </script>
 

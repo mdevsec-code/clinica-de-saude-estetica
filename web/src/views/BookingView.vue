@@ -15,7 +15,7 @@ import BookingSummaryBar from '@/components/BookingSummaryBar.vue';
 import { applyStaggerReveal } from '@/composables/useStaggerReveal';
 import { applyMagneticButtons } from '@/composables/useMagneticButton';
 import { gsap } from '@/lib/motion';
-import { refreshScroll } from '@/composables/useSmoothScroll';
+import { refreshScroll, scrollToElement } from '@/composables/useSmoothScroll';
 
 const booking = useBookingStore();
 
@@ -193,6 +193,10 @@ watch(step, async (value) => {
   await nextTick();
   applyMagneticButtons('.booking-page .button--primary, .booking-page .button--ghost');
   refreshScroll();
+  // A etapa nova costuma ser bem mais curta que a lista de serviços: sem
+  // isto, quem escolhia um serviço lá embaixo caía direto no rodapé.
+  const inner = document.querySelector('.booking-page__inner');
+  if (inner && inner.getBoundingClientRect().top < 0) scrollToElement(inner);
 
   if (value === 'success') {
     const check = document.querySelector('.success-check');
@@ -421,7 +425,8 @@ function goBack() {
 
 <style scoped>
 .booking-page__inner {
-  padding-block: var(--space-5) var(--space-8);
+  /* Folga para a barra fixa "Seu atendimento" não cobrir os últimos itens. */
+  padding-block: var(--space-5) calc(var(--space-8) + 96px);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);

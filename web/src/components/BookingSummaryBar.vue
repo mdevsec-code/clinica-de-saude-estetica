@@ -39,24 +39,30 @@ const timeLabel = computed(() => {
 </script>
 
 <template>
-  <div v-if="booking.selectedService" class="summary-bar">
-    <div class="summary-bar__info">
-      <p class="summary-bar__title">Seu atendimento</p>
-      <p class="summary-bar__service summary-bar__truncate">{{ booking.selectedService.name }}</p>
-      <p class="summary-bar__meta summary-bar__truncate">
-        {{ booking.selectedService.durationMinutes }} min · {{ formatPrice(booking.selectedService.price) }}
-        <span v-if="timeLabel"> · {{ timeLabel }}</span>
-      </p>
+  <!-- Fora do #smooth-content: lá dentro o ScrollSmoother move a página com
+       transform e a barra ficava parada no meio do conteúdo no celular. -->
+  <Teleport to="#overlay-slot">
+    <div v-if="booking.selectedService" class="summary-bar">
+      <div class="summary-bar__info">
+        <p class="summary-bar__title">Seu atendimento</p>
+        <p class="summary-bar__service summary-bar__truncate">{{ booking.selectedService.name }}</p>
+        <p class="summary-bar__meta summary-bar__truncate">
+          {{ booking.selectedService.durationMinutes }} min · {{ formatPrice(booking.selectedService.price) }}
+          <span v-if="timeLabel"> · {{ timeLabel }}</span>
+        </p>
+      </div>
+      <button type="button" class="summary-bar__cta" :disabled="ctaDisabled" @click="$emit('continue')">
+        {{ ctaLabel }}
+      </button>
     </div>
-    <button type="button" class="summary-bar__cta" :disabled="ctaDisabled" @click="$emit('continue')">
-      {{ ctaLabel }}
-    </button>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
 .summary-bar {
-  position: sticky;
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 30;
   display: flex;
@@ -84,9 +90,7 @@ const timeLabel = computed(() => {
 }
 
 .summary-bar__title {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.85rem;
   color: var(--color-ink-soft);
 }
 

@@ -178,6 +178,9 @@ img {
 
 button {
   font-family: inherit;
+  /* Sem isto o Safari do iPhone pinta o texto de botão sem cor própria de
+     azul (cor padrão do sistema), como os dias e horários do agendamento. */
+  color: inherit;
 }
 
 /* Área mínima de toque confortável no mobile (item 76/54 do escopo). */
