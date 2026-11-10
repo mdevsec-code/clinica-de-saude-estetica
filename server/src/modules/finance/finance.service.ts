@@ -133,13 +133,14 @@ export async function getTodaySummary(tenantId: string) {
         id: true,
         startAt: true,
         customer: { select: { name: true } },
+        chargedCents: true,
         service: { select: { name: true, priceCents: true } },
       },
     }),
   ]);
 
   const vencimentosHojeCents = duesToday.reduce((sum, e) => sum + e.amountCents, 0);
-  const recebimentosHojeCents = completedToday.reduce((sum, a) => sum + (a.service.priceCents ?? 0), 0);
+  const recebimentosHojeCents = completedToday.reduce((sum, a) => sum + (a.chargedCents ?? a.service.priceCents ?? 0), 0);
 
   return {
     vencimentosHojeCents,
@@ -150,7 +151,7 @@ export async function getTodaySummary(tenantId: string) {
       startAt: a.startAt,
       customerName: a.customer.name,
       serviceName: a.service.name,
-      amountCents: a.service.priceCents ?? 0,
+      amountCents: a.chargedCents ?? a.service.priceCents ?? 0,
     })),
   };
 }
@@ -171,7 +172,7 @@ export async function getDailyRevenueHistory(tenantId: string, days: number) {
 
   const completed = await prisma.appointment.findMany({
     where: { tenantId, status: 'COMPLETED', startAt: { gte: rangeStart, lte: rangeEnd } },
-    select: { startAt: true, service: { select: { priceCents: true } } },
+    select: { startAt: true, chargedCents: true, service: { select: { priceCents: true } } },
   });
 
   const buckets = new Map<string, number>();
@@ -181,7 +182,7 @@ export async function getDailyRevenueHistory(tenantId: string, days: number) {
   }
   for (const appt of completed) {
     const key = formatInTimeZone(appt.startAt, timezone, 'yyyy-MM-dd');
-    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + (appt.service.priceCents ?? 0));
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + (appt.chargedCents ?? appt.service.priceCents ?? 0));
   }
 
   const daysSeries = Array.from(buckets.entries()).map(([date, totalCents]) => ({ date, totalCents }));
@@ -231,7 +232,7 @@ export async function getDre({ tenantId, from, to }: DreInput) {
   const [completed, expensesByCategoryRaw] = await Promise.all([
     prisma.appointment.findMany({
       where: { tenantId, status: 'COMPLETED', startAt: { gte: periodStart, lte: periodEnd } },
-      select: { service: { select: { priceCents: true } } },
+      select: { chargedCents: true, service: { select: { priceCents: true } } },
     }),
     prisma.expense.groupBy({
       by: ['category'],
@@ -240,7 +241,7 @@ export async function getDre({ tenantId, from, to }: DreInput) {
     }),
   ]);
 
-  const revenueCents = completed.reduce((sum, a) => sum + (a.service.priceCents ?? 0), 0);
+  const revenueCents = completed.reduce((sum, a) => sum + (a.chargedCents ?? a.service.priceCents ?? 0), 0);
   const expensesByCategory = expensesByCategoryRaw
     .map((g) => ({
       category: g.category,

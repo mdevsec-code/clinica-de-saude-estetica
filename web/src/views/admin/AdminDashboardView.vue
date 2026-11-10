@@ -111,9 +111,9 @@ const dayLoading = ref(false);
 const dayLoaded = ref(false);
 const dayError = ref<string | null>(null);
 
-async function inspectDay() {
+async function inspectDay(silent = false) {
   if (!inspectDateKey.value) return;
-  dayLoading.value = true;
+  if (silent !== true) dayLoading.value = true;
   dayError.value = null;
   try {
     const reference = new Date(`${inspectDateKey.value}T12:00:00`);
@@ -442,7 +442,7 @@ function formatUpcoming(iso: string) {
             <h2>
               Inspecionar um dia
             </h2>
-            <form class="day-inspector__form" @submit.prevent="inspectDay">
+            <form class="day-inspector__form" @submit.prevent="inspectDay()">
               <AdminDatePicker v-model="inspectDateKey" />
               <button type="submit" class="button button--primary" :disabled="dayLoading">
                 {{ dayLoading ? 'Buscando…' : 'Ver dia' }}
@@ -463,7 +463,7 @@ function formatUpcoming(iso: string) {
                 <span class="admin-badge admin-badge--no_show">{{ inspectDaySummary.NO_SHOW }} faltas</span>
               </span>
             </div>
-            <DayAppointmentList :appointments="dayAppointments" />
+            <DayAppointmentList :appointments="dayAppointments" @changed="inspectDay(true)" />
           </template>
           <p v-else-if="!dayLoading" class="admin-dashboard__empty-hint">Escolha uma data e clique em "Ver dia" para ver os agendamentos detalhados daquele dia.</p>
         </div>

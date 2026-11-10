@@ -12,6 +12,7 @@ import {
   listAppointments,
   listBlockedTimes,
   updateAppointmentStatus,
+  checkoutAppointments,
 } from './appointments.service';
 
 export const appointmentsRouter = Router();
@@ -122,6 +123,30 @@ appointmentsRouter.post(
     const input = internalSchema.parse(req.body);
     const result = await createInternalAppointments({ tenantId: req.tenant.id, ...input });
     res.status(201).json(result);
+  }),
+);
+
+const PAYMENT_METHODS = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'] as const;
+const checkoutSchema = z.object({
+  items: z
+    .array(z.object({ id: z.string().min(1), chargedCents: z.number().int().min(0).max(10_000_000) }))
+    .min(1)
+    .max(20),
+  // Um método ("PIX") ou dois combinados ("PIX+CREDITO").
+  paymentMethod: z
+    .string()
+    .refine((v) => v.split('+').length <= 2 && v.split('+').every((m) => (PAYMENT_METHODS as readonly string[]).includes(m)), 'Forma de pagamento inválida.'),
+  paymentNote: z.string().max(300).optional(),
+});
+
+// Comanda: fecha a visita (um ou mais serviços) com valor e pagamento.
+appointmentsRouter.post(
+  '/checkout',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    const result = await checkoutAppointments(req.tenant.id, checkoutSchema.parse(req.body));
+    res.json(result);
   }),
 );
 

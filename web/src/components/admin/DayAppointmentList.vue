@@ -1,12 +1,27 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { AdminAppointment, AdminBlockedTime, AppointmentStatus } from '@/types';
 import { deleteBlockedTime, updateAppointmentStatus } from '@/services/admin-appointments.service';
 import { ApiError } from '@/services/api';
 import EmptyState from '@/components/EmptyState.vue';
+import ComandaModal from './ComandaModal.vue';
 
-defineProps<{ appointments: AdminAppointment[]; blocks?: AdminBlockedTime[] }>();
-const emit = defineEmits<{ unblocked: [] }>();
+const props = defineProps<{ appointments: AdminAppointment[]; blocks?: AdminBlockedTime[] }>();
+const emit = defineEmits<{ unblocked: []; changed: [] }>();
+
+// Comanda: a visita é tudo da mesma paciente no mesmo dia (vários serviços
+// viram um atendimento por serviço), menos os cancelados. Guarda só a chave
+// — quando a agenda recarrega, a comanda aberta já mostra o que mudou.
+const comandaKey = ref<string | null>(null);
+function visitKey(appt: AdminAppointment) {
+  const day = new Date(appt.startAt).toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' });
+  return `${appt.customerId}|${day}`;
+}
+const comandaVisit = computed(() =>
+  comandaKey.value
+    ? props.appointments.filter((a) => a.status !== 'CANCELLED' && visitKey(a) === comandaKey.value)
+    : [],
+);
 
 const unblockingId = ref<string | null>(null);
 
@@ -96,14 +111,20 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
       <div class="day-item__main">
         <span class="day-item__time">{{ formatTime(appt.startAt) }}</span>
         <div class="day-item__body">
-          <span class="day-item__name">
+          <button
+            type="button"
+            class="day-item__name"
+            :disabled="appt.status === 'CANCELLED'"
+            title="Abrir comanda"
+            @click="comandaKey = visitKey(appt)"
+          >
             {{ appt.customer.name }}
             <span
               class="day-item__strike"
               :style="{ transform: appt.status === 'CANCELLED' ? 'scaleX(1)' : 'scaleX(0)' }"
               aria-hidden="true"
             />
-          </span>
+          </button>
           <span class="day-item__service">{{ appt.service.name }} · {{ appt.service.durationMinutes }} min</span>
           <a class="day-item__whatsapp" :href="whatsappLink(appt.customer.whatsapp)" target="_blank" rel="noopener">
             {{ appt.customer.whatsapp }}
@@ -147,6 +168,12 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
       <p v-if="errorId === appt.id" class="day-item__error">Não foi possível atualizar. Tente novamente.</p>
     </li>
   </ul>
+  <ComandaModal
+    v-if="comandaKey && comandaVisit.length"
+    :visit="comandaVisit"
+    @close="comandaKey = null"
+    @changed="emit('changed')"
+  />
 </template>
 
 <style scoped>
@@ -237,6 +264,21 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
   width: fit-content;
   font-weight: 700;
   color: var(--color-ink);
+  /* É um botão (abre a comanda), com cara de nome. */
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--color-rose-300);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.day-item__name:disabled {
+  text-decoration: none;
+  cursor: default;
 }
 
 .day-item__strike {

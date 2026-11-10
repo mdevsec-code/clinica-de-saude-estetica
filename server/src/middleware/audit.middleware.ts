@@ -39,6 +39,7 @@ const AUDIT_RULES: Record<string, AuditRule> = {
   'DELETE /message-templates/:key': { entityType: 'message_template', action: 'UPDATE', label: () => 'Modelo restaurado ao padrão' },
   'POST /whatsapp/connect': { entityType: 'whatsapp_connection', action: 'CREATE', label: () => 'Conexão do WhatsApp' },
   'POST /whatsapp/disconnect': { entityType: 'whatsapp_connection', action: 'DELETE', label: () => 'Conexão do WhatsApp' },
+  'POST /appointments/checkout': { entityType: 'appointment', action: 'UPDATE', label: (body) => `Comanda finalizada (${str(body.paymentMethod) ?? ''})` },
   'POST /appointments/internal': { entityType: 'appointment', action: 'CREATE', label: () => 'Agendamento pelo painel' },
   'POST /appointments/blocked-times': { entityType: 'blocked_time', action: 'CREATE', label: (body) => str(body.reason) ?? 'Horário bloqueado' },
   'DELETE /appointments/blocked-times/:id': { entityType: 'blocked_time', action: 'DELETE', label: () => 'Horário desbloqueado' },

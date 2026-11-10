@@ -1,0 +1,448 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import AdminModal from './AdminModal.vue';
+import AdminSelect, { type AdminSelectGroup, type AdminSelectOption } from './AdminSelect.vue';
+import { checkoutAppointments, updateAppointmentStatus } from '@/services/admin-appointments.service';
+import { createInternalAppointment } from '@/services/appointments.service';
+import { fetchCategories } from '@/services/catalog.service';
+import { ApiError } from '@/services/api';
+import type { AdminAppointment, ServiceCategory } from '@/types';
+
+// Comanda de uma visita: os serviços da mesma paciente no mesmo dia, com
+// valor editável, forma de pagamento e "Finalizar comanda" (conclui os
+// atendimentos e grava quanto entrou e como — é o que o Financeiro soma).
+const props = defineProps<{ visit: AdminAppointment[] }>();
+const emit = defineEmits<{ close: []; changed: [] }>();
+
+const TIMEZONE = 'America/Bahia';
+const METHOD_LABELS: Record<string, string> = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Cartão débito', CREDITO: 'Cartão crédito' };
+const methodOptions: AdminSelectOption[] = Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }));
+const paymentOptions: AdminSelectOption[] = [...methodOptions, { value: 'COMBINADO', label: 'Combinar 2 métodos de pagamento' }];
+
+const first = computed(() => props.visit[0]);
+const finished = computed(() => props.visit.every((a) => a.status === 'COMPLETED'));
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE });
+}
+const dayLabel = computed(() =>
+  new Date(first.value.startAt).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: TIMEZONE }),
+);
+const totalMinutes = computed(() => props.visit.reduce((sum, a) => sum + a.service.durationMinutes, 0));
+
+// --- Valores (em centavos; o campo mostra "30,00") ---
+const prices = reactive<Record<string, string>>({});
+function centsToInput(cents: number) {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+function inputToCents(value: string) {
+  const n = Number(value.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : 0;
+}
+function formatBRL(cents: number) {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+watch(
+  () => props.visit.map((a) => a.id).join(),
+  () => {
+    for (const a of props.visit) {
+      if (!(a.id in prices)) prices[a.id] = centsToInput(a.chargedCents ?? a.service.priceCents ?? 0);
+    }
+  },
+  { immediate: true },
+);
+const totalCents = computed(() => props.visit.reduce((sum, a) => sum + inputToCents(prices[a.id] ?? '0'), 0));
+
+// --- Pagamento ---
+const payment = ref('');
+const splitA = ref('PIX');
+const splitB = ref('CREDITO');
+const splitAInput = ref('');
+const splitACents = computed(() => Math.min(inputToCents(splitAInput.value), totalCents.value));
+const splitBCents = computed(() => totalCents.value - splitACents.value);
+
+const paymentReady = computed(() => {
+  if (payment.value === 'COMBINADO') return splitA.value !== splitB.value && splitACents.value > 0 && splitBCents.value > 0;
+  return !!payment.value;
+});
+
+// --- Serviços: adicionar (entra colado no fim da visita) e tirar ---
+const categories = ref<ServiceCategory[]>([]);
+onMounted(async () => {
+  try {
+    categories.value = (await fetchCategories()).categories;
+  } catch {
+    categories.value = [];
+  }
+});
+const serviceGroups = computed<AdminSelectGroup[]>(() =>
+  categories.value
+    .filter((c) => c.services.length)
+    .map((c) => ({ label: c.name, options: c.services.map((s) => ({ value: s.id, label: `${s.name} (${s.durationMinutes} min)` })) })),
+);
+const addingServiceId = ref('');
+const busy = ref(false);
+const error = ref<string | null>(null);
+
+watch(addingServiceId, async (serviceId) => {
+  if (!serviceId) return;
+  busy.value = true;
+  error.value = null;
+  try {
+    await createInternalAppointment({
+      serviceIds: [serviceId],
+      startAt: props.visit[props.visit.length - 1].endAt,
+      customer: { name: first.value.customer.name, whatsapp: first.value.customer.whatsapp },
+    });
+    emit('changed');
+  } catch (err) {
+    error.value = err instanceof ApiError ? err.message : 'Não foi possível adicionar o serviço.';
+  } finally {
+    addingServiceId.value = '';
+    busy.value = false;
+  }
+});
+
+const confirmingRemove = ref<string | null>(null);
+async function removeService(appt: AdminAppointment) {
+  if (confirmingRemove.value !== appt.id) {
+    confirmingRemove.value = appt.id;
+    return;
+  }
+  confirmingRemove.value = null;
+  busy.value = true;
+  error.value = null;
+  try {
+    await updateAppointmentStatus(appt.id, 'CANCELLED');
+    emit('changed');
+    if (props.visit.length === 1) emit('close');
+  } catch (err) {
+    error.value = err instanceof ApiError ? err.message : 'Não foi possível tirar o serviço.';
+  } finally {
+    busy.value = false;
+  }
+}
+
+// --- Finalizar ---
+async function finish() {
+  if (!paymentReady.value) return;
+  busy.value = true;
+  error.value = null;
+  const combined = payment.value === 'COMBINADO';
+  try {
+    await checkoutAppointments({
+      items: props.visit.map((a) => ({ id: a.id, chargedCents: inputToCents(prices[a.id] ?? '0') })),
+      paymentMethod: combined ? `${splitA.value}+${splitB.value}` : payment.value,
+      paymentNote: combined
+        ? `${METHOD_LABELS[splitA.value]} ${formatBRL(splitACents.value)} + ${METHOD_LABELS[splitB.value]} ${formatBRL(splitBCents.value)}`
+        : undefined,
+    });
+    emit('changed');
+    emit('close');
+  } catch (err) {
+    error.value = err instanceof ApiError ? err.message : 'Não foi possível finalizar a comanda.';
+  } finally {
+    busy.value = false;
+  }
+}
+
+const paidLabel = computed(() => {
+  const a = first.value;
+  if (a.paymentNote) return a.paymentNote;
+  return a.paymentMethod ? METHOD_LABELS[a.paymentMethod] ?? a.paymentMethod : 'Forma de pagamento não registrada';
+});
+
+const whatsappHref = computed(() => {
+  const digits = first.value.customer.whatsapp.replace(/\D/g, '');
+  return `https://wa.me/${digits.startsWith('55') ? digits : `55${digits}`}`;
+});
+</script>
+
+<template>
+  <AdminModal :title="finished ? 'Comanda finalizada' : 'Comanda'" @close="emit('close')">
+    <div class="comanda">
+      <p class="comanda__when">
+        <span class="comanda__day">{{ dayLabel }}</span>
+        {{ formatTime(first.startAt) }} – {{ formatTime(visit[visit.length - 1].endAt) }} · {{ totalMinutes }} min
+      </p>
+
+      <div class="comanda__client">
+        <span class="comanda__avatar" aria-hidden="true">{{ first.customer.name.trim().charAt(0).toUpperCase() }}</span>
+        <div>
+          <p class="comanda__name">{{ first.customer.name }}</p>
+          <a class="comanda__phone" :href="whatsappHref" target="_blank" rel="noopener">{{ first.customer.whatsapp }}</a>
+        </div>
+      </div>
+
+      <ul class="comanda__items">
+        <li v-for="appt in visit" :key="appt.id" class="comanda__item">
+          <span class="comanda__service">
+            {{ appt.service.name }}
+            <small>{{ formatTime(appt.startAt) }} · {{ appt.service.durationMinutes }} min</small>
+          </span>
+          <label class="comanda__price">
+            <span>R$</span>
+            <input v-model="prices[appt.id]" type="text" inputmode="decimal" :disabled="finished || busy" :aria-label="`Valor de ${appt.service.name}`" />
+          </label>
+          <button
+            v-if="!finished"
+            type="button"
+            class="comanda__remove"
+            :class="{ 'comanda__remove--confirm': confirmingRemove === appt.id }"
+            :disabled="busy"
+            :aria-label="`Tirar ${appt.service.name}`"
+            @click="removeService(appt)"
+          >
+            {{ confirmingRemove === appt.id ? 'Tirar?' : '×' }}
+          </button>
+        </li>
+      </ul>
+
+      <label v-if="!finished" class="admin-field">
+        Adicionar serviço
+        <AdminSelect v-model="addingServiceId" :options="serviceGroups" placeholder="+ Escolher serviço" :disabled="busy" />
+      </label>
+
+      <div class="comanda__total">
+        <span>Total</span>
+        <strong>{{ formatBRL(totalCents) }}</strong>
+      </div>
+
+      <template v-if="finished">
+        <p class="comanda__paid">Pago · {{ paidLabel }}</p>
+      </template>
+      <template v-else>
+        <label class="admin-field">
+          Forma de pagamento
+          <AdminSelect v-model="payment" :options="paymentOptions" placeholder="Selecione a forma de pagamento" />
+        </label>
+
+        <div v-if="payment === 'COMBINADO'" class="comanda__split">
+          <div class="comanda__split-row">
+            <AdminSelect v-model="splitA" :options="methodOptions" />
+            <label class="comanda__price">
+              <span>R$</span>
+              <input v-model="splitAInput" type="text" inputmode="decimal" placeholder="0,00" aria-label="Valor no primeiro método" />
+            </label>
+          </div>
+          <div class="comanda__split-row">
+            <AdminSelect v-model="splitB" :options="methodOptions" />
+            <span class="comanda__rest">{{ formatBRL(splitBCents) }}</span>
+          </div>
+          <p v-if="splitA === splitB" class="comanda__hint">Escolha dois métodos diferentes.</p>
+        </div>
+
+        <div class="comanda__collect">
+          <span>Precisa coletar</span>
+          <strong>{{ formatBRL(totalCents) }}</strong>
+        </div>
+      </template>
+
+      <p v-if="error" class="admin-error">{{ error }}</p>
+
+      <div class="comanda__actions">
+        <a class="button button--ghost" :href="whatsappHref" target="_blank" rel="noopener">WhatsApp</a>
+        <button v-if="!finished" type="button" class="button button--primary comanda__finish" :disabled="busy || !paymentReady" @click="finish">
+          {{ busy ? 'Salvando…' : 'Finalizar comanda' }}
+        </button>
+      </div>
+    </div>
+  </AdminModal>
+</template>
+
+<style scoped>
+.comanda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.comanda__when {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.9rem;
+}
+
+.comanda__day {
+  display: block;
+  color: var(--color-ink);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.comanda__client {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.comanda__avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-rose-100);
+  color: var(--color-rose-900);
+  font-weight: 700;
+}
+
+.comanda__name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.comanda__phone {
+  font-size: 0.85rem;
+  color: var(--color-rose-700);
+}
+
+.comanda__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.comanda__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 8px 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.comanda__service {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.comanda__service small {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+}
+
+.comanda__price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+.comanda__price input {
+  width: 86px;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--color-ink);
+  text-align: right;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.comanda__price input:focus-visible {
+  border-color: var(--color-rose-700);
+  box-shadow: 0 0 0 3px var(--color-rose-100);
+  outline: none;
+}
+
+.comanda__remove {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  font-size: 1.1rem;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.comanda__remove--confirm {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-danger);
+}
+
+.comanda__total,
+.comanda__collect {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+}
+
+.comanda__collect {
+  color: var(--color-success, #2f7d4f);
+  font-weight: 600;
+}
+
+.comanda__total strong,
+.comanda__collect strong {
+  font-size: 1.15rem;
+}
+
+.comanda__split {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.comanda__split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.comanda__rest {
+  min-width: 112px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.comanda__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-danger);
+}
+
+.comanda__paid {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-success, #2f7d4f);
+}
+
+.comanda__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.comanda__finish {
+  flex: 1 1 200px;
+}
+
+.admin-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}
+</style>

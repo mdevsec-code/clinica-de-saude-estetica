@@ -35,6 +35,14 @@ export function syncGoogleCalendarNow() {
   return apiRequest<GoogleCalendarSyncStatus>('/integrations/google-calendar/sync', { method: 'POST' });
 }
 
+export function checkoutAppointments(payload: {
+  items: { id: string; chargedCents: number }[];
+  paymentMethod: string;
+  paymentNote?: string;
+}) {
+  return apiRequest<{ ids: string[] }>('/appointments/checkout', { method: 'POST', body: JSON.stringify(payload) });
+}
+
 export function updateAppointmentStatus(id: string, status: AppointmentStatus) {
   return apiRequest<{ appointment: AdminAppointment }>(`/appointments/${id}/status`, {
     method: 'PATCH',

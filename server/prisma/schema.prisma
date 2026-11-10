@@ -394,6 +394,13 @@ model Appointment {
   reminder2hSentAt        DateTime? @db.Timestamptz(3)
   // Paciente respondeu "SIM" à mensagem de confirmação.
   clientConfirmedAt       DateTime? @db.Timestamptz(3)
+  // Comanda (fechamento no painel): valor cobrado por este serviço — vale
+  // mais que o preço do catálogo nos relatórios — e a forma de pagamento
+  // (DINHEIRO, PIX, DEBITO, CREDITO; duas combinadas: "PIX+CREDITO", com a
+  // divisão descrita em paymentNote).
+  chargedCents            Int?
+  paymentMethod           String?
+  paymentNote             String?
   // Evento espelhado no Google Agenda da clínica (ver modules/google-calendar).
   // Nulo = ainda não enviado (integração desligada, Google fora do ar) — a
   // sincronização periódica reenvia os confirmados que ficaram sem evento.

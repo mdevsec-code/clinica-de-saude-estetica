@@ -100,8 +100,10 @@ function currentRange(): { from: Date; to: Date } {
   return { from: startOfDay(referenceDate.value), to: endOfDay(referenceDate.value) };
 }
 
-async function load() {
-  loading.value = true;
+// silent: recarrega sem trocar a lista pelo "Carregando…" — usado depois de
+// mexer na comanda, que fica aberta por cima da lista.
+async function load(silent = false) {
+  if (silent !== true) loading.value = true;
   error.value = null;
   try {
     const range = currentRange();
@@ -126,7 +128,7 @@ async function load() {
 }
 
 onMounted(load);
-watch([viewMode, referenceDate], load);
+watch([viewMode, referenceDate], () => load());
 
 // --- Google Agenda (status da sincronização + "Sincronizar agora") ---
 // A faixa só aparece com a integração configurada no servidor — sem ela,
@@ -353,10 +355,10 @@ function onAppointmentCreated() {
 
     <Transition name="fade-swap">
       <LoadingState v-if="loading" key="loading" label="Carregando agenda…" />
-      <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
+      <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load()" />
       <div v-else key="content" v-stagger.grid="'.calendar-day'">
         <Transition name="fade-swap">
-          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" :blocks="dayBlocks" @unblocked="load" />
+          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" :blocks="dayBlocks" @unblocked="load()" @changed="load(true)" />
           <CalendarGrid
             v-else
             :key="viewMode"
@@ -371,7 +373,7 @@ function onAppointmentCreated() {
     </Transition>
 
     <AdminModal v-if="dayModalKey" :title="dayModalTitle" @close="dayModalKey = null">
-      <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" @unblocked="load" />
+      <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" @unblocked="load()" @changed="load(true)" />
     </AdminModal>
 
     <BlockTimeModal

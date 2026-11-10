@@ -77,7 +77,7 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
     prisma.inventoryItem.findMany({ where: { tenantId, active: true } }),
     prisma.appointment.findMany({
       where: { tenantId, status: 'COMPLETED', startAt: { gte: monthStart, lte: monthEnd } },
-      select: { service: { select: { priceCents: true } } },
+      select: { chargedCents: true, service: { select: { priceCents: true } } },
     }),
     prisma.appointment.findMany({
       where: { tenantId, startAt: { gte: chartRangeStart, lte: todayEnd } },
@@ -85,7 +85,7 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
     }),
     prisma.appointment.findMany({
       where: { tenantId, status: 'COMPLETED', startAt: { gte: prevMonthStart, lte: prevMonthEnd } },
-      select: { service: { select: { priceCents: true } } },
+      select: { chargedCents: true, service: { select: { priceCents: true } } },
     }),
     prisma.expense.aggregate({
       where: { tenantId, paidAt: { gte: prevMonthStart, lte: prevMonthEnd } },
@@ -107,9 +107,9 @@ export async function getDashboardStats(tenantId: string, chartDays = 14) {
     getUpcomingReminders(tenantId, 7),
   ]);
 
-  const revenueThisMonthCents = completedThisMonth.reduce((sum, appt) => sum + (appt.service.priceCents ?? 0), 0);
+  const revenueThisMonthCents = completedThisMonth.reduce((sum, appt) => sum + (appt.chargedCents ?? appt.service.priceCents ?? 0), 0);
   const expensesThisMonthCents = expensesAgg._sum.amountCents ?? 0;
-  const prevRevenueCents = prevCompleted.reduce((sum, appt) => sum + (appt.service.priceCents ?? 0), 0);
+  const prevRevenueCents = prevCompleted.reduce((sum, appt) => sum + (appt.chargedCents ?? appt.service.priceCents ?? 0), 0);
   const prevExpensesCents = prevExpensesAgg._sum.amountCents ?? 0;
 
   // Variação percentual vs. mês anterior — null quando o mês anterior não

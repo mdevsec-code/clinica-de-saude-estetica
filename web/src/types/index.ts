@@ -103,11 +103,16 @@ export interface AdminAppointment {
   endAt: string;
   status: AppointmentStatus;
   notes: string | null;
+  customerId: string;
   customer: { name: string; whatsapp: string };
-  service: { id: string; name: string; durationMinutes: number };
+  service: { id: string; name: string; durationMinutes: number; priceCents: number | null };
   // WhatsApp automático: confirmação enviada / paciente respondeu "SIM".
   confirmationSentAt?: string | null;
   clientConfirmedAt?: string | null;
+  // Comanda: valor cobrado e forma de pagamento (ver ComandaModal.vue).
+  chargedCents?: number | null;
+  paymentMethod?: string | null;
+  paymentNote?: string | null;
 }
 
 // Horário bloqueado na agenda — hoje, compromisso importado do Google Agenda

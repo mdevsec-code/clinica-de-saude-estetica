@@ -173,7 +173,7 @@ export async function listAppointments({ tenantId, from, to }: ListAppointmentsI
     orderBy: { startAt: 'asc' },
     include: {
       customer: { select: { name: true, whatsapp: true } },
-      service: { select: { id: true, name: true, durationMinutes: true } },
+      service: { select: { id: true, name: true, durationMinutes: true, priceCents: true } },
     },
   });
 
@@ -183,8 +183,15 @@ export async function listAppointments({ tenantId, from, to }: ListAppointmentsI
     endAt: appt.endAt,
     status: appt.status,
     notes: appt.notes,
+    customerId: appt.customerId,
     customer: appt.customer,
     service: appt.service,
+    // Sem estes dois, o selo "Paciente confirmou ✓" da agenda nunca aparecia.
+    confirmationSentAt: appt.confirmationSentAt,
+    clientConfirmedAt: appt.clientConfirmedAt,
+    chargedCents: appt.chargedCents,
+    paymentMethod: appt.paymentMethod,
+    paymentNote: appt.paymentNote,
   }));
 }
 
@@ -302,4 +309,35 @@ export async function createBlockedTime(tenantId: string, input: { startAt: stri
 export async function deleteBlockedTime(tenantId: string, id: string) {
   const { count } = await prisma.blockedTime.deleteMany({ where: { id, tenantId, source: 'MANUAL' } });
   if (!count) throw new NotFoundError('Bloqueio não encontrado.');
+}
+
+interface CheckoutInput {
+  items: { id: string; chargedCents: number }[];
+  paymentMethod: string;
+  paymentNote?: string;
+}
+
+// Fechamento da comanda: grava quanto foi cobrado em cada serviço e como foi
+// pago, e conclui os atendimentos (o que também gera ficha/retornos — ver
+// updateAppointmentStatus). Cancelados não entram.
+export async function checkoutAppointments(tenantId: string, input: CheckoutInput) {
+  const ids = input.items.map((i) => i.id);
+  const found = await prisma.appointment.findMany({ where: { tenantId, id: { in: ids } }, select: { id: true, status: true } });
+  if (found.length !== ids.length) throw new NotFoundError('Agendamento não encontrado.');
+  if (found.some((a) => a.status === 'CANCELLED')) {
+    throw new ConflictError('Um dos serviços da comanda está cancelado. Recarregue a agenda.');
+  }
+
+  await prisma.$transaction(
+    input.items.map((item) =>
+      prisma.appointment.update({
+        where: { id: item.id },
+        data: { chargedCents: item.chargedCents, paymentMethod: input.paymentMethod, paymentNote: input.paymentNote ?? null },
+      }),
+    ),
+  );
+  for (const appt of found) {
+    if (appt.status !== 'COMPLETED') await updateAppointmentStatus(tenantId, appt.id, 'COMPLETED');
+  }
+  return { ids };
 }
