@@ -12,16 +12,22 @@ interface Slot {
 // horário de funcionamento + agendamentos existentes + bloqueios manuais.
 // O frontend nunca decide o que está livre — apenas exibe o que este serviço retorna
 // (item 25 do escopo: "nunca calcular disponibilidade apenas no frontend").
-export async function computeAvailableSlots(tenantId: string, serviceId: string, dateStr: string) {
-  const [tenant, service, settings] = await Promise.all([
+// Vários serviços = uma visita: os horários livres são os que comportam a
+// soma das durações (a folga do último serviço entra no fim).
+export async function computeAvailableSlots(tenantId: string, serviceIds: string | string[], dateStr: string) {
+  const ids = [serviceIds].flat();
+  const [tenant, found, settings] = await Promise.all([
     prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } }),
-    prisma.service.findFirst({ where: { id: serviceId, tenantId, active: true } }),
+    prisma.service.findMany({ where: { id: { in: ids }, tenantId, active: true } }),
     prisma.tenantSettings.findUnique({ where: { tenantId } }),
   ]);
 
-  if (!service) {
+  const services = ids.map((id) => found.find((s) => s.id === id));
+  if (!ids.length || services.some((s) => !s)) {
     throw new NotFoundError('Serviço não encontrado.');
   }
+  const totalMinutes =
+    services.reduce((sum, s) => sum + s!.durationMinutes, 0) + services[services.length - 1]!.bufferMinutes;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     throw new AppError('Data inválida.', 422, 'INVALID_DATE');
   }
@@ -75,7 +81,7 @@ export async function computeAvailableSlots(tenantId: string, serviceId: string,
 
   const busyPeriods = [...existingAppointments, ...blockedTimes];
   const earliestAllowedStart = addMinutes(today, minAdvanceMinutes);
-  const durationMs = (service.durationMinutes + service.bufferMinutes) * 60 * 1000;
+  const durationMs = totalMinutes * 60 * 1000;
   const stepMs = slotGranularityMin * 60 * 1000;
 
   const slots: Slot[] = [];

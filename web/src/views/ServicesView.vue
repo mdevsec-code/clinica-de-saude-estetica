@@ -37,10 +37,11 @@ async function load() {
 onMounted(load);
 
 function handleSelect(service: Service) {
-  booking.selectService(service);
+  booking.toggleService(service);
 }
 
 function goToBooking() {
+  booking.confirmServices();
   router.push('/agendar');
 }
 
@@ -94,7 +95,7 @@ const totalServices = computed(() => categories.value.reduce((sum, c) => sum + c
             v-for="category in categories"
             :key="category.id"
             :category="category"
-            :selected-service-id="booking.selectedService?.id"
+            :selected-ids="booking.selectedIds"
             :default-open="categories[0]?.id === category.id"
             @select-service="handleSelect"
           />

@@ -16,6 +16,17 @@ export function fetchBlockedTimes(params?: { from?: string; to?: string }) {
   return apiRequest<{ blockedTimes: AdminBlockedTime[] }>(`/appointments/blocked-times${rangeSuffix(params)}`);
 }
 
+export function createBlockedTime(payload: { startAt: string; endAt: string; reason?: string }) {
+  return apiRequest<{ blockedTime: AdminBlockedTime }>('/appointments/blocked-times', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteBlockedTime(id: string) {
+  return apiRequest<void>(`/appointments/blocked-times/${id}`, { method: 'DELETE' });
+}
+
 export function fetchGoogleCalendarStatus() {
   return apiRequest<GoogleCalendarSyncStatus>('/integrations/google-calendar/status');
 }

@@ -1,9 +1,18 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
+import { AppError } from '../../utils/errors';
 import { bookingRateLimiter } from '../../middleware/rate-limit';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
-import { createAppointment, createInternalAppointments, listAppointments, listBlockedTimes, updateAppointmentStatus } from './appointments.service';
+import {
+  createAppointment,
+  createBlockedTime,
+  createInternalAppointments,
+  deleteBlockedTime,
+  listAppointments,
+  listBlockedTimes,
+  updateAppointmentStatus,
+} from './appointments.service';
 
 export const appointmentsRouter = Router();
 
@@ -40,8 +49,37 @@ appointmentsRouter.get(
   }),
 );
 
+const blockSchema = z.object({
+  startAt: z.string().datetime({ offset: true }),
+  endAt: z.string().datetime({ offset: true }),
+  reason: z.string().max(200).optional(),
+});
+
+appointmentsRouter.post(
+  '/blocked-times',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    const blockedTime = await createBlockedTime(req.tenant.id, blockSchema.parse(req.body));
+    res.status(201).json({ blockedTime });
+  }),
+);
+
+appointmentsRouter.delete(
+  '/blocked-times/:id',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    await deleteBlockedTime(req.tenant.id, req.params.id);
+    res.status(204).end();
+  }),
+);
+
 const createSchema = z.object({
-  serviceId: z.string().min(1),
+  // serviceIds (vários serviços numa visita); serviceId sozinho continua
+  // aceito para quem estiver com a versão antiga do site em cache.
+  serviceIds: z.array(z.string().min(1)).min(1).max(10).optional(),
+  serviceId: z.string().min(1).optional(),
   startAt: z.string().min(1),
   notes: z.string().max(500).optional(),
   customer: z.object({
@@ -58,15 +96,17 @@ appointmentsRouter.post(
   '/',
   bookingRateLimiter,
   asyncHandler(async (req, res) => {
-    const input = createSchema.parse(req.body);
-    const appointment = await createAppointment({ tenantId: req.tenant.id, ...input });
+    const { serviceId, serviceIds, ...input } = createSchema.parse(req.body);
+    const ids = serviceIds ?? (serviceId ? [serviceId] : []);
+    if (!ids.length) throw new AppError('Escolha ao menos um serviço.', 422, 'VALIDATION_ERROR');
+    const appointment = await createAppointment({ tenantId: req.tenant.id, serviceIds: ids, ...input });
     res.status(201).json({ appointment });
   }),
 );
 
 // Agendamento pelo painel (com encaixe e vários serviços) — ver
 // createInternalAppointments.
-const internalSchema = createSchema.omit({ serviceId: true }).extend({
+const internalSchema = createSchema.omit({ serviceId: true, serviceIds: true }).extend({
   serviceIds: z.array(z.string().min(1)).min(1, 'Escolha ao menos um serviço.').max(10),
   startAt: z.string().datetime({ offset: true }),
 });

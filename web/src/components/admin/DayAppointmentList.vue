@@ -1,11 +1,26 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { AdminAppointment, AdminBlockedTime, AppointmentStatus } from '@/types';
-import { updateAppointmentStatus } from '@/services/admin-appointments.service';
+import { deleteBlockedTime, updateAppointmentStatus } from '@/services/admin-appointments.service';
 import { ApiError } from '@/services/api';
 import EmptyState from '@/components/EmptyState.vue';
 
 defineProps<{ appointments: AdminAppointment[]; blocks?: AdminBlockedTime[] }>();
+const emit = defineEmits<{ unblocked: [] }>();
+
+const unblockingId = ref<string | null>(null);
+
+async function unblock(block: AdminBlockedTime) {
+  unblockingId.value = block.id;
+  try {
+    await deleteBlockedTime(block.id);
+    emit('unblocked');
+  } catch {
+    // Mantém o bloqueio na tela; a próxima tentativa mostra de novo o botão.
+  } finally {
+    unblockingId.value = null;
+  }
+}
 
 const pendingId = ref<string | null>(null);
 const errorId = ref<string | null>(null);
@@ -61,7 +76,18 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
     <li v-for="block in blocks" :key="block.id" class="day-block">
       <span class="day-block__time">{{ formatBlockRange(block) }}</span>
       <span class="day-block__reason">{{ block.reason || 'Ocupado' }}</span>
-      <span class="day-block__source">Google Agenda · horário fechado no site</span>
+      <span class="day-block__source">
+        {{ block.source === 'MANUAL' ? 'Bloqueado no painel' : 'Google Agenda' }} · horário fechado no site
+      </span>
+      <button
+        v-if="block.source === 'MANUAL'"
+        type="button"
+        class="day-block__unblock"
+        :disabled="unblockingId === block.id"
+        @click="unblock(block)"
+      >
+        {{ unblockingId === block.id ? 'Desbloqueando…' : 'Desbloquear' }}
+      </button>
     </li>
   </ul>
   <EmptyState v-if="!appointments.length" title="Nenhum atendimento neste dia." />
@@ -157,6 +183,18 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
 .day-block__reason {
   font-weight: 600;
   color: var(--color-ink);
+}
+
+.day-block__unblock {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-rose-700);
+  cursor: pointer;
 }
 
 .day-block__source {

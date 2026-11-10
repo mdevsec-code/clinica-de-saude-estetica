@@ -99,6 +99,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   whatsapp_notification: 'Mensagem de WhatsApp',
   whatsapp_connection: 'Conexão do WhatsApp',
   message_template: 'Mensagem automática',
+  blocked_time: 'Bloqueio de horário',
 };
 
 const entityTypeOptions = computed<AdminSelectOption[]>(() => [

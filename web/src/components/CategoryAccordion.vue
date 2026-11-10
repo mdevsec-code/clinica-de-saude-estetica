@@ -5,7 +5,7 @@ import type { Service, ServiceCategory } from '@/types';
 import ServiceCard from './ServiceCard.vue';
 import { refreshScroll } from '@/composables/useSmoothScroll';
 
-const props = defineProps<{ category: ServiceCategory; selectedServiceId?: string | null; defaultOpen?: boolean }>();
+const props = defineProps<{ category: ServiceCategory; selectedIds?: string[]; defaultOpen?: boolean }>();
 const emit = defineEmits<{ selectService: [service: Service] }>();
 
 const isOpen = ref(Boolean(props.defaultOpen));
@@ -73,7 +73,7 @@ function onLeave(el: Element, done: () => void) {
           <li v-for="service in category.services" :key="service.id">
             <ServiceCard
               :service="service"
-              :selected="selectedServiceId === service.id"
+              :selected="!!selectedIds?.includes(service.id)"
               @select="emit('selectService', service)"
             />
           </li>

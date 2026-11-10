@@ -90,14 +90,13 @@ function formatSlotTime(iso: string) {
 }
 
 async function loadSlots() {
-  const first = selectedServices.value[0];
-  if (!first || !date.value) {
+  if (!selectedServices.value.length || !date.value) {
     slots.value = [];
     return;
   }
   loadingSlots.value = true;
   try {
-    const { slots: result } = await fetchAvailableSlots(first.id, date.value);
+    const { slots: result } = await fetchAvailableSlots(selectedServices.value.map((s) => s.id), date.value);
     slots.value = result;
   } catch {
     slots.value = [];
@@ -106,7 +105,7 @@ async function loadSlots() {
   }
 }
 
-watch([() => selectedServices.value[0]?.id, date], loadSlots);
+watch([() => selectedServices.value.map((s) => s.id).join(), date], loadSlots);
 
 const isOutsideSlots = computed(() => !!time.value && !slots.value.some((s) => formatSlotTime(s.startAt) === time.value));
 

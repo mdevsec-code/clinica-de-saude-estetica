@@ -9,122 +9,7 @@ import { createProcedureRecordForAppointment } from '../patients/procedures.serv
 import { sendCancellationWhatsapp } from '../patients/notifications.service';
 import { syncAppointmentToGoogle } from '../google-calendar/google-calendar.service';
 
-interface CreateAppointmentInput {
-  tenantId: string;
-  serviceId: string;
-  startAt: string; // ISO 8601
-  customer: { name: string; whatsapp: string; email?: string };
-  notes?: string;
-}
-
-// Cria o agendamento com duas camadas de proteção contra double-booking
-// (item 26 do escopo):
-//   1) Transação SERIALIZABLE que rejeita conflitos de escrita concorrente e
-//      confere overlap explicitamente antes de inserir.
-//   2) EXCLUDE CONSTRAINT no Postgres (prisma/manual-sql/001_appointment_no_overlap.sql),
-//      que é quem realmente garante a invariante mesmo se este código tiver um bug.
-// Se a camada 1 detectar conflito de serialização, tenta novamente uma vez —
-// é o padrão recomendado para SERIALIZABLE no Postgres.
-export async function createAppointment(input: CreateAppointmentInput) {
-  const service = await prisma.service.findFirst({
-    where: { id: input.serviceId, tenantId: input.tenantId, active: true },
-  });
-  if (!service) {
-    throw new NotFoundError('Serviço não encontrado.');
-  }
-
-  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: input.tenantId } });
-  const requestedStart = new Date(input.startAt);
-  if (Number.isNaN(requestedStart.getTime())) {
-    throw new AppError('Horário inválido.', 422, 'INVALID_DATE');
-  }
-
-  const dateStr = formatInTimeZone(requestedStart, tenant.timezone, 'yyyy-MM-dd');
-
-  // Nunca confia no endAt calculado pelo cliente: recalcula a partir da duração
-  // real do serviço e confirma que o horário pedido ainda está entre os slots
-  // válidos — a mesma fonte de verdade usada para exibir a grade de horários.
-  const { slots } = await computeAvailableSlots(input.tenantId, input.serviceId, dateStr);
-  const matchingSlot = slots.find((slot) => slot.startAt === requestedStart.toISOString());
-  if (!matchingSlot) {
-    throw new ConflictError('Este horário não está mais disponível. Escolha outro.');
-  }
-
-  const startAt = new Date(matchingSlot.startAt);
-  const endAt = new Date(matchingSlot.endAt);
-
-  const MAX_ATTEMPTS = 2;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const appointment = await prisma.$transaction(
-        async (tx) => {
-          const overlap = await tx.appointment.findFirst({
-            where: {
-              tenantId: input.tenantId,
-              status: 'CONFIRMED',
-              startAt: { lt: endAt },
-              endAt: { gt: startAt },
-            },
-          });
-          if (overlap) {
-            throw new ConflictError('Este horário acabou de ser reservado por outra pessoa.');
-          }
-
-          const { customer } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
-
-          const created = await tx.appointment.create({
-            data: {
-              tenantId: input.tenantId,
-              customerId: customer.id,
-              serviceId: service.id,
-              startAt,
-              endAt,
-              notes: input.notes,
-              source: 'PUBLIC_SITE',
-            },
-          });
-
-          // Resposta minimizada de propósito (item 59 do escopo — LGPD):
-          // o cliente que acabou de agendar não precisa receber de volta
-          // ids internos de tenant/customer, só o suficiente para exibir a
-          // confirmação na tela.
-          return {
-            id: created.id,
-            startAt: created.startAt,
-            endAt: created.endAt,
-            service: { id: service.id, name: service.name, durationMinutes: service.durationMinutes },
-          };
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-
-      // Confirmação automática por WhatsApp só DEPOIS do commit —
-      // nunca para um agendamento que a transação acabou desfazendo — e em
-      // segundo plano: a paciente vê a confirmação na tela na hora, sem
-      // esperar a fila de envio (que espaça as mensagens por segundos).
-      onAppointmentCreated(input.tenantId, appointment.id).catch((err) =>
-        console.error('Falha no WhatsApp automático do agendamento', appointment.id, err),
-      );
-      // Se o Google falhar aqui, a sincronização periódica reenvia (ver
-      // reconcileAppointments em google-calendar.service.ts).
-      await syncAppointmentToGoogle(appointment.id).catch((err) =>
-        console.error('Falha ao criar evento no Google Agenda:', err),
-      );
-      return appointment;
-    } catch (err) {
-      const isSerializationConflict =
-        err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';
-      if (isSerializationConflict && attempt < MAX_ATTEMPTS) {
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  throw new ConflictError();
-}
-
-interface CreateInternalAppointmentInput {
+interface CreateVisitInput {
   tenantId: string;
   serviceIds: string[];
   startAt: string; // ISO 8601
@@ -132,74 +17,139 @@ interface CreateInternalAppointmentInput {
   notes?: string;
 }
 
-// Agendamento pelo painel, inclusive encaixe: qualquer horário — fora do
-// expediente, sem a antecedência mínima do site —, porque quem marca é a
-// própria clínica. Vários serviços viram atendimentos em sequência, um por
-// serviço (financeiro, ficha e Google continuam por serviço); o WhatsApp
-// manda uma mensagem só para a visita inteira. Sobrepor outro atendimento
-// confirmado continua proibido (checagem aqui + EXCLUDE no banco).
-export async function createInternalAppointments(input: CreateInternalAppointmentInput) {
-  const found = await prisma.service.findMany({
-    where: { id: { in: input.serviceIds }, tenantId: input.tenantId, active: true },
-  });
-  const services = input.serviceIds.map((id) => found.find((s) => s.id === id));
-  if (services.some((s) => !s)) {
+async function loadServices(tenantId: string, serviceIds: string[]) {
+  const found = await prisma.service.findMany({ where: { id: { in: serviceIds }, tenantId, active: true } });
+  const services = serviceIds.map((id) => found.find((s) => s.id === id));
+  if (!services.length || services.some((s) => !s)) {
     throw new NotFoundError('Serviço não encontrado.');
   }
+  return services as NonNullable<(typeof services)[number]>[];
+}
 
-  const requestedStart = new Date(input.startAt);
-  if (Number.isNaN(requestedStart.getTime())) {
+function parseStart(iso: string) {
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) {
     throw new AppError('Horário inválido.', 422, 'INVALID_DATE');
   }
+  return start;
+}
 
-  // Serviços colados um no outro; a folga (bufferMinutes) só depois do último.
-  let cursor = requestedStart.getTime();
+// Uma visita com vários serviços vira um atendimento por serviço, colados um
+// no outro (financeiro, ficha e Google continuam por serviço); a folga
+// (bufferMinutes) só depois do último. O WhatsApp manda uma mensagem só para
+// a visita inteira (ver visitOf em whatsapp-automation.ts).
+//
+// Duas camadas contra double-booking (item 26 do escopo):
+//   1) Transação SERIALIZABLE que confere overlap explicitamente antes de inserir.
+//   2) EXCLUDE CONSTRAINT no Postgres (prisma/manual-sql/001_appointment_no_overlap.sql),
+//      que é quem realmente garante a invariante mesmo se este código tiver um bug.
+// Conflito de serialização: tenta de novo uma vez (padrão para SERIALIZABLE).
+async function insertVisit(
+  input: CreateVisitInput,
+  services: Awaited<ReturnType<typeof loadServices>>,
+  start: Date,
+  source: 'PUBLIC_SITE' | 'INTERNAL',
+) {
+  let cursor = start.getTime();
   const periods = services.map((service, index) => {
     const startAt = new Date(cursor);
-    cursor += service!.durationMinutes * 60_000;
-    if (index === services.length - 1) cursor += service!.bufferMinutes * 60_000;
-    return { service: service!, startAt, endAt: new Date(cursor) };
+    cursor += service.durationMinutes * 60_000;
+    if (index === services.length - 1) cursor += service.bufferMinutes * 60_000;
+    return { service, startAt, endAt: new Date(cursor) };
   });
   const visitEnd = new Date(cursor);
 
-  const ids = await prisma.$transaction(
-    async (tx) => {
-      const overlap = await tx.appointment.findFirst({
-        where: { tenantId: input.tenantId, status: 'CONFIRMED', startAt: { lt: visitEnd }, endAt: { gt: requestedStart } },
-        include: { customer: { select: { name: true } } },
-      });
-      if (overlap) {
-        const at = formatInTimeZone(overlap.startAt, (await tx.tenant.findUniqueOrThrow({ where: { id: input.tenantId } })).timezone, 'HH:mm');
-        throw new ConflictError(`Conflita com o atendimento de ${overlap.customer.name} às ${at}.`);
-      }
-      const { customer } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
-      const created: string[] = [];
-      for (const period of periods) {
-        const appt = await tx.appointment.create({
-          data: {
-            tenantId: input.tenantId,
-            customerId: customer.id,
-            serviceId: period.service.id,
-            startAt: period.startAt,
-            endAt: period.endAt,
-            notes: input.notes,
-            source: 'INTERNAL',
-          },
-        });
-        created.push(appt.id);
-      }
-      return created;
-    },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  const MAX_ATTEMPTS = 2;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const overlap = await tx.appointment.findFirst({
+            where: { tenantId: input.tenantId, status: 'CONFIRMED', startAt: { lt: visitEnd }, endAt: { gt: start } },
+            include: { customer: { select: { name: true } } },
+          });
+          if (overlap) {
+            if (source === 'PUBLIC_SITE') throw new ConflictError('Este horário acabou de ser reservado por outra pessoa.');
+            const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: input.tenantId } });
+            throw new ConflictError(
+              `Conflita com o atendimento de ${overlap.customer.name} às ${formatInTimeZone(overlap.startAt, tenant.timezone, 'HH:mm')}.`,
+            );
+          }
+          const { customer } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
+          const rows = [];
+          for (const period of periods) {
+            rows.push(
+              await tx.appointment.create({
+                data: {
+                  tenantId: input.tenantId,
+                  customerId: customer.id,
+                  serviceId: period.service.id,
+                  startAt: period.startAt,
+                  endAt: period.endAt,
+                  notes: input.notes,
+                  source,
+                },
+              }),
+            );
+          }
+          return rows;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+      const ids = created.map((a) => a.id);
 
-  onAppointmentCreated(input.tenantId, ids).catch((err) =>
-    console.error('Falha no WhatsApp automático do agendamento', ids, err),
-  );
-  for (const id of ids) {
-    await syncAppointmentToGoogle(id).catch((err) => console.error('Falha ao criar evento no Google Agenda:', err));
+      // WhatsApp só DEPOIS do commit e em segundo plano: quem agendou vê a
+      // confirmação na tela na hora, sem esperar a fila de envio.
+      onAppointmentCreated(input.tenantId, ids).catch((err) =>
+        console.error('Falha no WhatsApp automático do agendamento', ids, err),
+      );
+      // Se o Google falhar aqui, a sincronização periódica reenvia (ver
+      // reconcileAppointments em google-calendar.service.ts).
+      for (const id of ids) {
+        await syncAppointmentToGoogle(id).catch((err) => console.error('Falha ao criar evento no Google Agenda:', err));
+      }
+      return { created, visitEnd };
+    } catch (err) {
+      const isSerializationConflict = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';
+      if (isSerializationConflict && attempt < MAX_ATTEMPTS) continue;
+      throw err;
+    }
   }
-  return { ids };
+}
+
+// Agendamento pelo site: um ou mais serviços, só nos horários livres.
+export async function createAppointment(input: CreateVisitInput) {
+  const services = await loadServices(input.tenantId, input.serviceIds);
+  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: input.tenantId } });
+  const requestedStart = parseStart(input.startAt);
+
+  // Nunca confia no horário/duração do cliente: confirma que o início pedido
+  // ainda está entre os slots válidos para a soma dos serviços — a mesma
+  // fonte de verdade usada para exibir a grade de horários.
+  const dateStr = formatInTimeZone(requestedStart, tenant.timezone, 'yyyy-MM-dd');
+  const { slots } = await computeAvailableSlots(input.tenantId, input.serviceIds, dateStr);
+  if (!slots.some((slot) => slot.startAt === requestedStart.toISOString())) {
+    throw new ConflictError('Este horário não está mais disponível. Escolha outro.');
+  }
+
+  const { created, visitEnd } = await insertVisit(input, services, requestedStart, 'PUBLIC_SITE');
+  // Resposta minimizada de propósito (item 59 do escopo — LGPD): nada de ids
+  // internos de tenant/customer, só o suficiente para a tela de confirmação.
+  return {
+    id: created[0].id,
+    startAt: created[0].startAt,
+    endAt: visitEnd,
+    services: services.map((s) => ({ id: s.id, name: s.name, durationMinutes: s.durationMinutes })),
+  };
+}
+
+// Agendamento pelo painel, inclusive encaixe: qualquer horário — fora do
+// expediente, sem a antecedência mínima do site —, porque quem marca é a
+// própria clínica. Sobrepor outro atendimento confirmado continua proibido.
+export async function createInternalAppointments(input: CreateVisitInput) {
+  const services = await loadServices(input.tenantId, input.serviceIds);
+  const { created } = await insertVisit(input, services, parseStart(input.startAt), 'INTERNAL');
+  return { ids: created.map((a) => a.id) };
 }
 
 interface ListAppointmentsInput {
@@ -326,4 +276,30 @@ export async function listBlockedTimes({ tenantId, from, to }: ListBlockedTimesI
     select: { id: true, startAt: true, endAt: true, reason: true, source: true },
   });
   return blockedTimes;
+}
+
+// Bloqueio manual (almoço, compromisso, folga): o período some dos horários
+// do site na hora — computeAvailableSlots já trata BlockedTime como ocupado.
+// Atendimentos já marcados no período continuam valendo; o bloqueio só
+// impede novos agendamentos pelo site.
+export async function createBlockedTime(tenantId: string, input: { startAt: string; endAt: string; reason?: string }) {
+  const startAt = parseStart(input.startAt);
+  const endAt = parseStart(input.endAt);
+  if (endAt <= startAt) {
+    throw new AppError('O fim do bloqueio precisa ser depois do início.', 422, 'INVALID_RANGE');
+  }
+  if (endAt.getTime() - startAt.getTime() > 31 * 24 * 60 * 60_000) {
+    throw new AppError('Bloqueie no máximo 31 dias de uma vez.', 422, 'INVALID_RANGE');
+  }
+  return prisma.blockedTime.create({
+    data: { tenantId, startAt, endAt, reason: input.reason?.trim() || null, source: 'MANUAL' },
+    select: { id: true, startAt: true, endAt: true, reason: true, source: true },
+  });
+}
+
+// Só bloqueios feitos no painel: os do Google Agenda saem apagando o
+// compromisso lá (a sincronização recriaria o bloqueio).
+export async function deleteBlockedTime(tenantId: string, id: string) {
+  const { count } = await prisma.blockedTime.deleteMany({ where: { id, tenantId, source: 'MANUAL' } });
+  if (!count) throw new NotFoundError('Bloqueio não encontrado.');
 }

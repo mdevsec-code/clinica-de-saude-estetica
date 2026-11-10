@@ -8,15 +8,15 @@ const booking = useBookingStore();
 defineProps<{ ctaLabel: string; ctaDisabled?: boolean }>();
 defineEmits<{ continue: [] }>();
 
-// O botão só existe no DOM quando booking.selectedService está preenchido
+// O botão só existe no DOM quando há serviço escolhido
 // (v-if no template) — chamar isso de um onMounted simples correria o risco
 // de rodar antes desse v-if liberar o botão pela primeira vez. immediate:true
 // cobre o caso comum de o serviço já estar selecionado quando este
 // componente é criado (ex.: cliente voltando de /servicos).
 watch(
-  () => booking.selectedService,
-  async (service) => {
-    if (!service) return;
+  () => booking.visit,
+  async (visit) => {
+    if (!visit) return;
     await nextTick();
     applyMagneticButtons('.summary-bar__cta', 0.25);
   },
@@ -26,6 +26,12 @@ watch(
 function formatPrice(price: number | null | undefined) {
   if (price == null) return 'Consulte';
   return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h ? `${h}h${m ? String(m).padStart(2, '0') : ''}` : `${m} min`;
 }
 
 const timeLabel = computed(() => {
@@ -42,12 +48,12 @@ const timeLabel = computed(() => {
   <!-- Fora do #smooth-content: lá dentro o ScrollSmoother move a página com
        transform e a barra ficava parada no meio do conteúdo no celular. -->
   <Teleport to="#overlay-slot">
-    <div v-if="booking.selectedService" class="summary-bar">
+    <div v-if="booking.visit" class="summary-bar">
       <div class="summary-bar__info">
         <p class="summary-bar__title">Seu atendimento</p>
-        <p class="summary-bar__service summary-bar__truncate">{{ booking.selectedService.name }}</p>
+        <p class="summary-bar__service summary-bar__truncate">{{ booking.visit.name }}</p>
         <p class="summary-bar__meta summary-bar__truncate">
-          {{ booking.selectedService.durationMinutes }} min · {{ formatPrice(booking.selectedService.price) }}
+          {{ formatDuration(booking.visit.durationMinutes) }} · {{ formatPrice(booking.visit.price) }}
           <span v-if="timeLabel"> · {{ timeLabel }}</span>
         </p>
       </div>

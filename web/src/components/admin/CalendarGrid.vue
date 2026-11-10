@@ -31,7 +31,7 @@ function formatTime(iso: string) {
 function blocksLabel(dateKey: string): string | null {
   const blocks = props.blocksByDate?.[dateKey] ?? [];
   if (!blocks.length) return null;
-  return blocks.length === 1 ? 'Ocupado (Google)' : `${blocks.length} compromissos (Google)`;
+  return blocks.length === 1 ? (blocks[0].reason || 'Bloqueado') : `${blocks.length} bloqueios`;
 }
 </script>
 

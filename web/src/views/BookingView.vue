@@ -81,12 +81,12 @@ const slotsError = ref<string | null>(null);
 const searchedEmptyDay = ref(false);
 
 async function loadSlots(date: string) {
-  if (!booking.selectedService) return;
+  if (!booking.selectedIds.length) return;
   loadingSlots.value = true;
   slotsError.value = null;
   searchedEmptyDay.value = false;
   try {
-    const { slots: result } = await fetchAvailableSlots(booking.selectedService.id, date);
+    const { slots: result } = await fetchAvailableSlots(booking.selectedIds, date);
     slots.value = result;
   } catch {
     slotsError.value = 'Não foi possível carregar os horários. Tente novamente.';
@@ -105,7 +105,7 @@ watch(
 );
 
 async function findNextAvailableDay() {
-  if (!booking.selectedService) return;
+  if (!booking.selectedIds.length) return;
   searchedEmptyDay.value = true;
   loadingSlots.value = true;
   const today = new Date();
@@ -114,7 +114,7 @@ async function findNextAvailableDay() {
     date.setDate(date.getDate() + i);
     const value = toLocalDateKey(date);
     try {
-      const { slots: result } = await fetchAvailableSlots(booking.selectedService.id, value);
+      const { slots: result } = await fetchAvailableSlots(booking.selectedIds, value);
       if (result.length > 0) {
         booking.selectDate(value);
         slots.value = result;
@@ -210,14 +210,14 @@ onMounted(() => {
   // Sempre carrega as categorias, mesmo quando o cliente já chega com um
   // serviço pré-selecionado (vindo de /servicos): se ele usar "← Voltar" até
   // a etapa de serviço, a lista precisa estar pronta — carregar só quando
-  // selectedService está vazio deixava essa volta com a tela de "nenhum
+  // não havia serviço escolhido deixava essa volta com a tela de "nenhum
   // serviço disponível" mesmo havendo serviços de verdade.
   loadCategories();
   if (booking.selectedDate) loadSlots(booking.selectedDate);
 });
 
 function handleSelectService(service: Service) {
-  booking.selectService(service);
+  booking.toggleService(service);
 }
 
 // --- Confirmação e envio ---
@@ -225,12 +225,12 @@ const submitting = ref(false);
 const submitError = ref<string | null>(null);
 
 async function confirmBooking() {
-  if (!booking.selectedService || !booking.selectedSlot) return;
+  if (!booking.selectedIds.length || !booking.selectedSlot) return;
   submitting.value = true;
   submitError.value = null;
   try {
     const { appointment } = await createAppointment({
-      serviceId: booking.selectedService.id,
+      serviceIds: booking.selectedIds,
       startAt: booking.selectedSlot.startAt,
       customer: booking.customer,
       notes: booking.notes || undefined,
@@ -286,6 +286,7 @@ function goBack() {
       <Transition name="step" mode="out-in">
       <section v-if="step === 'service'" class="booking-step" key="service">
         <h2>Escolha o procedimento</h2>
+        <p class="booking-step__hint">Pode marcar mais de um: eles são feitos em sequência, no mesmo horário.</p>
         <LoadingState v-if="loadingCategories" label="Carregando serviços…" />
         <EmptyState v-else-if="!categories.length" title="Nenhum serviço disponível no momento." />
         <div v-else class="booking-step__list">
@@ -293,7 +294,7 @@ function goBack() {
             v-for="category in categories"
             :key="category.id"
             :category="category"
-            :selected-service-id="booking.selectedService?.id"
+            :selected-ids="booking.selectedIds"
             :default-open="categories[0]?.id === category.id"
             @select-service="handleSelectService"
           />
@@ -376,15 +377,17 @@ function goBack() {
       <section v-else-if="step === 'confirmation'" class="booking-step" key="confirmation">
         <h2>Confira e confirme</h2>
         <div class="confirmation-card">
-          <p class="confirmation-card__row"><strong>Procedimento:</strong> {{ booking.selectedService?.name }}</p>
+          <p class="confirmation-card__row">
+            <strong>{{ booking.selectedServices.length > 1 ? 'Procedimentos' : 'Procedimento' }}:</strong> {{ booking.visit?.name }}
+          </p>
           <p class="confirmation-card__row"><strong>Data:</strong> {{ formattedSelectedDate }}</p>
           <p class="confirmation-card__row">
             <strong>Horário:</strong> {{ booking.selectedSlot && formatSlotTime(booking.selectedSlot.startAt) }}
           </p>
-          <p class="confirmation-card__row"><strong>Duração:</strong> {{ booking.selectedService?.durationMinutes }} min</p>
+          <p class="confirmation-card__row"><strong>Duração:</strong> {{ booking.visit?.durationMinutes }} min</p>
           <p class="confirmation-card__row">
             <strong>Valor:</strong>
-            {{ booking.selectedService?.price != null ? booking.selectedService.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte' }}
+            {{ booking.visit?.price != null ? booking.visit.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte' }}
           </p>
           <p class="confirmation-card__row"><strong>Nome:</strong> {{ booking.customer.name }}</p>
           <p class="confirmation-card__row"><strong>WhatsApp:</strong> {{ booking.customer.whatsapp }}</p>
@@ -416,9 +419,9 @@ function goBack() {
       @continue="step = step === 'date' ? 'time' : 'details'"
     />
     <BookingSummaryBar
-      v-else-if="step === 'service' && booking.selectedService"
+      v-else-if="step === 'service' && booking.selectedServices.length"
       cta-label="Continuar"
-      @continue="step = 'date'"
+      @continue="booking.confirmServices()"
     />
   </div>
 </template>
@@ -468,6 +471,11 @@ function goBack() {
 .booking-step h2 {
   font-size: 1.8rem;
   margin-bottom: var(--space-5);
+}
+
+.booking-step__hint {
+  margin: calc(var(--space-5) * -1 + var(--space-2)) 0 var(--space-5);
+  color: var(--color-ink-muted);
 }
 
 .booking-step__list {

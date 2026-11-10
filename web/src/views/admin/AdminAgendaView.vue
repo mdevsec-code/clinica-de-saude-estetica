@@ -36,6 +36,7 @@ import CalendarGrid from '@/components/admin/CalendarGrid.vue';
 import DayAppointmentList from '@/components/admin/DayAppointmentList.vue';
 import AdminModal from '@/components/admin/AdminModal.vue';
 import NewAppointmentModal from '@/components/admin/NewAppointmentModal.vue';
+import BlockTimeModal from '@/components/admin/BlockTimeModal.vue';
 import AdminSelect, { type AdminSelectGroup, type AdminSelectOption } from '@/components/admin/AdminSelect.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -261,6 +262,12 @@ function openDayModalForAppointment(appt: AdminAppointment) {
 
 // --- Novo agendamento ---
 const showNewAppointment = ref(false);
+const showBlockTime = ref(false);
+
+function onBlockCreated() {
+  showBlockTime.value = false;
+  load();
+}
 
 function onAppointmentCreated() {
   showNewAppointment.value = false;
@@ -277,7 +284,10 @@ function onAppointmentCreated() {
           <p>Calendário de atendimentos da clínica.</p>
         </div>
       </div>
-      <button type="button" class="button button--primary" @click="showNewAppointment = true">+ Novo agendamento</button>
+      <div class="admin-agenda__actions">
+        <button type="button" class="button button--ghost" @click="showBlockTime = true">Bloquear horário</button>
+        <button type="button" class="button button--primary" @click="showNewAppointment = true">+ Novo agendamento</button>
+      </div>
     </div>
 
     <div class="admin-agenda__toolbar">
@@ -346,7 +356,7 @@ function onAppointmentCreated() {
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load" />
       <div v-else key="content" v-stagger.grid="'.calendar-day'">
         <Transition name="fade-swap">
-          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" :blocks="dayBlocks" />
+          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" :blocks="dayBlocks" @unblocked="load" />
           <CalendarGrid
             v-else
             :key="viewMode"
@@ -361,14 +371,26 @@ function onAppointmentCreated() {
     </Transition>
 
     <AdminModal v-if="dayModalKey" :title="dayModalTitle" @close="dayModalKey = null">
-      <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" />
+      <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" @unblocked="load" />
     </AdminModal>
 
+    <BlockTimeModal
+      v-if="showBlockTime"
+      :initial-date="viewMode === 'day' ? toLocalDateKey(referenceDate) : dayModalKey ?? undefined"
+      @close="showBlockTime = false"
+      @created="onBlockCreated"
+    />
     <NewAppointmentModal v-if="showNewAppointment" :initial-date="viewMode === 'day' ? toLocalDateKey(referenceDate) : undefined" @close="showNewAppointment = false" @created="onAppointmentCreated" />
   </div>
 </template>
 
 <style scoped>
+.admin-agenda__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .admin-agenda__header {
   display: flex;
   flex-wrap: wrap;
