@@ -1004,9 +1004,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
 
 .admin-finance__dre-cat-label {
   color: var(--color-ink-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .admin-finance__dre-cat-bar-track {

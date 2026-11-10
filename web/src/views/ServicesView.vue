@@ -127,39 +127,14 @@ const totalServices = computed(() => categories.value.reduce((sum, c) => sum + c
 }
 
 .services-page__chips {
+  /* Quebra em linhas em vez de rolar de lado: na rolagem, o último chip
+     ficava cortado na borda da tela e lia como texto cortado. */
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  /* padding-right + scroll-snap: sem isso, rolar a lista podia "sobrar" com
-     um chip só parcialmente visível — a borda arredondada dele cortada bem
-     na borda do container, lendo como bug visual em vez de rolagem normal.
-     "mandatory" (não "proximity") é o que garante isso de verdade: proximity
-     só encaixa se o gesto já tiver parado PERTO de um chip inteiro — um
-     arrasto curto que solta no meio de um chip fica parado ali mesmo, exatamente
-     o corte relatado. Mandatory sempre completa o encaixe pro chip mais
-     próximo, não importa onde o gesto termine. scroll-snap-align (em
-     .services-page__chip) marca onde cada chip encaixa; o padding dá folga
-     física pro último não colar na borda mesmo no fim do scroll. */
-  /* padding-top: overflow-x:auto sozinho faz o navegador tratar overflow-y
-     como auto também (regra do spec — só um eixo "visible" não é permitido),
-     então o container passa a recortar verticalmente mesmo sem barra de
-     rolagem visível. Sem essa folga em cima, o translateY(-1px) do :hover do
-     chip empurra a borda de cima pra fora dessa área recortada, sumindo com
-     a linha exatamente ao passar o mouse. */
-  padding-top: 3px;
-  padding-bottom: 2px;
-  padding-right: var(--space-5);
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-}
-
-.services-page__chips::-webkit-scrollbar {
-  display: none;
 }
 
 .services-page__chip {
-  flex-shrink: 0;
-  scroll-snap-align: start;
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 600;

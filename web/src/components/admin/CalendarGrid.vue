@@ -188,9 +188,9 @@ function blocksLabel(dateKey: string): string | null {
   color: var(--color-rose-900);
   font-size: 0.7rem;
   font-weight: 600;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  /* Nome inteiro, em quantas linhas precisar — reticências escondiam quem era a paciente. */
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
   transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
 
@@ -206,8 +206,7 @@ function blocksLabel(dateKey: string): string | null {
 }
 
 .calendar-chip__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .calendar-chip--cancelled {

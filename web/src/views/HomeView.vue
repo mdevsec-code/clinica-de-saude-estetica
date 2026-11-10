@@ -144,7 +144,7 @@ const steps = [
         <div class="hero__text">
           <h1 class="hero__title">Estética e Micropigmentação</h1>
           <p class="hero__lead" data-hero-fade>
-            Clínica da Noely Cerqueira em Camaçari (BA): cuidado estético personalizado, com técnica e atenção a cada
+            Clínica de Saúde Estética Noely Cerqueira, em Camaçari (BA): cuidado personalizado, com técnica e atenção a cada
             detalhe.
           </p>
           <div class="hero__actions" data-hero-fade>

@@ -133,7 +133,11 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
       // parte (senderPn / remoteJidAlt, conforme a versão do protocolo).
       const key = message.key as typeof message.key & { senderPn?: string; remoteJidAlt?: string };
       const phoneJid = jid.endsWith('@s.whatsapp.net') ? jid : (key.senderPn ?? key.remoteJidAlt);
-      if (!phoneJid) continue;
+      if (!phoneJid) {
+        // Sem o número não dá para achar a paciente (nem o "SIM" dela).
+        logger.warn({ tenantId, jid }, 'Mensagem recebida sem número de telefone');
+        continue;
+      }
 
       const text = message.message?.conversation ?? message.message?.extendedTextMessage?.text ?? '';
       incomingHandler({
@@ -225,14 +229,14 @@ export function phoneKey(raw: string) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Fila por clínica: um envio por vez, com 4 a 9 segundos entre mensagens —
+// Fila por clínica: um envio por vez, com 3 a 6 segundos entre mensagens —
 // rajadas instantâneas de mensagens automáticas são o padrão que mais leva
 // o WhatsApp a bloquear números conectados por aparelho.
 function enqueue<T>(tenantId: string, task: () => Promise<T>): Promise<T> {
   const conn = getConnection(tenantId);
   const run = conn.queue.then(async () => {
     const result = await task();
-    await sleep(4000 + Math.random() * 5000);
+    await sleep(3000 + Math.random() * 3000);
     return result;
   });
   conn.queue = run.catch(() => undefined);

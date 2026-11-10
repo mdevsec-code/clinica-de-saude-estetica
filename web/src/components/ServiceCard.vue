@@ -122,9 +122,6 @@ function formatPrice(price: number | null) {
 .service-card__description {
   font-size: 1.05rem;
   color: var(--color-ink-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .service-card__meta {

@@ -364,7 +364,7 @@ function onAppointmentCreated() {
       <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" />
     </AdminModal>
 
-    <NewAppointmentModal v-if="showNewAppointment" @close="showNewAppointment = false" @created="onAppointmentCreated" />
+    <NewAppointmentModal v-if="showNewAppointment" :initial-date="viewMode === 'day' ? toLocalDateKey(referenceDate) : undefined" @close="showNewAppointment = false" @created="onAppointmentCreated" />
   </div>
 </template>
 

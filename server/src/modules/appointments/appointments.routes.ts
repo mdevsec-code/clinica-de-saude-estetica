@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
 import { bookingRateLimiter } from '../../middleware/rate-limit';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
-import { createAppointment, listAppointments, listBlockedTimes, updateAppointmentStatus } from './appointments.service';
+import { createAppointment, createInternalAppointments, listAppointments, listBlockedTimes, updateAppointmentStatus } from './appointments.service';
 
 export const appointmentsRouter = Router();
 
@@ -61,6 +61,24 @@ appointmentsRouter.post(
     const input = createSchema.parse(req.body);
     const appointment = await createAppointment({ tenantId: req.tenant.id, ...input });
     res.status(201).json({ appointment });
+  }),
+);
+
+// Agendamento pelo painel (com encaixe e vários serviços) — ver
+// createInternalAppointments.
+const internalSchema = createSchema.omit({ serviceId: true }).extend({
+  serviceIds: z.array(z.string().min(1)).min(1, 'Escolha ao menos um serviço.').max(10),
+  startAt: z.string().datetime({ offset: true }),
+});
+
+appointmentsRouter.post(
+  '/internal',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    const input = internalSchema.parse(req.body);
+    const result = await createInternalAppointments({ tenantId: req.tenant.id, ...input });
+    res.status(201).json(result);
   }),
 );
 

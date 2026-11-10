@@ -659,11 +659,11 @@ onUnmounted(stopPolling);
   max-width: 100%;
   gap: 2px;
   padding: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: 24px;
   background: var(--color-surface-muted);
   border: 1px solid var(--color-border);
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* Quebra em linhas no celular em vez de esconder abas cortadas à direita. */
+  flex-wrap: wrap;
 }
 
 .wa-tabs__pill {

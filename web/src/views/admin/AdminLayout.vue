@@ -720,6 +720,29 @@ function onLogout() {
   display: none;
 }
 
+/* Celular: as abas quebram em linhas em vez de rolar de lado — na rolagem,
+   a última aba visível ficava cortada no meio da palavra. */
+@media (max-width: 720px) {
+  .admin__nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+    gap: 2px;
+    font-size: 0.85rem;
+  }
+
+  .admin__nav > a {
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 4px;
+  }
+
+  .admin__nav > a :deep(svg),
+  .admin__nav > a svg {
+    flex-shrink: 0;
+  }
+}
+
 /* Pílula de hover (ver onNavHover): clara, atrás dos links e da pílula
    ativa, deslizando até a aba sob o mouse. */
 .admin__nav-hover {

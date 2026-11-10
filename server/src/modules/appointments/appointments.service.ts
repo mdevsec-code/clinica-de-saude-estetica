@@ -124,6 +124,84 @@ export async function createAppointment(input: CreateAppointmentInput) {
   throw new ConflictError();
 }
 
+interface CreateInternalAppointmentInput {
+  tenantId: string;
+  serviceIds: string[];
+  startAt: string; // ISO 8601
+  customer: { name: string; whatsapp: string; email?: string };
+  notes?: string;
+}
+
+// Agendamento pelo painel, inclusive encaixe: qualquer horário — fora do
+// expediente, sem a antecedência mínima do site —, porque quem marca é a
+// própria clínica. Vários serviços viram atendimentos em sequência, um por
+// serviço (financeiro, ficha e Google continuam por serviço); o WhatsApp
+// manda uma mensagem só para a visita inteira. Sobrepor outro atendimento
+// confirmado continua proibido (checagem aqui + EXCLUDE no banco).
+export async function createInternalAppointments(input: CreateInternalAppointmentInput) {
+  const found = await prisma.service.findMany({
+    where: { id: { in: input.serviceIds }, tenantId: input.tenantId, active: true },
+  });
+  const services = input.serviceIds.map((id) => found.find((s) => s.id === id));
+  if (services.some((s) => !s)) {
+    throw new NotFoundError('Serviço não encontrado.');
+  }
+
+  const requestedStart = new Date(input.startAt);
+  if (Number.isNaN(requestedStart.getTime())) {
+    throw new AppError('Horário inválido.', 422, 'INVALID_DATE');
+  }
+
+  // Serviços colados um no outro; a folga (bufferMinutes) só depois do último.
+  let cursor = requestedStart.getTime();
+  const periods = services.map((service, index) => {
+    const startAt = new Date(cursor);
+    cursor += service!.durationMinutes * 60_000;
+    if (index === services.length - 1) cursor += service!.bufferMinutes * 60_000;
+    return { service: service!, startAt, endAt: new Date(cursor) };
+  });
+  const visitEnd = new Date(cursor);
+
+  const ids = await prisma.$transaction(
+    async (tx) => {
+      const overlap = await tx.appointment.findFirst({
+        where: { tenantId: input.tenantId, status: 'CONFIRMED', startAt: { lt: visitEnd }, endAt: { gt: requestedStart } },
+        include: { customer: { select: { name: true } } },
+      });
+      if (overlap) {
+        const at = formatInTimeZone(overlap.startAt, (await tx.tenant.findUniqueOrThrow({ where: { id: input.tenantId } })).timezone, 'HH:mm');
+        throw new ConflictError(`Conflita com o atendimento de ${overlap.customer.name} às ${at}.`);
+      }
+      const { customer } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
+      const created: string[] = [];
+      for (const period of periods) {
+        const appt = await tx.appointment.create({
+          data: {
+            tenantId: input.tenantId,
+            customerId: customer.id,
+            serviceId: period.service.id,
+            startAt: period.startAt,
+            endAt: period.endAt,
+            notes: input.notes,
+            source: 'INTERNAL',
+          },
+        });
+        created.push(appt.id);
+      }
+      return created;
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+
+  onAppointmentCreated(input.tenantId, ids).catch((err) =>
+    console.error('Falha no WhatsApp automático do agendamento', ids, err),
+  );
+  for (const id of ids) {
+    await syncAppointmentToGoogle(id).catch((err) => console.error('Falha ao criar evento no Google Agenda:', err));
+  }
+  return { ids };
+}
+
 interface ListAppointmentsInput {
   tenantId: string;
   from?: string;

@@ -128,28 +128,109 @@ async function markContactGreeted(tenantId: string, phone: string) {
   });
 }
 
+const messageInclude = {
+  customer: { select: { name: true, whatsapp: true } },
+  service: { select: { name: true, priceCents: true } },
+} as const;
+
+type VisitAppointment = AppointmentForMessage & { id: string; customerId: string; endAt: Date };
+
+// Uma visita pode ter vários serviços em sequência (agendamento do painel
+// com mais de um serviço vira um atendimento por serviço): a paciente
+// recebe UMA mensagem com todos eles, não uma por serviço.
+function asVisit(appts: VisitAppointment[]): AppointmentForMessage {
+  const prices = appts.map((a) => a.service.priceCents);
+  return {
+    startAt: appts[0].startAt,
+    customer: appts[0].customer,
+    service: {
+      name: appts.map((a) => a.service.name).join(' + '),
+      priceCents: prices.includes(null) ? null : prices.reduce<number>((sum, p) => sum + (p ?? 0), 0),
+    },
+  };
+}
+
+// Atendimentos da mesma paciente colados ao primeiro (até 30 min de
+// intervalo entre um e outro) — a mesma visita.
+async function visitOf(first: VisitAppointment) {
+  const sameDay = await prisma.appointment.findMany({
+    where: {
+      customerId: first.customerId,
+      status: 'CONFIRMED',
+      startAt: { gte: first.startAt, lt: new Date(first.startAt.getTime() + 12 * HOUR) },
+    },
+    include: messageInclude,
+    orderBy: { startAt: 'asc' },
+  });
+  const visit: VisitAppointment[] = [];
+  for (const appt of sameDay) {
+    const prev = visit[visit.length - 1];
+    if (prev && appt.startAt.getTime() - prev.endAt.getTime() > 30 * 60_000) break;
+    visit.push(appt);
+  }
+  return visit.length ? visit : [first];
+}
+
 // --- 2. Confirmação ao agendar ------------------------------------------
-// Chamado logo depois de o agendamento ser gravado (site ou painel — a mesma
-// rota), em segundo plano: não atrasa a resposta para quem agendou.
-export async function onAppointmentCreated(tenantId: string, appointmentId: string) {
-  if (!isWhatsappConnected(tenantId)) return;
+// Chamado logo depois de o agendamento ser gravado (site ou painel), em
+// segundo plano: não atrasa a resposta para quem agendou. Se o WhatsApp
+// estiver reconectando nesse instante (acontece algumas vezes por dia) ou o
+// envio falhar, a varredura (sendPendingConfirmations) tenta de novo.
+const confirmationsInFlight = new Set<string>();
+
+export async function onAppointmentCreated(tenantId: string, appointmentIds: string | string[]) {
+  const ids = [appointmentIds].flat().filter((id) => !confirmationsInFlight.has(id));
+  if (!ids.length || !isWhatsappConnected(tenantId)) return;
   const template = await enabledTemplate(tenantId, 'CONFIRMATION');
   if (!template) return;
 
-  const appt = await prisma.appointment.findFirst({
-    where: { id: appointmentId, tenantId },
-    include: {
-      tenant: { select: { timezone: true } },
-      customer: { select: { name: true, whatsapp: true } },
-      service: { select: { name: true, priceCents: true } },
-    },
+  const appts = await prisma.appointment.findMany({
+    where: { id: { in: ids }, tenantId, status: 'CONFIRMED', confirmationSentAt: null, startAt: { gt: new Date() } },
+    include: messageInclude,
+    orderBy: { startAt: 'asc' },
   });
-  if (!appt || appt.confirmationSentAt) return;
+  if (!appts.length) return;
 
-  const vars = await buildVariables(tenantId, appt.tenant.timezone, appt);
-  await sendWhatsappText(tenantId, appt.customer.whatsapp, renderTemplate(template, vars));
-  await prisma.appointment.update({ where: { id: appt.id }, data: { confirmationSentAt: new Date() } });
-  await markContactGreeted(tenantId, appt.customer.whatsapp);
+  appts.forEach((a) => confirmationsInFlight.add(a.id));
+  try {
+    const vars = await buildVariables(tenantId, await tenantTimezone(tenantId), asVisit(appts));
+    await sendWhatsappText(tenantId, appts[0].customer.whatsapp, renderTemplate(template, vars));
+    await prisma.appointment.updateMany({ where: { id: { in: appts.map((a) => a.id) } }, data: { confirmationSentAt: new Date() } });
+    await markContactGreeted(tenantId, appts[0].customer.whatsapp);
+  } finally {
+    appts.forEach((a) => confirmationsInFlight.delete(a.id));
+  }
+}
+
+// Confirmações que não saíram na hora. Só agendamentos das últimas 12h —
+// nada retroativo de antes de a automação existir.
+async function sendPendingConfirmations(tenantId: string) {
+  const now = Date.now();
+  const pending = await prisma.appointment.findMany({
+    where: {
+      tenantId,
+      status: 'CONFIRMED',
+      confirmationSentAt: null,
+      startAt: { gt: new Date(now) },
+      createdAt: { gte: new Date(now - 12 * HOUR), lte: new Date(now - 60_000) },
+    },
+    select: { id: true, customerId: true },
+    orderBy: { startAt: 'asc' },
+  });
+  // Agrupa por paciente: serviços da mesma visita vão numa mensagem só.
+  const byCustomer = new Map<string, string[]>();
+  for (const appt of pending) byCustomer.set(appt.customerId, [...(byCustomer.get(appt.customerId) ?? []), appt.id]);
+  for (const ids of byCustomer.values()) {
+    try {
+      await onAppointmentCreated(tenantId, ids);
+    } catch (err) {
+      logger.error({ err, appointmentIds: ids }, 'Falha ao reenviar confirmação');
+      if (err instanceof Error && err.message.includes('não tem WhatsApp')) {
+        await prisma.appointment.updateMany({ where: { id: { in: ids } }, data: { confirmationSentAt: new Date() } });
+      }
+      if (!isWhatsappConnected(tenantId)) return;
+    }
+  }
 }
 
 // --- 1 e 3. Mensagens recebidas ------------------------------------------
@@ -164,15 +245,16 @@ async function handleIncoming(message: IncomingWhatsappMessage) {
   if (YES_RE.test(normalize(message.text))) {
     const pending = await prisma.appointment.findMany({
       where: { tenantId, status: 'CONFIRMED', confirmationSentAt: { not: null }, clientConfirmedAt: null, startAt: { gt: new Date() } },
-      include: { customer: { select: { name: true, whatsapp: true } }, service: { select: { name: true, priceCents: true } } },
+      include: messageInclude,
       orderBy: { startAt: 'asc' },
     });
     const appt = pending.find((a) => phoneKey(a.customer.whatsapp) === key);
     if (appt) {
-      await prisma.appointment.update({ where: { id: appt.id }, data: { clientConfirmedAt: new Date() } });
+      const visit = await visitOf(appt);
+      await prisma.appointment.updateMany({ where: { id: { in: visit.map((a) => a.id) } }, data: { clientConfirmedAt: new Date() } });
       logger.info({ appointmentId: appt.id }, 'Paciente confirmou pelo WhatsApp');
       const thanks = await enabledTemplate(tenantId, 'CONFIRMATION_THANKS');
-      if (thanks) await replyWhatsapp(tenantId, replyJid, renderTemplate(thanks, await buildVariables(tenantId, timezone, appt)));
+      if (thanks) await replyWhatsapp(tenantId, replyJid, renderTemplate(thanks, await buildVariables(tenantId, timezone, asVisit(visit))));
       return;
     }
   }
@@ -201,7 +283,7 @@ async function sendReminders(tenantId: string, timezone: string) {
   const now = new Date();
   const hour = Number(formatInTimeZone(now, timezone, 'H'));
   const quiet = hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR;
-  const include = { customer: { select: { name: true, whatsapp: true } }, service: { select: { name: true, priceCents: true } } };
+  const include = messageInclude;
 
   type Job = { field: 'reminderDayBeforeSentAt' | 'reminder2hSentAt'; template: string | null; appts: Awaited<ReturnType<typeof findDue>> };
   async function findDue(field: Job['field'], from: Date, to: Date, leadMs: number) {
@@ -235,17 +317,23 @@ async function sendReminders(tenantId: string, timezone: string) {
 
   for (const job of jobs) {
     if (!job.template) continue;
+    const handled = new Set<string>();
     for (const appt of job.appts) {
+      if (handled.has(appt.id)) continue;
+      // Os outros serviços da mesma visita entram nesta mesma mensagem.
+      const visit = await visitOf(appt);
+      const ids = visit.map((a) => a.id);
+      ids.forEach((id) => handled.add(id));
       try {
-        await sendWhatsappText(tenantId, appt.customer.whatsapp, renderTemplate(job.template, await buildVariables(tenantId, timezone, appt)));
-        await prisma.appointment.update({ where: { id: appt.id }, data: { [job.field]: new Date() } });
+        await sendWhatsappText(tenantId, appt.customer.whatsapp, renderTemplate(job.template, await buildVariables(tenantId, timezone, asVisit(visit))));
+        await prisma.appointment.updateMany({ where: { id: { in: ids } }, data: { [job.field]: new Date() } });
         await markContactGreeted(tenantId, appt.customer.whatsapp);
       } catch (err) {
         logger.error({ err, appointmentId: appt.id, reminder: job.field }, 'Falha ao enviar lembrete');
         // Número sem WhatsApp não vai passar a ter na próxima rodada: marca
-        // como tratado para não tentar de novo a cada 5 minutos.
+        // como tratado para não tentar de novo a cada varredura.
         if (err instanceof Error && err.message.includes('não tem WhatsApp')) {
-          await prisma.appointment.update({ where: { id: appt.id }, data: { [job.field]: new Date() } });
+          await prisma.appointment.updateMany({ where: { id: { in: ids } }, data: { [job.field]: new Date() } });
         }
         // WhatsApp caiu no meio da rodada: para aqui; a próxima retoma.
         if (!isWhatsappConnected(tenantId)) return;
@@ -256,17 +344,19 @@ async function sendReminders(tenantId: string, timezone: string) {
 
 let sweeping = false;
 
-// Varredura de lembretes a cada 5 minutos. Uma rodada por vez (se a
-// anterior ainda estiver enviando — a fila espaça as mensagens —, esta é
-// pulada).
-export function startReminderScheduler(intervalMs = 5 * 60_000) {
+// Varredura a cada minuto: confirmações que ficaram para trás e lembretes.
+// Uma rodada por vez (se a anterior ainda estiver enviando — a fila espaça
+// as mensagens —, esta é pulada).
+export function startReminderScheduler(intervalMs = 60_000) {
   const tick = async () => {
     if (sweeping) return;
     sweeping = true;
     try {
       const tenants = await prisma.tenant.findMany({ select: { id: true, timezone: true } });
       for (const tenant of tenants) {
-        if (isWhatsappConnected(tenant.id)) await sendReminders(tenant.id, tenant.timezone);
+        if (!isWhatsappConnected(tenant.id)) continue;
+        await sendPendingConfirmations(tenant.id);
+        await sendReminders(tenant.id, tenant.timezone);
       }
     } catch (err) {
       logger.error({ err }, 'Falha na varredura de lembretes');

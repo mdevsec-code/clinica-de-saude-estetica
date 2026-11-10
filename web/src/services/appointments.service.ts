@@ -14,3 +14,12 @@ export function createAppointment(payload: CreateAppointmentPayload) {
     body: JSON.stringify(payload),
   });
 }
+
+// Agendamento pelo painel: vários serviços em sequência e encaixe em
+// qualquer horário (ver createInternalAppointments no servidor).
+export function createInternalAppointment(payload: Omit<CreateAppointmentPayload, 'serviceId'> & { serviceIds: string[] }) {
+  return apiRequest<{ ids: string[] }>('/appointments/internal', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

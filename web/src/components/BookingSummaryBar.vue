@@ -84,9 +84,7 @@ const timeLabel = computed(() => {
 }
 
 .summary-bar__truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .summary-bar__title {
