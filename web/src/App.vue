@@ -19,6 +19,14 @@ const route = useRoute();
 // /admin/*, duplicando marca e navegação numa ferramenta de trabalho interna.
 const isAdminRoute = computed(() => route.path.startsWith('/admin'));
 
+// Ao abrir/recarregar o site, o código de cada página chega separado (lazy
+// import no router). Sem esperar, cabeçalho e rodapé apareciam sozinhos por
+// meio segundo — o rodapé colado no topo, porque a página ainda não existia
+// — e só depois a página carregava. isReady() resolve quando a primeira
+// rota (com o código da página) está pronta: tudo aparece de uma vez.
+const ready = ref(false);
+router.isReady().finally(() => (ready.value = true));
+
 // Key da transição de PÁGINA (abaixo): usa o path da rota-mãe casada
 // (route.matched[0].path), não o path resolvido completo. Por que isso
 // importa — era a causa real (e nunca resolvida até aqui) da "tela fica
@@ -108,6 +116,7 @@ async function onEnter(el: Element, done: () => void) {
        eles não precisam acompanhar o scroll suavizado, e --- no caso do
        fundo ambiente --- precisam continuar pintando ATRÁS de tudo, o que só
        dá pra garantir ficando fora do wrapper. -->
+  <template v-if="ready">
   <AppHeader v-if="!isAdminRoute" />
   <main>
     <RouterView v-slot="{ Component }">
@@ -117,11 +126,12 @@ async function onEnter(el: Element, done: () => void) {
     </RouterView>
   </main>
   <AppFooter v-if="!isAdminRoute" />
+  </template>
 
   <Teleport to="#overlay-slot">
-    <ScrollProgress v-if="!isAdminRoute" />
-    <WhatsAppButton v-if="!isAdminRoute" variant="floating" />
-    <AppIntroLoader v-if="!isAdminRoute" />
+    <ScrollProgress v-if="ready && !isAdminRoute" />
+    <WhatsAppButton v-if="ready && !isAdminRoute" variant="floating" />
+    <AppIntroLoader v-if="ready && !isAdminRoute" />
     <div ref="veil" class="route-veil" aria-hidden="true" />
   </Teleport>
 </template>
