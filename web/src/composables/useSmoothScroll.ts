@@ -39,7 +39,49 @@ export function initSmoothScroll(): ScrollSmoother | null {
     ignoreMobileResize: true,
   });
 
+  ignoreClicksAfterTouchDrag();
   return smoother;
+}
+
+// normalizeScroll rola a página por conta própria e o navegador não percebe
+// que o dedo arrastou: ao soltar, ele dispara um "click" no botão que estava
+// embaixo (no celular, rolar por cima dos chips de categoria abria a
+// categoria sem querer). Toque que andou mais que alguns pixels não é toque.
+function ignoreClicksAfterTouchDrag() {
+  const TAP_TOLERANCE_PX = 10;
+  let startX = 0;
+  let startY = 0;
+  let dragged = false;
+  let touchEndAt = 0;
+  window.addEventListener('touchend', () => (touchEndAt = Date.now()), { capture: true, passive: true });
+  window.addEventListener(
+    'touchstart',
+    (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dragged = false;
+    },
+    { capture: true, passive: true },
+  );
+  window.addEventListener(
+    'touchmove',
+    (e) => {
+      if (Math.hypot(e.touches[0].clientX - startX, e.touches[0].clientY - startY) > TAP_TOLERANCE_PX) dragged = true;
+    },
+    { capture: true, passive: true },
+  );
+  window.addEventListener(
+    'click',
+    (e) => {
+      // Só o click que vem logo depois do arrasto; um Enter no teclado ou
+      // clique de mouse depois não é afetado.
+      if (!dragged || Date.now() - touchEndAt > 600) return;
+      dragged = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true },
+  );
 }
 
 export function getSmoother(): ScrollSmoother | null {

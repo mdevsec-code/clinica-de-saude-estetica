@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { Flip, gsap, prefersReducedMotion, SplitText, supportsFinePointer } from '@/lib/motion';
+import { giveMasksRoom } from '@/composables/useSplitReveal';
 import { applyMagneticButtons } from '@/composables/useMagneticButton';
 import { useAuthStore } from '@/stores/auth';
 import { nowInClinicTimezone } from '@/utils/calendar';
@@ -244,7 +245,10 @@ function playTopbarIntro() {
 
   if (title) {
     greetingSplit = SplitText.create(title, { type: 'words', mask: 'words' });
-    tl.from(greetingSplit.words, { yPercent: 110, duration: 0.8, stagger: 0.06 }, 0.35);
+    giveMasksRoom(greetingSplit);
+    const split = greetingSplit;
+    // Desfaz as máscaras ao terminar: elas cortavam o g/j/ç da saudação.
+    tl.from(split.words, { yPercent: 110, duration: 0.8, stagger: 0.06, onComplete: () => split.revert() }, 0.35);
   }
   tl.fromTo(date, { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.6 }, 0.6)
     .fromTo(account, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 }, 0.2)
@@ -712,8 +716,9 @@ function onLogout() {
   font-weight: 600;
   color: var(--color-ink-muted);
   padding: 0 var(--space-5) var(--space-3);
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* Abas quebram linha quando não cabem, em vez de rolar de lado com a
+     última cortada no meio da palavra (acontecia em tablet). */
+  flex-wrap: wrap;
 }
 
 .admin__nav::-webkit-scrollbar {

@@ -485,29 +485,19 @@ function goBack() {
 }
 
 .date-strip {
-  display: flex;
+  /* Grade com as 3 semanas inteiras à vista, em vez de uma tira rolando de
+     lado: na tira, o último dia visível ficava cortado na borda da tela. */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   gap: var(--space-2);
-  overflow-x: auto;
-  /* Mesmo fix do resto do site (ver ServicesView.vue) pro chip do fim da
-     lista não ficar só parcialmente visível — a rolagem sempre descansa num
-     chip inteiro, e a folga extra evita a borda encostar no limite do
-     container. */
-  padding-bottom: var(--space-2);
-  padding-right: var(--space-4);
-  /* mandatory, não proximity — ver comentário completo em ServicesView.vue
-     (mesmo fix): proximity deixa a rolagem descansar no meio de um chip se o
-     gesto parar longe o suficiente de qualquer ponto de encaixe. */
-  scroll-snap-type: x mandatory;
 }
 
 .date-chip {
-  flex-shrink: 0;
-  scroll-snap-align: start;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: 68px;
+  min-width: 0;
   padding: var(--space-3) var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
