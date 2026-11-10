@@ -3,7 +3,7 @@ import { chmod, mkdir, rm } from 'fs/promises';
 import path from 'path';
 import pino from 'pino';
 import QRCode from 'qrcode';
-import type { WASocket } from '@whiskeysockets/baileys';
+import type { proto, WASocket } from '@whiskeysockets/baileys';
 import { env } from '../../config/env';
 
 // Conexão com o WhatsApp por QR code (aparelho vinculado, o mesmo mecanismo
@@ -41,6 +41,23 @@ export interface IncomingWhatsappMessage {
 }
 
 const connections = new Map<string, TenantConnection>();
+
+// Cópia das mensagens enviadas, para reenviar quando um aparelho pede de
+// novo: o celular da paciente ou os outros aparelhos da clínica (celular,
+// WhatsApp Web) às vezes não conseguem decifrar na primeira vez e pedem
+// reenvio. Sem esta cópia o reenvio não acontecia e a mensagem ficava em
+// "Aguardando mensagem. Essa ação pode levar alguns instantes".
+// shortcut: só em memória (some ao reiniciar o servidor); pedidos de reenvio
+// chegam em segundos/minutos, então basta — gravar em disco se voltar a
+// aparecer "Aguardando" logo depois de deploys.
+const SENT_CACHE_LIMIT = 1000;
+const sentMessages = new Map<string, proto.IMessage>();
+
+function rememberSent(tenantId: string, sent: proto.IWebMessageInfo | undefined) {
+  if (!sent?.key?.id || !sent.message) return;
+  sentMessages.set(`${tenantId}:${sent.key.id}`, sent.message);
+  if (sentMessages.size > SENT_CACHE_LIMIT) sentMessages.delete(sentMessages.keys().next().value!);
+}
 const logger = pino({ level: 'warn' }).child({ module: 'whatsapp' });
 
 const SESSION_ROOT = env.WHATSAPP_SESSION_DIR ?? path.resolve(__dirname, '../../../.whatsapp-session');
@@ -114,6 +131,7 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
     markOnlineOnConnect: false,
     syncFullHistory: false,
     printQRInTerminal: false,
+    getMessage: async (key) => (key.id ? sentMessages.get(`${tenantId}:${key.id}`) : undefined),
   });
   conn.socket = socket;
 
@@ -257,7 +275,7 @@ export async function sendWhatsappText(tenantId: string, phone: string, text: st
     // mandar para o número "como digitado" falharia em silêncio.
     const [result] = (await socket.onWhatsApp(toE164Digits(phone))) ?? [];
     if (!result?.exists) throw new Error('Este número não tem WhatsApp.');
-    await socket.sendMessage(result.jid, { text });
+    rememberSent(tenantId, await socket.sendMessage(result.jid, { text }));
   });
 }
 
@@ -265,6 +283,6 @@ export async function sendWhatsappText(tenantId: string, phone: string, text: st
 // "SIM") — vai para o mesmo endereço de onde a mensagem veio.
 export async function replyWhatsapp(tenantId: string, jid: string, text: string): Promise<void> {
   return enqueue(tenantId, async () => {
-    await connectedSocket(tenantId).sendMessage(jid, { text });
+    rememberSent(tenantId, await connectedSocket(tenantId).sendMessage(jid, { text }));
   });
 }
