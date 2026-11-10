@@ -101,8 +101,22 @@ export function useHeroIntro(rootSelector: string) {
           },
         });
         if (heroText) exit.to(heroText, { opacity: 0, y: -50, scale: 0.96, ease: 'none' }, 0);
-        if (photoWrap) exit.to(photoWrap, { opacity: 0, y: -30, scale: 0.92, ease: 'none' }, 0);
         if (exit.scrollTrigger) scrollTriggers.push(exit.scrollTrigger);
+      }
+
+      // A foto sai bem mais devagar que o texto: o trajeto vai até o fim da
+      // seção (não até a metade) e o ease "power2.in" a mantém quase inteira
+      // na primeira parte da rolagem — a clínica pediu que ela não sumisse
+      // tão rápido.
+      if (photoWrap) {
+        const photoExit = gsap.to(photoWrap, {
+          opacity: 0,
+          y: -30,
+          scale: 0.94,
+          ease: 'power2.in',
+          scrollTrigger: { trigger: root, start: 'top top', end: 'bottom top', scrub: 0.8 },
+        });
+        if (photoExit.scrollTrigger) scrollTriggers.push(photoExit.scrollTrigger);
       }
 
       // Profundidade com o cursor: foto, anéis e estrelinhas são camadas a
