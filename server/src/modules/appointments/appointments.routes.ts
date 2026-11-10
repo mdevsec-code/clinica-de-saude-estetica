@@ -84,11 +84,14 @@ const createSchema = z.object({
   notes: z.string().max(500).optional(),
   customer: z.object({
     name: z.string().min(2, 'Informe seu nome completo.'),
-    whatsapp: z
-      .string()
-      .min(10, 'Informe um WhatsApp válido com DDD.')
-      .regex(/^\+?\d{10,15}$/, 'Use apenas números, com DDD.'),
-    email: z.string().email().optional(),
+    // Aceita como a pessoa digitou ("(71) 9600-9884", "71 99600 9884"): só
+    // os dígitos importam. Antes, espaço ou traço davam erro ao agendar.
+    whatsapp: z.preprocess(
+      (v) => (typeof v === 'string' ? v.replace(/\D/g, '') : v),
+      z.string().regex(/^\d{10,15}$/, 'Informe um WhatsApp válido com DDD.'),
+    ),
+    // Campo de e-mail apagado chega como "" — é o mesmo que não informar.
+    email: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? undefined : v), z.string().trim().email('E-mail inválido.').optional()),
   }),
 });
 

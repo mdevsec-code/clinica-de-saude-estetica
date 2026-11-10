@@ -35,7 +35,7 @@ export async function computeAvailableSlots(tenantId: string, serviceIds: string
   const timezone = tenant.timezone;
   const slotGranularityMin = settings?.slotGranularityMin ?? 15;
   const minAdvanceMinutes = settings?.minAdvanceMinutes ?? 120;
-  const maxAdvanceDays = settings?.maxAdvanceDays ?? 60;
+  const maxAdvanceDays = settings?.maxAdvanceDays ?? 420;
 
   const dayStartUtc = fromZonedTime(`${dateStr}T00:00:00`, timezone);
   const dayEndUtc = fromZonedTime(`${dateStr}T23:59:59.999`, timezone);

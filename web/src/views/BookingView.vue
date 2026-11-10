@@ -74,6 +74,21 @@ const dateOptions = computed(() => {
   return options;
 });
 
+// Datas além das 3 semanas da grade: campo de data livre, até o limite que o
+// servidor libera (TenantSettings.maxAdvanceDays = 420 dias, ~14 meses).
+const MAX_ADVANCE_DAYS = 420;
+const minDateKey = toLocalDateKey(new Date());
+const maxDateKey = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + MAX_ADVANCE_DAYS);
+  return toLocalDateKey(d);
+})();
+
+function pickOtherDate(event: Event) {
+  const value = (event.target as HTMLInputElement).value;
+  if (value && value >= minDateKey && value <= maxDateKey) booking.selectDate(value);
+}
+
 // --- Etapa 3: horários ---
 const slots = ref<Slot[]>([]);
 const loadingSlots = ref(false);
@@ -317,6 +332,10 @@ function goBack() {
             <span class="date-chip__month">{{ option.month }}</span>
           </button>
         </div>
+        <label class="date-other">
+          Outra data
+          <input type="date" :min="minDateKey" :max="maxDateKey" @change="pickOtherDate" />
+        </label>
       </section>
 
       <section v-else-if="step === 'time'" class="booking-step" key="time">
@@ -525,6 +544,26 @@ function goBack() {
 .date-chip__month {
   font-size: 0.8rem;
   opacity: 0.75;
+}
+
+.date-other {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 240px;
+  margin-top: var(--space-5);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.date-other input {
+  font: inherit;
+  font-weight: 400;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
 
 .time-grid {

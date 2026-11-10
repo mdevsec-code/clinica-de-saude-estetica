@@ -122,7 +122,7 @@ export async function importGoogleBusyTimes(tenantId: string): Promise<number> {
     prisma.tenantSettings.findUnique({ where: { tenantId } }),
   ]);
   const windowStart = addDays(new Date(), -1);
-  const windowEnd = addDays(new Date(), (settings?.maxAdvanceDays ?? 60) + 1);
+  const windowEnd = addDays(new Date(), (settings?.maxAdvanceDays ?? 420) + 1);
 
   const events = await listGoogleEvents(windowStart, windowEnd);
   const blocks = events.filter(isBusyEvent).flatMap((event) => {

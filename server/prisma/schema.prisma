@@ -121,7 +121,7 @@ model TenantSettings {
   addressMapUrl      String?
   minAdvanceMinutes  Int      @default(120)
   slotGranularityMin Int      @default(15)
-  maxAdvanceDays     Int      @default(60)
+  maxAdvanceDays     Int      @default(420) // ~14 meses: agenda aberta até o fim do ano seguinte
   updatedAt          DateTime @updatedAt @db.Timestamptz(3)
 }
 
