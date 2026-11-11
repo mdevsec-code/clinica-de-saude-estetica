@@ -7,6 +7,7 @@ import { listMessageTemplates } from '../messages/messages.service';
 import {
   isWhatsappConnected,
   onIncomingWhatsappMessage,
+  onOutgoingWhatsappMessage,
   phoneKey,
   replyWhatsapp,
   sendWhatsappText,
@@ -14,8 +15,9 @@ import {
 } from './whatsapp-connection';
 
 // Fluxo automático do WhatsApp da clínica:
-//  1. A pessoa escreve para a clínica → Saudação (no máximo 1 a cada 14 dias
-//     por contato, a mesma regra da saudação do WhatsApp Business).
+//  1. A pessoa escreve para a clínica → Saudação, se a conversa estava
+//     parada há 20 minutos ou mais (nenhuma mensagem da pessoa, da Noely
+//     pelo celular nem automática). Conversa em andamento não recebe.
 //  2. Agenda (site ou painel) → Confirmação, pedindo "SIM".
 //  3. Responde "sim" → agendamento marcado como confirmado pela paciente +
 //     mensagem de agradecimento.
@@ -30,7 +32,10 @@ const logger = pino({ level: 'info' }).child({ module: 'whatsapp-automation' });
 // TenantSettings.addressMapUrl — o mesmo que ela já mandava às pacientes.
 const DEFAULT_LOCATION_URL = 'https://share.google/4RGBwnV5EyzVVzmcP';
 const PROFESSIONAL_NAME = 'Noely Cerqueira';
-const WELCOME_COOLDOWN_DAYS = 14;
+// Era 14 dias (a regra da saudação do WhatsApp Business); a clínica pediu
+// que quem volta a escrever receba o link de novo — 20 minutos de conversa
+// parada separam um papo em andamento de uma conversa nova.
+const WELCOME_SILENCE_MINUTES = 20;
 
 // Lembrete de 1 dia antes: nada de mensagem de madrugada — se as 24h
 // caírem fora desta janela (no horário da clínica), sai no começo dela.
@@ -116,15 +121,27 @@ async function tenantTimezone(tenantId: string) {
   return tenant?.timezone ?? 'America/Bahia';
 }
 
-// Quem recebeu qualquer mensagem automática conta como "já saudado": a
-// paciente que agendou e depois escreve com uma dúvida não recebe a
+// Qualquer mensagem automática conta como conversa ativa: a paciente que
+// acabou de receber a confirmação e responde com uma dúvida não recebe a
 // Saudação de boas-vindas no meio da conversa.
 async function markContactGreeted(tenantId: string, phone: string) {
   const key = phoneKey(phone);
+  const now = new Date();
   await prisma.whatsappContact.upsert({
     where: { tenantId_phoneKey: { tenantId, phoneKey: key } },
-    create: { tenantId, phoneKey: key, lastWelcomeAt: new Date() },
-    update: { lastWelcomeAt: new Date() },
+    create: { tenantId, phoneKey: key, lastWelcomeAt: now, lastActivityAt: now },
+    update: { lastWelcomeAt: now, lastActivityAt: now },
+  });
+}
+
+// Mensagem da pessoa ou da Noely pelo celular: a conversa está ativa.
+async function touchConversation(tenantId: string, phone: string) {
+  const key = phoneKey(phone);
+  const now = new Date();
+  await prisma.whatsappContact.upsert({
+    where: { tenantId_phoneKey: { tenantId, phoneKey: key } },
+    create: { tenantId, phoneKey: key, lastActivityAt: now },
+    update: { lastActivityAt: now },
   });
 }
 
@@ -238,6 +255,11 @@ async function sendPendingConfirmations(tenantId: string) {
 // em seguida (ou a mesma mensagem chega duas vezes, quando o servidor só
 // consegue decifrá-la na segunda tentativa) recebe uma Saudação só.
 const welcomesInFlight = new Set<string>();
+// Saudação que falhou de vez (WhatsApp fora do ar por mais de um minuto):
+// a mensagem da pessoa já marcou a conversa como ativa, então sem isto a
+// próxima dela também ficaria sem o link. Só em memória — basta para os
+// minutos seguintes.
+const failedWelcomes = new Set<string>();
 
 // Só o final do número no log: o bastante para achar a conversa no
 // celular da clínica, sem gravar o telefone inteiro da pessoa.
@@ -248,59 +270,79 @@ function maskPhone(digits: string) {
 async function handleIncoming(message: IncomingWhatsappMessage) {
   const { tenantId, phoneDigits, replyJid } = message;
   const key = phoneKey(phoneDigits);
-  const timezone = await tenantTimezone(tenantId);
 
-  // 3. "SIM" para uma confirmação pendente: o agendamento futuro mais
-  // próximo desse número que recebeu a confirmação e ainda não foi
-  // confirmado pela paciente.
-  if (YES_RE.test(normalize(message.text))) {
-    const pending = await prisma.appointment.findMany({
-      where: { tenantId, status: 'CONFIRMED', confirmationSentAt: { not: null }, clientConfirmedAt: null, startAt: { gt: new Date() } },
-      include: messageInclude,
-      orderBy: { startAt: 'asc' },
-    });
-    const appt = pending.find((a) => phoneKey(a.customer.whatsapp) === key);
-    if (appt) {
-      const visit = await visitOf(appt);
-      await prisma.appointment.updateMany({ where: { id: { in: visit.map((a) => a.id) } }, data: { clientConfirmedAt: new Date() } });
-      logger.info({ appointmentId: appt.id }, 'Paciente confirmou pelo WhatsApp');
-      const thanks = await enabledTemplate(tenantId, 'CONFIRMATION_THANKS');
-      if (thanks) await replyWhatsapp(tenantId, replyJid, renderTemplate(thanks, await buildVariables(tenantId, timezone, asVisit(visit))));
+  // Quanto tempo a conversa estava parada ANTES desta mensagem — lido
+  // primeiro, porque logo abaixo esta própria mensagem já marca a conversa
+  // como ativa.
+  const contact = await prisma.whatsappContact.findUnique({ where: { tenantId_phoneKey: { tenantId, phoneKey: key } } });
+  const lastAt = Math.max(contact?.lastActivityAt?.getTime() ?? 0, contact?.lastWelcomeAt?.getTime() ?? 0);
+  const silentMinutes = lastAt ? (Date.now() - lastAt) / 60_000 : Infinity;
+  // Reserva a Saudação sem nenhum await entre a decisão e o add: duas
+  // mensagens seguidas leem o mesmo "parada há 20 min", mas só a primeira
+  // fica com a Saudação.
+  const claimsWelcome = (silentMinutes >= WELCOME_SILENCE_MINUTES || failedWelcomes.has(key)) && !welcomesInFlight.has(key);
+  if (claimsWelcome) welcomesInFlight.add(key);
+
+  try {
+    await touchConversation(tenantId, phoneDigits);
+    const timezone = await tenantTimezone(tenantId);
+
+    // 3. "SIM" para uma confirmação pendente: o agendamento futuro mais
+    // próximo desse número que recebeu a confirmação e ainda não foi
+    // confirmado pela paciente.
+    if (YES_RE.test(normalize(message.text))) {
+      const pending = await prisma.appointment.findMany({
+        where: { tenantId, status: 'CONFIRMED', confirmationSentAt: { not: null }, clientConfirmedAt: null, startAt: { gt: new Date() } },
+        include: messageInclude,
+        orderBy: { startAt: 'asc' },
+      });
+      const appt = pending.find((a) => phoneKey(a.customer.whatsapp) === key);
+      if (appt) {
+        const visit = await visitOf(appt);
+        await prisma.appointment.updateMany({ where: { id: { in: visit.map((a) => a.id) } }, data: { clientConfirmedAt: new Date() } });
+        logger.info({ appointmentId: appt.id }, 'Paciente confirmou pelo WhatsApp');
+        const thanks = await enabledTemplate(tenantId, 'CONFIRMATION_THANKS');
+        if (thanks) {
+          await replyWhatsapp(tenantId, replyJid, renderTemplate(thanks, await buildVariables(tenantId, timezone, asVisit(visit))));
+          await markContactGreeted(tenantId, phoneDigits);
+        }
+        return;
+      }
+    }
+
+    // 1. Saudação: só quando a conversa estava parada.
+    if (!claimsWelcome) {
+      if (silentMinutes < WELCOME_SILENCE_MINUTES) {
+        logger.info(
+          { phone: maskPhone(phoneDigits), minutes: Math.floor(silentMinutes) },
+          'Saudação não enviada: conversa em andamento (menos de 20 min desde a última mensagem)',
+        );
+      }
       return;
     }
-  }
+    const template = await enabledTemplate(tenantId, 'WELCOME');
+    if (!template) {
+      logger.info({ phone: maskPhone(phoneDigits) }, 'Saudação desativada no painel — mensagem sem resposta automática');
+      return;
+    }
 
-  // 1. Saudação: primeira mensagem do contato, ou a primeira depois de 14
-  // dias sem nenhuma mensagem automática para ele.
-  const template = await enabledTemplate(tenantId, 'WELCOME');
-  if (!template) {
-    logger.info({ phone: maskPhone(phoneDigits) }, 'Saudação desativada no painel — mensagem sem resposta automática');
-    return;
-  }
-  if (welcomesInFlight.has(key)) return;
-  const contact = await prisma.whatsappContact.findUnique({ where: { tenantId_phoneKey: { tenantId, phoneKey: key } } });
-  if (contact && Date.now() - contact.lastWelcomeAt.getTime() < WELCOME_COOLDOWN_DAYS * 24 * HOUR) {
-    const days = Math.floor((Date.now() - contact.lastWelcomeAt.getTime()) / (24 * HOUR));
-    logger.info({ phone: maskPhone(phoneDigits), days }, 'Saudação não enviada: contato já recebeu mensagem automática há menos de 14 dias');
-    return;
-  }
+    // Nome: o cadastro da paciente, se ela já for paciente; senão o nome do
+    // perfil do WhatsApp.
+    const customers = await prisma.customer.findMany({ where: { tenantId }, select: { name: true, whatsapp: true } });
+    const known = customers.find((c) => phoneKey(c.whatsapp) === key);
+    const vars = await buildVariables(tenantId, timezone, undefined, known?.name ?? message.pushName);
 
-  // Nome: o cadastro da paciente, se ela já for paciente; senão o nome do
-  // perfil do WhatsApp.
-  const customers = await prisma.customer.findMany({ where: { tenantId }, select: { name: true, whatsapp: true } });
-  const known = customers.find((c) => phoneKey(c.whatsapp) === key);
-  const vars = await buildVariables(tenantId, timezone, undefined, known?.name ?? message.pushName);
-
-  // Marca como saudado só DEPOIS que a mensagem saiu: antes era ao
-  // contrário, e uma falha no envio (WhatsApp reconectando naquele
-  // instante) deixava o contato 14 dias sem receber a Saudação.
-  welcomesInFlight.add(key);
-  try {
-    await sendWelcomeWithRetry(tenantId, replyJid, renderTemplate(template, vars));
+    try {
+      await sendWelcomeWithRetry(tenantId, replyJid, renderTemplate(template, vars));
+    } catch (err) {
+      failedWelcomes.add(key);
+      throw err;
+    }
+    failedWelcomes.delete(key);
     await markContactGreeted(tenantId, phoneDigits);
     logger.info({ phone: maskPhone(phoneDigits) }, 'Saudação enviada');
   } finally {
-    welcomesInFlight.delete(key);
+    if (claimsWelcome) welcomesInFlight.delete(key);
   }
 }
 
@@ -323,6 +365,7 @@ async function sendWelcomeWithRetry(tenantId: string, jid: string, text: string)
 }
 
 onIncomingWhatsappMessage(handleIncoming);
+onOutgoingWhatsappMessage(touchConversation);
 
 // --- 4. Lembretes ------------------------------------------------------
 async function sendReminders(tenantId: string, timezone: string) {

@@ -540,17 +540,21 @@ model MessageTemplate {
   @@unique([tenantId, key])
 }
 
-// Quem já escreveu para o WhatsApp da clínica — qualquer número, paciente
-// cadastrada ou não. Só controla a Saudação automática: no máximo uma a cada
-// 14 dias por contato (ver whatsapp-automation.ts).
+// Quem já conversou com o WhatsApp da clínica — qualquer número, paciente
+// cadastrada ou não. Só controla a Saudação automática: vai quando a pessoa
+// escreve depois de 20 minutos de conversa parada (ver whatsapp-automation.ts).
 model WhatsappContact {
-  id            String   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  id             String    @id @default(cuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
   // DDD + 8 últimos dígitos (ver phoneKey): o mesmo celular pode chegar com
   // ou sem o 9º dígito e com ou sem o 55.
-  phoneKey      String
-  lastWelcomeAt DateTime @db.Timestamptz(3)
+  phoneKey       String
+  // Última mensagem automática enviada (Saudação, confirmação, lembrete).
+  lastWelcomeAt  DateTime? @db.Timestamptz(3)
+  // Última mensagem da conversa em qualquer sentido: da pessoa, da Noely
+  // pelo celular ou automática.
+  lastActivityAt DateTime? @db.Timestamptz(3)
 
   @@unique([tenantId, phoneKey])
 }

@@ -112,7 +112,7 @@ watch(
 const TEMPLATE_META: Record<MessageTemplateKey, { label: string; when: string }> = {
   WELCOME: {
     label: 'Saudação',
-    when: 'Resposta automática quando alguém escreve para a clínica — no máximo uma vez a cada 14 dias por contato.',
+    when: 'Resposta automática quando alguém escreve para a clínica depois de 20 minutos de conversa parada — não interrompe uma conversa em andamento.',
   },
   CONFIRMATION: {
     label: 'Confirmação',

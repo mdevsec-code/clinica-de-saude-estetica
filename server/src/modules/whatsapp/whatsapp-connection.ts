@@ -75,6 +75,25 @@ export function onIncomingWhatsappMessage(handler: (message: IncomingWhatsappMes
   incomingHandler = handler;
 }
 
+// Mensagem que a Noely mandou pelo celular (ou WhatsApp Web) numa conversa
+// — conta como conversa ativa, para a Saudação não cair no meio do papo.
+let outgoingHandler: ((tenantId: string, phoneDigits: string) => Promise<void>) | null = null;
+export function onOutgoingWhatsappMessage(handler: (tenantId: string, phoneDigits: string) => Promise<void>) {
+  outgoingHandler = handler;
+}
+
+// Conversas com endereço opaco (@lid) só trazem o número nas mensagens que
+// a pessoa manda; as que a Noely manda para ela vêm só com o @lid. Guarda o
+// par visto na última mensagem recebida para reconhecer a conversa depois.
+// shortcut: só em memória — depois de reiniciar, a mensagem da Noely para
+// um @lid ainda não visto não conta como atividade até a pessoa escrever.
+const LID_CACHE_LIMIT = 5000;
+const lidToPhone = new Map<string, string>();
+function rememberLid(lid: string, phoneDigits: string) {
+  lidToPhone.set(lid, phoneDigits);
+  if (lidToPhone.size > LID_CACHE_LIMIT) lidToPhone.delete(lidToPhone.keys().next().value!);
+}
+
 function sessionDir(tenantId: string) {
   // tenantId é um cuid gerado pelo banco — nunca input do usuário — mas o
   // nome da pasta é validado mesmo assim (segunda camada contra path
@@ -141,27 +160,41 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
   // enquanto a conexão estava caindo/voltando (o servidor reconecta várias
   // vezes por dia). Antes só 'notify' era tratado, e quem escrevia nesses
   // segundos ficava sem resposta. O limite de idade abaixo continua valendo
-  // para os dois — e mensagens enviadas pela própria clínica (inclusive as
-  // que o Baileys registra como 'append' ao enviar) saem no filtro fromMe.
+  // para os dois. Mensagens enviadas pela clínica (fromMe) nunca disparam
+  // resposta: só marcam a conversa como ativa (ver outgoingHandler).
   socket.ev.on('messages.upsert', ({ messages, type }) => {
     if ((type !== 'notify' && type !== 'append') || !incomingHandler) return;
     let tooOld = 0;
     for (const message of messages) {
       const jid = message.key.remoteJid ?? '';
-      if (message.key.fromMe || !jid) continue;
+      if (!jid) continue;
       if (jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue;
       const sentAt = Number(message.messageTimestamp ?? 0);
-      if (sentAt && Date.now() / 1000 - sentAt > MAX_INCOMING_AGE_SECONDS) {
-        tooOld++;
-        continue;
-      }
+      const isOld = Boolean(sentAt && Date.now() / 1000 - sentAt > MAX_INCOMING_AGE_SECONDS);
 
       // Conversa com endereço de telefone traz o número no próprio jid;
       // contas novas usam um identificador opaco (@lid) e o número vem à
       // parte (senderPn / remoteJidAlt, conforme a versão do protocolo).
       const key = message.key as typeof message.key & { senderPn?: string; remoteJidAlt?: string };
       const phoneJid = jid.endsWith('@s.whatsapp.net') ? jid : (key.senderPn ?? key.remoteJidAlt);
-      if (!phoneJid) {
+      const phoneDigits = phoneJid ? phoneJid.split('@')[0].split(':')[0] : lidToPhone.get(jid);
+      if (phoneJid && jid.endsWith('@lid')) rememberLid(jid, phoneJid.split('@')[0].split(':')[0]);
+
+      if (message.key.fromMe) {
+        // 'notify' = enviada de outro aparelho da clínica (o celular da
+        // Noely). As que este servidor envia chegam como 'append' e já são
+        // registradas por quem enviou (markContactGreeted).
+        if (type === 'notify' && !isOld && phoneDigits && outgoingHandler) {
+          outgoingHandler(tenantId, phoneDigits).catch((err) => logger.error({ err, tenantId }, 'Falha ao registrar mensagem enviada'));
+        }
+        continue;
+      }
+
+      if (isOld) {
+        tooOld++;
+        continue;
+      }
+      if (!phoneDigits) {
         // Sem o número não dá para achar a paciente (nem o "SIM" dela).
         logger.warn({ tenantId, jid }, 'Mensagem recebida sem número de telefone');
         continue;
@@ -170,7 +203,7 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
       const text = message.message?.conversation ?? message.message?.extendedTextMessage?.text ?? '';
       incomingHandler({
         tenantId,
-        phoneDigits: phoneJid.split('@')[0].split(':')[0],
+        phoneDigits,
         pushName: message.pushName ?? null,
         text,
         replyJid: jid,
