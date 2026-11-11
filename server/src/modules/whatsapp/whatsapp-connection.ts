@@ -137,14 +137,24 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
 
   socket.ev.on('creds.update', saveCreds);
 
+  // type 'append' também conta: é como o WhatsApp entrega o que chegou
+  // enquanto a conexão estava caindo/voltando (o servidor reconecta várias
+  // vezes por dia). Antes só 'notify' era tratado, e quem escrevia nesses
+  // segundos ficava sem resposta. O limite de idade abaixo continua valendo
+  // para os dois — e mensagens enviadas pela própria clínica (inclusive as
+  // que o Baileys registra como 'append' ao enviar) saem no filtro fromMe.
   socket.ev.on('messages.upsert', ({ messages, type }) => {
-    if (type !== 'notify' || !incomingHandler) return;
+    if ((type !== 'notify' && type !== 'append') || !incomingHandler) return;
+    let tooOld = 0;
     for (const message of messages) {
       const jid = message.key.remoteJid ?? '';
       if (message.key.fromMe || !jid) continue;
       if (jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue;
       const sentAt = Number(message.messageTimestamp ?? 0);
-      if (sentAt && Date.now() / 1000 - sentAt > MAX_INCOMING_AGE_SECONDS) continue;
+      if (sentAt && Date.now() / 1000 - sentAt > MAX_INCOMING_AGE_SECONDS) {
+        tooOld++;
+        continue;
+      }
 
       // Conversa com endereço de telefone traz o número no próprio jid;
       // contas novas usam um identificador opaco (@lid) e o número vem à
@@ -166,6 +176,7 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
         replyJid: jid,
       }).catch((err) => logger.error({ err, tenantId }, 'Falha ao tratar mensagem recebida'));
     }
+    if (tooOld) logger.warn({ tenantId, type, count: tooOld }, 'Mensagens recebidas antigas demais para resposta automática');
   });
 
   socket.ev.on('connection.update', async (update) => {

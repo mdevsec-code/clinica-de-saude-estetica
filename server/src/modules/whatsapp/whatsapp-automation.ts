@@ -234,6 +234,17 @@ async function sendPendingConfirmations(tenantId: string) {
 }
 
 // --- 1 e 3. Mensagens recebidas ------------------------------------------
+// Contatos com Saudação sendo enviada agora: quem manda "Oi" e "tudo bem?"
+// em seguida (ou a mesma mensagem chega duas vezes, quando o servidor só
+// consegue decifrá-la na segunda tentativa) recebe uma Saudação só.
+const welcomesInFlight = new Set<string>();
+
+// Só o final do número no log: o bastante para achar a conversa no
+// celular da clínica, sem gravar o telefone inteiro da pessoa.
+function maskPhone(digits: string) {
+  return `…${digits.slice(-4)}`;
+}
+
 async function handleIncoming(message: IncomingWhatsappMessage) {
   const { tenantId, phoneDigits, replyJid } = message;
   const key = phoneKey(phoneDigits);
@@ -262,9 +273,17 @@ async function handleIncoming(message: IncomingWhatsappMessage) {
   // 1. Saudação: primeira mensagem do contato, ou a primeira depois de 14
   // dias sem nenhuma mensagem automática para ele.
   const template = await enabledTemplate(tenantId, 'WELCOME');
-  if (!template) return;
+  if (!template) {
+    logger.info({ phone: maskPhone(phoneDigits) }, 'Saudação desativada no painel — mensagem sem resposta automática');
+    return;
+  }
+  if (welcomesInFlight.has(key)) return;
   const contact = await prisma.whatsappContact.findUnique({ where: { tenantId_phoneKey: { tenantId, phoneKey: key } } });
-  if (contact && Date.now() - contact.lastWelcomeAt.getTime() < WELCOME_COOLDOWN_DAYS * 24 * HOUR) return;
+  if (contact && Date.now() - contact.lastWelcomeAt.getTime() < WELCOME_COOLDOWN_DAYS * 24 * HOUR) {
+    const days = Math.floor((Date.now() - contact.lastWelcomeAt.getTime()) / (24 * HOUR));
+    logger.info({ phone: maskPhone(phoneDigits), days }, 'Saudação não enviada: contato já recebeu mensagem automática há menos de 14 dias');
+    return;
+  }
 
   // Nome: o cadastro da paciente, se ela já for paciente; senão o nome do
   // perfil do WhatsApp.
@@ -272,8 +291,35 @@ async function handleIncoming(message: IncomingWhatsappMessage) {
   const known = customers.find((c) => phoneKey(c.whatsapp) === key);
   const vars = await buildVariables(tenantId, timezone, undefined, known?.name ?? message.pushName);
 
-  await markContactGreeted(tenantId, phoneDigits);
-  await replyWhatsapp(tenantId, replyJid, renderTemplate(template, vars));
+  // Marca como saudado só DEPOIS que a mensagem saiu: antes era ao
+  // contrário, e uma falha no envio (WhatsApp reconectando naquele
+  // instante) deixava o contato 14 dias sem receber a Saudação.
+  welcomesInFlight.add(key);
+  try {
+    await sendWelcomeWithRetry(tenantId, replyJid, renderTemplate(template, vars));
+    await markContactGreeted(tenantId, phoneDigits);
+    logger.info({ phone: maskPhone(phoneDigits) }, 'Saudação enviada');
+  } finally {
+    welcomesInFlight.delete(key);
+  }
+}
+
+// A conexão cai e volta algumas vezes por dia, em segundos. Se a Saudação
+// pegar esse instante, espera a reconexão e tenta de novo — sem isso, a
+// pessoa só receberia a resposta se escrevesse outra vez.
+const WELCOME_RETRY_DELAY_MS = 30_000;
+const WELCOME_MAX_ATTEMPTS = 3;
+
+async function sendWelcomeWithRetry(tenantId: string, jid: string, text: string) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await replyWhatsapp(tenantId, jid, text);
+    } catch (err) {
+      if (attempt >= WELCOME_MAX_ATTEMPTS || isWhatsappConnected(tenantId)) throw err;
+      logger.warn({ attempt }, 'Saudação não saiu (WhatsApp reconectando) — tentando de novo em 30s');
+      await new Promise((resolve) => setTimeout(resolve, WELCOME_RETRY_DELAY_MS));
+    }
+  }
 }
 
 onIncomingWhatsappMessage(handleIncoming);
