@@ -39,7 +39,7 @@ export function applyStaggerReveal(containerSelector: string, itemSelector: stri
         stagger: { each: 0.07, from: 'start' },
         ease: 'premium-out',
         // Devolve o transform ao CSS ao terminar: o :hover dos cards (e o
-        // tilt do useTiltHover) não brigam com um transform inline residual.
+        // efeitos de hover) não brigam com um transform inline residual.
         clearProps: 'transform',
       }),
   });

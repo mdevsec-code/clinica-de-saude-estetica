@@ -119,40 +119,6 @@ export function useHeroIntro(rootSelector: string) {
         if (photoExit.scrollTrigger) scrollTriggers.push(photoExit.scrollTrigger);
       }
 
-      // Profundidade com o cursor: foto, anéis e estrelinhas são camadas a
-      // distâncias diferentes — quanto mais "perto", mais se deslocam. As
-      // camadas animadas aqui (anéis/estrelas) já têm @keyframes de giro em
-      // `transform`, então o deslocamento vai nas propriedades independentes
-      // `translate` via CSS custom property, para não brigar com o giro.
-      if (photoWrap && supportsFinePointer()) {
-        // Profundidade negativa = camada "atrás" (anda ao contrário do
-        // cursor): o fundo rosé recua enquanto o fio dourado e o cartão
-        // avançam, abrindo o espaço entre as camadas.
-        const layer = (selector: string, depth: number) =>
-          Array.from(photoWrap.querySelectorAll<HTMLElement>(selector)).map((el, i) => ({ el, depth: depth + i * 16 }));
-        const layers = [
-          { el: photoWrap, depth: 10 },
-          ...layer('.hero__arch-bg', -14),
-          ...layer('.hero__arch-line', 22),
-          ...layer('.hero__badge', 30),
-          ...layer('.hero__sparkle', 40),
-        ].map(({ el, depth }) => ({
-          depth,
-          x: gsap.quickTo(el, '--px', { duration: 1.2, ease: 'power3.out' }),
-          y: gsap.quickTo(el, '--py', { duration: 1.2, ease: 'power3.out' }),
-        }));
-
-        const onMove = (event: PointerEvent) => {
-          const nx = event.clientX / window.innerWidth - 0.5;
-          const ny = event.clientY / window.innerHeight - 0.5;
-          layers.forEach((layer) => {
-            layer.x(nx * layer.depth);
-            layer.y(ny * layer.depth);
-          });
-        };
-        window.addEventListener('pointermove', onMove, { passive: true });
-        removePointer = () => window.removeEventListener('pointermove', onMove);
-      }
     });
   });
 

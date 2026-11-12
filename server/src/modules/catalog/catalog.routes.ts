@@ -22,10 +22,11 @@ catalogRouter.get(
 );
 
 // --- Administração: cadastro de categorias/serviços (item pendente da Fase 1
-// — antes só era possível popular isso direto no banco). Só ADMIN gerencia
-// catálogo/preços; RECEPTION cuida do dia a dia de agendamentos. ---
+// — antes só era possível popular isso direto no banco). A recepção também
+// gerencia: a página Serviços aparece para ela no painel, e com só ADMIN
+// aqui ela abria quebrada (pedido da clínica, nov/2026). ---
 const adminRouter = Router();
-adminRouter.use(requireAuth, requireRole('ADMIN'));
+adminRouter.use(requireAuth, requireRole('ADMIN', 'RECEPTION'));
 
 // Caminho do próprio site ("/services/x.jpg") ou endereço https://, sem
 // espaço, aspas, parênteses ou sinais de tag. O valor vai parar dentro de

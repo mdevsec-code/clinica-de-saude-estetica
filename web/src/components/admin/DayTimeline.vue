@@ -51,9 +51,12 @@ const cancelled = computed(() => props.appointments.filter((a) => a.status === '
 // Janela: o expediente do dia, esticada para caber atendimentos/bloqueios
 // fora dele (ex.: paciente que ficou às 08:00 de sábado). Dia fechado sem
 // nada marcado mostra 08:00–18:00 só para permitir um encaixe.
+// Encaixe fora da agenda oficial: a janela começa 1h antes de abrir e vai
+// até 3h depois de fechar (no máximo 22:00) — essas linhas aparecem como
+// "Fora do expediente · toque para encaixar".
 const range = computed(() => {
-  let start = isOpen.value ? toMin(hours.value!.opensAt) : 8 * 60;
-  let end = isOpen.value ? toMin(hours.value!.closesAt) : 18 * 60;
+  let start = (isOpen.value ? toMin(hours.value!.opensAt) : 8 * 60) - 60;
+  let end = Math.min((isOpen.value ? toMin(hours.value!.closesAt) : 18 * 60) + 180, 22 * 60);
   for (const a of active.value) {
     start = Math.min(start, minOfDay(a.startAt));
     end = Math.max(end, minOfDay(a.endAt));

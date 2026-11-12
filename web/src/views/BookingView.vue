@@ -13,7 +13,6 @@ import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import BookingSummaryBar from '@/components/BookingSummaryBar.vue';
 import { applyStaggerReveal } from '@/composables/useStaggerReveal';
-import { applyMagneticButtons } from '@/composables/useMagneticButton';
 import { gsap } from '@/lib/motion';
 import { refreshScroll, scrollToElement } from '@/composables/useSmoothScroll';
 
@@ -206,7 +205,6 @@ watch(
 // ponto alto do fluxo inteiro.
 watch(step, async (value) => {
   await nextTick();
-  applyMagneticButtons('.booking-page .button--primary, .booking-page .button--ghost');
   refreshScroll();
   // A etapa nova costuma ser bem mais curta que a lista de serviços: sem
   // isto, quem escolhia um serviço lá embaixo caía direto no rodapé.

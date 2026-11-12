@@ -275,7 +275,11 @@ const showNewAppointment = ref(false);
 const showBlockTime = ref(false);
 const prefill = ref<{ date?: string; time?: string; end?: string }>({});
 
-function openNewAppointment(date?: string, time?: string) {
+// fitIn: botão "Encaixe" — o mesmo formulário, aberto já pedindo um horário
+// livre (qualquer hora, até fora do expediente).
+const fitIn = ref(false);
+function openNewAppointment(date?: string, time?: string, asFitIn = false) {
+  fitIn.value = asFitIn;
   prefill.value = { date, time };
   showNewAppointment.value = true;
 }
@@ -309,6 +313,7 @@ function onAppointmentCreated() {
       </div>
       <div class="admin-agenda__actions">
         <button type="button" class="button button--ghost" @click="openBlockTime(focusedDateKey)">Bloquear horário</button>
+        <button type="button" class="button button--ghost" @click="openNewAppointment(focusedDateKey, undefined, true)">Encaixe</button>
         <button type="button" class="button button--primary" @click="openNewAppointment(focusedDateKey)">+ Novo agendamento</button>
       </div>
     </div>
@@ -429,6 +434,7 @@ function onAppointmentCreated() {
       v-if="showNewAppointment"
       :initial-date="prefill.date"
       :initial-time="prefill.time"
+      :fit-in="fitIn"
       @close="showNewAppointment = false"
       @created="onAppointmentCreated"
     />

@@ -1,27 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, watch } from 'vue';
 import { useBookingStore } from '@/stores/booking';
-import { applyMagneticButtons } from '@/composables/useMagneticButton';
 
 const booking = useBookingStore();
 
 defineProps<{ ctaLabel: string; ctaDisabled?: boolean }>();
 defineEmits<{ continue: [] }>();
 
-// O botão só existe no DOM quando há serviço escolhido
-// (v-if no template) — chamar isso de um onMounted simples correria o risco
-// de rodar antes desse v-if liberar o botão pela primeira vez. immediate:true
-// cobre o caso comum de o serviço já estar selecionado quando este
-// componente é criado (ex.: cliente voltando de /servicos).
-watch(
-  () => booking.visit,
-  async (visit) => {
-    if (!visit) return;
-    await nextTick();
-    applyMagneticButtons('.summary-bar__cta', 0.25);
-  },
-  { immediate: true },
-);
 
 function formatPrice(price: number | null | undefined) {
   if (price == null) return 'Consulte';

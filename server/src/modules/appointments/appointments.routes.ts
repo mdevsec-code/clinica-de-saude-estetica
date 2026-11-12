@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
 import { AppError } from '../../utils/errors';
+import { PAYMENT_METHODS, type PaymentMethod } from '../finance/payment-methods';
 import { bookingRateLimiter } from '../../middleware/rate-limit';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
 import {
@@ -126,17 +127,17 @@ appointmentsRouter.post(
   }),
 );
 
-const PAYMENT_METHODS = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'] as const;
 const checkoutSchema = z.object({
   items: z
     .array(z.object({ id: z.string().min(1), chargedCents: z.number().int().min(0).max(10_000_000) }))
     .min(1)
     .max(20),
-  // Um método ("PIX") ou dois combinados ("PIX+CREDITO").
-  paymentMethod: z
-    .string()
-    .refine((v) => v.split('+').length <= 2 && v.split('+').every((m) => (PAYMENT_METHODS as readonly string[]).includes(m)), 'Forma de pagamento inválida.'),
-  paymentNote: z.string().max(300).optional(),
+  // Um método, ou dois combinados com o valor de cada um.
+  payments: z
+    .array(z.object({ method: z.enum(PAYMENT_METHODS as [PaymentMethod, ...PaymentMethod[]]), amountCents: z.number().int().min(0) }))
+    .min(1)
+    .max(2)
+    .refine((p) => p.length < 2 || p[0].method !== p[1].method, 'Escolha dois métodos diferentes.'),
 });
 
 // Comanda: fecha a visita (um ou mais serviços) com valor e pagamento.

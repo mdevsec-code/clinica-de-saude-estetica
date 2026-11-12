@@ -2,7 +2,6 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { Flip, ScrollTrigger, prefersReducedMotion } from '@/lib/motion';
-import { applyMagneticButtons } from '@/composables/useMagneticButton';
 
 const isMenuOpen = ref(false);
 const isScrolled = ref(false);
@@ -66,7 +65,6 @@ onMounted(() => {
   // (ao contrário de nextTick/rAF, que só esperam o Vue, não o router).
   syncIndicator();
   router.isReady().then(syncIndicator);
-  applyMagneticButtons('.header__cta', 0.25);
 });
 
 onUnmounted(() => {

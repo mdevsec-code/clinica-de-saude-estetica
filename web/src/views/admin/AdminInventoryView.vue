@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref } from 'vue';
+import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
@@ -13,8 +13,8 @@ const items = ref<InventoryItem[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
-async function load() {
-  loading.value = true;
+async function load(silent = false) {
+  if (silent !== true) loading.value = true;
   error.value = null;
   try {
     const { items: data } = await fetchInventory();
@@ -30,7 +30,20 @@ async function load() {
   }
 }
 
-onMounted(load);
+onMounted(() => load());
+
+// Duas pessoas mexendo no estoque (celular de uma, tablet da outra): cada
+// tela recarrega ao voltar para ela e a cada 30s — antes cada login ficava
+// com os números de quando abriu a página.
+function refreshIfVisible() {
+  if (document.visibilityState === 'visible' && !pendingId.value) load(true);
+}
+const refreshTimer = setInterval(refreshIfVisible, 30_000);
+document.addEventListener('visibilitychange', refreshIfVisible);
+onUnmounted(() => {
+  clearInterval(refreshTimer);
+  document.removeEventListener('visibilitychange', refreshIfVisible);
+});
 
 function formatCurrency(cents: number | null) {
   if (cents == null) return '—';

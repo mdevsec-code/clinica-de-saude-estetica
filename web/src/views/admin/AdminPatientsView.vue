@@ -337,5 +337,17 @@ async function onCreate() {
   .admin-patients__stats {
     display: none;
   }
+
+  /* Celular: um campo por linha e o botão embaixo, largura toda — antes os
+     campos "pequenos" ficavam com 150px soltos e o Cadastrar caía por cima
+     do Nascimento. */
+  .admin-form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-field--small {
+    flex: 1 1 auto;
+  }
 }
 </style>

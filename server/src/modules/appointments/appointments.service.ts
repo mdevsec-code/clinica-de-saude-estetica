@@ -8,6 +8,7 @@ import { computeAvailableSlots } from '../availability/availability.service';
 import { createProcedureRecordForAppointment } from '../patients/procedures.service';
 import { sendCancellationWhatsapp } from '../patients/notifications.service';
 import { syncAppointmentToGoogle } from '../google-calendar/google-calendar.service';
+import { feeCents, PAYMENT_METHOD_LABELS, type PaymentMethod } from '../finance/payment-methods';
 
 interface CreateVisitInput {
   tenantId: string;
@@ -195,6 +196,7 @@ export async function listAppointments({ tenantId, from, to }: ListAppointmentsI
     chargedCents: appt.chargedCents,
     paymentMethod: appt.paymentMethod,
     paymentNote: appt.paymentNote,
+    feeCents: appt.feeCents,
   }));
 }
 
@@ -316,13 +318,14 @@ export async function deleteBlockedTime(tenantId: string, id: string) {
 
 interface CheckoutInput {
   items: { id: string; chargedCents: number }[];
-  paymentMethod: string;
-  paymentNote?: string;
+  // Um ou dois métodos; a soma dos valores tem de bater com o total cobrado.
+  payments: { method: PaymentMethod; amountCents: number }[];
 }
 
-// Fechamento da comanda: grava quanto foi cobrado em cada serviço e como foi
-// pago, e conclui os atendimentos (o que também gera ficha/retornos — ver
-// updateAppointmentStatus). Cancelados não entram.
+// Fechamento da comanda: grava quanto foi cobrado em cada serviço, como foi
+// pago e a taxa da maquininha (calculada aqui, com as taxas configuradas — o
+// navegador só mostra a prévia), e conclui os atendimentos (o que também
+// gera ficha/retornos — ver updateAppointmentStatus). Cancelados não entram.
 export async function checkoutAppointments(tenantId: string, input: CheckoutInput) {
   const ids = input.items.map((i) => i.id);
   const found = await prisma.appointment.findMany({ where: { tenantId, id: { in: ids } }, select: { id: true, status: true } });
@@ -331,16 +334,42 @@ export async function checkoutAppointments(tenantId: string, input: CheckoutInpu
     throw new ConflictError('Um dos serviços da comanda está cancelado. Recarregue a agenda.');
   }
 
+  const totalCents = input.items.reduce((sum, i) => sum + i.chargedCents, 0);
+  const paidCents = input.payments.reduce((sum, p) => sum + p.amountCents, 0);
+  if (paidCents !== totalCents) {
+    throw new AppError('A soma dos pagamentos não bate com o total da comanda.', 422, 'PAYMENT_MISMATCH');
+  }
+
+  const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
+  const fees = settings ?? { cardFeeDebitBps: 0, cardFeeCreditBps: 0, cardFeeInstallmentBps: 0 };
+  const totalFeeCents = input.payments.reduce((sum, p) => sum + feeCents(p.amountCents, p.method, fees), 0);
+  // A taxa é dividida entre os serviços na proporção do valor de cada um; o
+  // último fica com o resto do arredondamento, para a soma bater exata.
+  let feeLeft = totalFeeCents;
+  const itemFees = input.items.map((item, index) => {
+    const share = index === input.items.length - 1 ? feeLeft : totalCents ? Math.round((totalFeeCents * item.chargedCents) / totalCents) : 0;
+    feeLeft -= share;
+    return share;
+  });
+
+  const paymentMethod = input.payments.map((p) => p.method).join('+');
+  const paymentNote =
+    input.payments.length > 1
+      ? input.payments
+          .map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${(p.amountCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`)
+          .join(' + ')
+      : null;
+
   await prisma.$transaction(
-    input.items.map((item) =>
+    input.items.map((item, index) =>
       prisma.appointment.update({
         where: { id: item.id },
-        data: { chargedCents: item.chargedCents, paymentMethod: input.paymentMethod, paymentNote: input.paymentNote ?? null },
+        data: { chargedCents: item.chargedCents, paymentMethod, paymentNote, feeCents: itemFees[index] },
       }),
     ),
   );
   for (const appt of found) {
     if (appt.status !== 'COMPLETED') await updateAppointmentStatus(tenantId, appt.id, 'COMPLETED');
   }
-  return { ids };
+  return { ids, feeCents: totalFeeCents };
 }

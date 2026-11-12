@@ -232,7 +232,7 @@ export async function getDre({ tenantId, from, to }: DreInput) {
   const [completed, expensesByCategoryRaw] = await Promise.all([
     prisma.appointment.findMany({
       where: { tenantId, status: 'COMPLETED', startAt: { gte: periodStart, lte: periodEnd } },
-      select: { chargedCents: true, service: { select: { priceCents: true } } },
+      select: { chargedCents: true, feeCents: true, service: { select: { priceCents: true } } },
     }),
     prisma.expense.groupBy({
       by: ['category'],
@@ -250,6 +250,9 @@ export async function getDre({ tenantId, from, to }: DreInput) {
     }))
     .sort((a, b) => b.totalCents - a.totalCents);
   const totalExpensesCents = expensesByCategory.reduce((sum, g) => sum + g.totalCents, 0);
+  // Taxa da maquininha gravada em cada comanda (ver checkoutAppointments).
+  const cardFeesCents = completed.reduce((sum, a) => sum + (a.feeCents ?? 0), 0);
+  const netCents = revenueCents - cardFeesCents - totalExpensesCents;
 
   return {
     periodFrom: from,
@@ -257,8 +260,9 @@ export async function getDre({ tenantId, from, to }: DreInput) {
     revenueCents,
     expensesByCategory,
     totalExpensesCents,
-    netResultCents: revenueCents - totalExpensesCents,
-    marginPct: revenueCents > 0 ? Math.round(((revenueCents - totalExpensesCents) / revenueCents) * 100) : null,
+    cardFeesCents,
+    netResultCents: netCents,
+    marginPct: revenueCents > 0 ? Math.round((netCents / revenueCents) * 100) : null,
   };
 }
 

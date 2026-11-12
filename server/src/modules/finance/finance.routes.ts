@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
+import { prisma } from '../../lib/prisma';
 import {
   createExpense,
   deleteExpense,
@@ -21,6 +22,31 @@ import {
 
 export const financeRouter = Router();
 financeRouter.use(requireAuth, requireRole('ADMIN', 'RECEPTION'));
+
+// Taxas da maquininha, em centésimos de % (199 = 1,99%).
+const cardFeesSchema = z.object({
+  cardFeeDebitBps: z.number().int().min(0).max(2000),
+  cardFeeCreditBps: z.number().int().min(0).max(2000),
+  cardFeeInstallmentBps: z.number().int().min(0).max(3000),
+});
+const cardFeesSelect = { cardFeeDebitBps: true, cardFeeCreditBps: true, cardFeeInstallmentBps: true } as const;
+
+financeRouter.get(
+  '/card-fees',
+  asyncHandler(async (req, res) => {
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.tenant.id }, select: cardFeesSelect });
+    res.json({ cardFees: settings ?? { cardFeeDebitBps: 0, cardFeeCreditBps: 0, cardFeeInstallmentBps: 0 } });
+  }),
+);
+
+financeRouter.put(
+  '/card-fees',
+  asyncHandler(async (req, res) => {
+    const data = cardFeesSchema.parse(req.body);
+    const cardFees = await prisma.tenantSettings.update({ where: { tenantId: req.tenant.id }, data, select: cardFeesSelect });
+    res.json({ cardFees });
+  }),
+);
 
 const EXPENSE_CATEGORIES = ['PRODUTOS', 'EQUIPAMENTOS', 'ALUGUEL', 'MARKETING', 'SALARIOS', 'OUTROS'] as const;
 const EXPENSE_STATUSES = ['PENDING', 'PAID'] as const;

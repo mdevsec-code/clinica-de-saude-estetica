@@ -210,7 +210,7 @@ button, a.button, .tap-target {
    proporção (altura generosa, pílula inteira, peso firme) e na resposta ao
    toque — o hover troca o tom do preenchimento e o clique "afunda" um
    pouco (scale), em vez de levitar com sombra. O magnetismo (JS, ver
-   useMagneticButton) continua independente disto. */
+   botões) continua independente disto. */
 .button {
   position: relative;
   display: inline-flex;
@@ -618,58 +618,6 @@ button, a.button, .tap-target {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-}
-
-/* Brilho que segue o mouse nos cartões do painel (useAdminMotion.ts): só em
-   cartões de fundo liso (.spot-ok, decidido pelo JS), para não apagar os
-   degradês dos cartões de destaque. */
-.spot-ok {
-  background-image: radial-gradient(460px circle at var(--sx, -999px) var(--sy, -999px), rgba(200, 164, 101, 0.12), transparent 60%);
-  transition: box-shadow var(--duration-slow) var(--ease-premium), border-color var(--duration-slow) var(--ease-premium);
-}
-
-.spot-ok.spot-on {
-  box-shadow: 0 0 0 1px rgba(200, 164, 101, 0.28), 0 22px 50px -26px rgba(111, 61, 67, 0.45);
-}
-
-/* Cursor próprio do site público (useCustomCursor.ts). */
-html.has-custom-cursor,
-html.has-custom-cursor body,
-html.has-custom-cursor a,
-html.has-custom-cursor button,
-html.has-custom-cursor [role='button'],
-html.has-custom-cursor label,
-html.has-custom-cursor summary {
-  cursor: none;
-}
-
-.cursor-dot,
-.cursor-ring {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9999;
-  pointer-events: none;
-  border-radius: 50%;
-  will-change: transform;
-}
-
-.cursor-dot {
-  width: 7px;
-  height: 7px;
-  background: var(--color-rose-900);
-}
-
-.cursor-ring {
-  width: 38px;
-  height: 38px;
-  border: 1.5px solid rgba(111, 61, 67, 0.45);
-  transition: background-color var(--duration-base) var(--ease-premium), border-color var(--duration-base) var(--ease-premium);
-}
-
-.cursor-ring--active {
-  background: rgba(220, 171, 168, 0.22);
-  border-color: rgba(200, 164, 101, 0.75);
 }
 
 @media (prefers-reduced-motion: reduce) {

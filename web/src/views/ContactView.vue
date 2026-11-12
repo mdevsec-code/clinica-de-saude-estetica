@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
 import { instagramLink, whatsappLink } from '@/services/settings.service';
 import { applyStaggerReveal } from '@/composables/useStaggerReveal';
-import { applySpotlightHover } from '@/composables/useSpotlightHover';
 import { applyIconDraw } from '@/composables/useDrawIcon';
 import { refreshScroll } from '@/composables/useSmoothScroll';
 import { nowInClinicTimezone } from '@/utils/calendar';
@@ -28,7 +27,6 @@ watch(
     if (loading) return;
     await nextTick();
     applyStaggerReveal('.contact-grid', '.contact-card');
-    applySpotlightHover('.contact-grid', '.contact-card');
     // Ícones de TRAÇO (Instagram, Horário) eram os únicos ícones de card do
     // site que ainda apareciam "prontos" em vez de se desenharem sozinhos ao
     // entrar na tela — toda outra vitrine de ícone de traço (especialidades,

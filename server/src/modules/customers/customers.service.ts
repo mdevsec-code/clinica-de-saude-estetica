@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { phoneKey } from '../whatsapp/whatsapp-connection';
 
 type TxClient = PrismaClient | Prisma.TransactionClient;
 
@@ -17,9 +18,15 @@ export async function findOrCreateCustomer(
   tenantId: string,
   data: { name: string; whatsapp: string; email?: string },
 ) {
-  const existing = await tx.customer.findFirst({
-    where: { tenantId, whatsapp: data.whatsapp },
+  // Mesmo celular escrito de outro jeito (com/sem 55, com/sem o 9º dígito)
+  // é a mesma paciente: compara pela chave DDD + 8 últimos dígitos — antes
+  // "71 99999-0000" e "5571999990000" viravam dois cadastros.
+  const key = phoneKey(data.whatsapp);
+  const candidates = await tx.customer.findMany({
+    where: { tenantId, whatsapp: { endsWith: key.slice(-8) } },
+    orderBy: { createdAt: 'asc' },
   });
+  const existing = candidates.find((c) => phoneKey(c.whatsapp) === key) ?? null;
 
   if (existing) {
     return { customer: existing, created: false };

@@ -19,6 +19,7 @@ import AdminSelect, { type AdminSelectOption } from '@/components/admin/AdminSel
 import BarChart from '@/components/admin/BarChart.vue';
 import AdminBankReconciliation from '@/components/admin/AdminBankReconciliation.vue';
 import { toLocalDateKey } from '@/utils/calendar';
+import { fetchCardFees, saveCardFees } from '@/services/admin-appointments.service';
 
 const router = useRouter();
 
@@ -250,6 +251,41 @@ const dreTo = ref(endOfMonthKey(now));
 const dre = ref<DreReport | null>(null);
 const dreLoading = ref(false);
 const dreError = ref<string | null>(null);
+
+// --- Taxas da maquininha (em %, guardadas em centésimos de %) ---
+const feeForm = reactive({ debit: '', credit: '', installment: '' });
+const feeSaving = ref(false);
+const feeMessage = ref<string | null>(null);
+const toPct = (bps: number) => (bps / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const toBps = (pct: string) => Math.round(Number(pct.replace(',', '.').replace(/[^\d.]/g, '') || 0) * 100);
+
+onMounted(async () => {
+  try {
+    const { cardFees } = await fetchCardFees();
+    feeForm.debit = toPct(cardFees.cardFeeDebitBps);
+    feeForm.credit = toPct(cardFees.cardFeeCreditBps);
+    feeForm.installment = toPct(cardFees.cardFeeInstallmentBps);
+  } catch {
+    // Sem as taxas, o formulário só começa vazio.
+  }
+});
+
+async function onSaveFees() {
+  feeSaving.value = true;
+  feeMessage.value = null;
+  try {
+    await saveCardFees({
+      cardFeeDebitBps: toBps(feeForm.debit),
+      cardFeeCreditBps: toBps(feeForm.credit),
+      cardFeeInstallmentBps: toBps(feeForm.installment),
+    });
+    feeMessage.value = 'Taxas salvas. Valem para as próximas comandas.';
+  } catch (err) {
+    feeMessage.value = err instanceof ApiError ? err.message : 'Não foi possível salvar as taxas.';
+  } finally {
+    feeSaving.value = false;
+  }
+}
 
 async function loadDre() {
   dreLoading.value = true;
@@ -519,6 +555,11 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
           <p v-if="!dre.expensesByCategory.length" class="admin-finance__dre-empty">Nenhum gasto pago neste período.</p>
         </div>
 
+        <div v-if="dre.cardFeesCents" class="admin-finance__dre-line">
+          <span>(–) Taxas de cartão</span>
+          <strong>{{ formatCurrency(dre.cardFeesCents) }}</strong>
+        </div>
+
         <div class="admin-finance__dre-line">
           <span>(–) Despesas totais</span>
           <strong>{{ formatCurrency(dre.totalExpensesCents) }}</strong>
@@ -532,6 +573,29 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
           </strong>
         </div>
       </div>
+
+      <form class="admin-finance__fees" @submit.prevent="onSaveFees">
+        <h3>Taxas da maquininha</h3>
+        <p class="admin-finance__dre-hint">
+          Percentual que a maquininha desconta em cada venda. A comanda mostra quanto a clínica recebe de fato, e o resultado acima já desconta essas taxas.
+        </p>
+        <div class="admin-form-row">
+          <label class="admin-field admin-finance__fee-field">
+            Débito (%)
+            <input v-model="feeForm.debit" type="text" inputmode="decimal" placeholder="0,00" />
+          </label>
+          <label class="admin-field admin-finance__fee-field">
+            Crédito à vista (%)
+            <input v-model="feeForm.credit" type="text" inputmode="decimal" placeholder="0,00" />
+          </label>
+          <label class="admin-field admin-finance__fee-field">
+            Crédito parcelado (%)
+            <input v-model="feeForm.installment" type="text" inputmode="decimal" placeholder="0,00" />
+          </label>
+          <button type="submit" class="button button--primary" :disabled="feeSaving">{{ feeSaving ? 'Salvando…' : 'Salvar taxas' }}</button>
+        </div>
+        <p v-if="feeMessage" class="admin-finance__dre-hint">{{ feeMessage }}</p>
+      </form>
     </div>
 
     <!-- ================= CONCILIAÇÃO BANCÁRIA ================= -->
@@ -540,6 +604,23 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
 </template>
 
 <style scoped>
+.admin-finance__fees {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.admin-finance__fees h3 {
+  font-size: 1.05rem;
+}
+
+.admin-finance__fee-field {
+  flex: 1 1 140px;
+}
+
 .admin-finance__header {
   display: flex;
   flex-wrap: wrap;

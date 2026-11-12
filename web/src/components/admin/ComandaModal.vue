@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AdminModal from './AdminModal.vue';
 import AdminSelect, { type AdminSelectGroup, type AdminSelectOption } from './AdminSelect.vue';
-import { checkoutAppointments, updateAppointmentStatus } from '@/services/admin-appointments.service';
+import { checkoutAppointments, fetchCardFees, updateAppointmentStatus, type CardFees } from '@/services/admin-appointments.service';
 import { createInternalAppointment } from '@/services/appointments.service';
 import { fetchCategories } from '@/services/catalog.service';
 import { ApiError } from '@/services/api';
@@ -15,7 +15,18 @@ const props = defineProps<{ visit: AdminAppointment[] }>();
 const emit = defineEmits<{ close: []; changed: [] }>();
 
 const TIMEZONE = 'America/Bahia';
-const METHOD_LABELS: Record<string, string> = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Cartão débito', CREDITO: 'Cartão crédito' };
+// Mesma lista do servidor (server/src/modules/finance/payment-methods.ts).
+const METHOD_LABELS: Record<string, string> = {
+  DINHEIRO: 'Dinheiro',
+  PIX: 'Pix',
+  TRANSFERENCIA: 'Transferência',
+  DEBITO: 'Cartão débito',
+  CREDITO: 'Cartão crédito',
+  PARCELADO: 'Crédito parcelado',
+  VALE: 'Vale-presente',
+  CORTESIA: 'Cortesia',
+};
+const FEE_FIELD: Record<string, keyof CardFees> = { DEBITO: 'cardFeeDebitBps', CREDITO: 'cardFeeCreditBps', PARCELADO: 'cardFeeInstallmentBps' };
 const methodOptions: AdminSelectOption[] = Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }));
 const paymentOptions: AdminSelectOption[] = [...methodOptions, { value: 'COMBINADO', label: 'Combinar 2 métodos' }];
 
@@ -60,6 +71,35 @@ const splitB = ref('CREDITO');
 const splitAInput = ref('');
 const splitACents = computed(() => Math.min(inputToCents(splitAInput.value), totalCents.value));
 const splitBCents = computed(() => totalCents.value - splitACents.value);
+
+// Prévia da taxa da maquininha (o servidor recalcula ao finalizar).
+const cardFees = ref<CardFees | null>(null);
+onMounted(async () => {
+  try {
+    cardFees.value = (await fetchCardFees()).cardFees;
+  } catch {
+    cardFees.value = null;
+  }
+});
+const payments = computed(() =>
+  payment.value === 'COMBINADO'
+    ? [
+        { method: splitA.value, amountCents: splitACents.value },
+        { method: splitB.value, amountCents: splitBCents.value },
+      ]
+    : [{ method: payment.value, amountCents: totalCents.value }],
+);
+function feeOf(method: string, amountCents: number) {
+  const field = FEE_FIELD[method];
+  return field && cardFees.value ? Math.round((amountCents * cardFees.value[field]) / 10_000) : 0;
+}
+const feePreviewCents = computed(() => (payment.value ? payments.value.reduce((sum, p) => sum + feeOf(p.method, p.amountCents), 0) : 0));
+const feePreviewLabel = computed(() => {
+  const pcts = payments.value
+    .filter((p) => FEE_FIELD[p.method] && cardFees.value)
+    .map((p) => `${METHOD_LABELS[p.method]} ${(cardFees.value![FEE_FIELD[p.method]] / 100).toLocaleString('pt-BR')}%`);
+  return pcts.join(' + ');
+});
 
 const paymentReady = computed(() => {
   if (payment.value === 'COMBINADO') return splitA.value !== splitB.value && splitACents.value > 0 && splitBCents.value > 0;
@@ -128,14 +168,10 @@ async function finish() {
   if (!paymentReady.value) return;
   busy.value = true;
   error.value = null;
-  const combined = payment.value === 'COMBINADO';
   try {
     await checkoutAppointments({
       items: props.visit.map((a) => ({ id: a.id, chargedCents: inputToCents(prices[a.id] ?? '0') })),
-      paymentMethod: combined ? `${splitA.value}+${splitB.value}` : payment.value,
-      paymentNote: combined
-        ? `${METHOD_LABELS[splitA.value]} ${formatBRL(splitACents.value)} + ${METHOD_LABELS[splitB.value]} ${formatBRL(splitBCents.value)}`
-        : undefined,
+      payments: payments.value,
     });
     emit('changed');
     emit('close');
@@ -148,8 +184,9 @@ async function finish() {
 
 const paidLabel = computed(() => {
   const a = first.value;
-  if (a.paymentNote) return a.paymentNote;
-  return a.paymentMethod ? METHOD_LABELS[a.paymentMethod] ?? a.paymentMethod : 'Forma de pagamento não registrada';
+  const method = a.paymentNote || (a.paymentMethod ? METHOD_LABELS[a.paymentMethod] ?? a.paymentMethod : 'Forma de pagamento não registrada');
+  const fee = props.visit.reduce((sum, v) => sum + (v.feeCents ?? 0), 0);
+  return fee ? `${method} · taxa ${formatBRL(fee)}` : method;
 });
 
 const whatsappHref = computed(() => {
@@ -223,6 +260,13 @@ const whatsappHref = computed(() => {
               <span class="comanda__rest">{{ formatBRL(splitBCents) }}</span>
             </div>
             <p v-if="splitA === splitB" class="comanda__hint">Escolha dois métodos diferentes.</p>
+          </div>
+
+          <div v-if="feePreviewCents > 0" class="comanda__fee">
+            <span>Taxa da maquininha ({{ feePreviewLabel }})</span>
+            <span>− {{ formatBRL(feePreviewCents) }}</span>
+            <strong>Você recebe</strong>
+            <strong>{{ formatBRL(totalCents - feePreviewCents) }}</strong>
           </div>
         </template>
 
@@ -414,6 +458,21 @@ const whatsappHref = computed(() => {
   min-width: 112px;
   text-align: right;
   font-weight: 600;
+}
+
+.comanda__fee {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+.comanda__fee strong {
+  color: var(--color-ink);
 }
 
 .comanda__hint {

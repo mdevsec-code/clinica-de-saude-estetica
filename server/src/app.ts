@@ -25,6 +25,13 @@ export function createApp() {
 
   app.set('trust proxy', env.TRUST_PROXY);
   app.use(helmet());
+  // Sem isto o navegador (Safari no iPhone principalmente) podia reaproveitar
+  // uma resposta antiga — ex.: o estoque aparecia diferente em cada login.
+  // no-cache = sempre confere com o servidor (o ETag ainda evita baixar de novo).
+  app.use((_req, res, next) => {
+    res.set('Cache-Control', 'private, no-cache');
+    next();
+  });
   app.use(cors({ origin: env.WEB_ORIGIN }));
   // Corpo grande (10mb) SÓ nas rotas de upload — extrato OFX e foto/ficha
   // digitalizada de paciente em base64 (uma foto de celular comprimida passa

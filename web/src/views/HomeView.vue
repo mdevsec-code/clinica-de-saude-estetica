@@ -5,9 +5,7 @@ import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { applyScrollReveal } from '@/composables/useScrollReveal';
 import { applyPhotoReveal } from '@/composables/useStaggerReveal';
 import { useHeroIntro } from '@/composables/useHeroIntro';
-import { applyTiltHover } from '@/composables/useTiltHover';
 import { applySplitHeadingReveal } from '@/composables/useSplitReveal';
-import { applyMagneticButtons } from '@/composables/useMagneticButton';
 import { refreshScroll } from '@/composables/useSmoothScroll';
 import { useGsapContext } from '@/composables/useGsapContext';
 import { fetchCategories } from '@/services/catalog.service';
@@ -99,8 +97,6 @@ onMounted(async () => {
     applyPhotoParallax();
   });
   cleanupHovers = [
-    applyTiltHover('.specialties', '.specialty-card', 4),
-    applyMagneticButtons('.home .button--primary, .home .button--light'),
   ];
   refreshScroll();
 });

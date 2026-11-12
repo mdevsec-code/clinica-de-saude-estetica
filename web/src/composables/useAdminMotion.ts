@@ -93,59 +93,9 @@ export function installAdminMotion(root: HTMLElement) {
   mo.observe(root, { childList: true, subtree: true });
   scan(root);
 
-  // --- 2. Brilho que segue o mouse ---------------------------------------
-  const plain = new WeakMap<Element, boolean>();
-  let lit: HTMLElement | null = null;
-  let frame = 0;
-  let px = 0;
-  let py = 0;
-
-  const isPlain = (el: HTMLElement) => {
-    let ok = plain.get(el);
-    if (ok === undefined) {
-      ok = getComputedStyle(el).backgroundImage === 'none';
-      plain.set(el, ok);
-      if (ok) el.classList.add('spot-ok');
-    }
-    return ok;
-  };
-
-  const paint = () => {
-    frame = 0;
-    if (!lit) return;
-    const r = lit.getBoundingClientRect();
-    lit.style.setProperty('--sx', `${px - r.left}px`);
-    lit.style.setProperty('--sy', `${py - r.top}px`);
-  };
-
-  const onMove = (event: PointerEvent) => {
-    const card = (event.target as HTMLElement | null)?.closest<HTMLElement>(SPOT_SELECTOR) ?? null;
-    if (card !== lit) {
-      lit?.classList.remove('spot-on');
-      lit = card && isPlain(card) ? card : null;
-      lit?.classList.add('spot-on');
-    }
-    if (!lit) return;
-    px = event.clientX;
-    py = event.clientY;
-    if (!frame) frame = requestAnimationFrame(paint);
-  };
-  const onLeave = () => {
-    lit?.classList.remove('spot-on');
-    lit = null;
-  };
-
-  if (supportsFinePointer()) {
-    root.addEventListener('pointermove', onMove, { passive: true });
-    root.addEventListener('pointerleave', onLeave);
-  }
-
   return () => {
     mo.disconnect();
     io.disconnect();
-    root.removeEventListener('pointermove', onMove);
-    root.removeEventListener('pointerleave', onLeave);
-    cancelAnimationFrame(frame);
   };
 }
 

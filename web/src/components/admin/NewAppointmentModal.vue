@@ -12,7 +12,7 @@ import { toLocalDateKey } from '@/utils/calendar';
 import type { PatientListItem, Service, ServiceCategory, Slot } from '@/types';
 
 // initialTime: vem do atalho da linha do tempo (tocar num horário vazio).
-const props = defineProps<{ initialDate?: string; initialTime?: string }>();
+const props = defineProps<{ initialDate?: string; initialTime?: string; fitIn?: boolean }>();
 const emit = defineEmits<{ close: []; created: [] }>();
 
 const TIMEZONE = 'America/Bahia';
@@ -189,7 +189,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <AdminModal title="Novo agendamento" @close="emit('close')">
+  <AdminModal :title="fitIn ? 'Encaixe' : 'Novo agendamento'" @close="emit('close')">
     <div v-if="!loadingCategories && !hasAnyService" class="new-appt__empty">
       <p>Nenhum serviço cadastrado ainda. Cadastre ao menos um serviço para poder agendar um atendimento.</p>
       <RouterLink to="/admin/servicos" class="button button--primary" @click="emit('close')">Ir para Serviços</RouterLink>
@@ -258,6 +258,7 @@ async function onSubmit() {
           Horário
           <input v-model="time" type="time" step="300" required />
         </label>
+        <p v-if="fitIn && !time" class="new-appt__note">Digite qualquer horário, mesmo fora do expediente ou do que o site oferece.</p>
         <p v-if="isOutsideSlots" class="new-appt__note">Encaixe: fora dos horários livres do site. Pode agendar normalmente.</p>
         <template v-if="selectedServices.length">
           <p v-if="loadingSlots" class="new-appt__hint">Carregando horários livres…</p>

@@ -118,6 +118,7 @@ export interface AdminAppointment {
   chargedCents?: number | null;
   paymentMethod?: string | null;
   paymentNote?: string | null;
+  feeCents?: number | null;
 }
 
 // Horário bloqueado na agenda — hoje, compromisso importado do Google Agenda
@@ -189,6 +190,7 @@ export interface DreReport {
   revenueCents: number;
   expensesByCategory: { category: ExpenseCategory; label: string; totalCents: number }[];
   totalExpensesCents: number;
+  cardFeesCents: number;
   netResultCents: number;
   marginPct: number | null;
 }

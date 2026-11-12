@@ -37,10 +37,9 @@ export function syncGoogleCalendarNow() {
 
 export function checkoutAppointments(payload: {
   items: { id: string; chargedCents: number }[];
-  paymentMethod: string;
-  paymentNote?: string;
+  payments: { method: string; amountCents: number }[];
 }) {
-  return apiRequest<{ ids: string[] }>('/appointments/checkout', { method: 'POST', body: JSON.stringify(payload) });
+  return apiRequest<{ ids: string[]; feeCents: number }>('/appointments/checkout', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function updateAppointmentStatus(id: string, status: AppointmentStatus) {
@@ -48,4 +47,19 @@ export function updateAppointmentStatus(id: string, status: AppointmentStatus) {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   });
+}
+
+// Taxas da maquininha, em centésimos de % (199 = 1,99%).
+export interface CardFees {
+  cardFeeDebitBps: number;
+  cardFeeCreditBps: number;
+  cardFeeInstallmentBps: number;
+}
+
+export function fetchCardFees() {
+  return apiRequest<{ cardFees: CardFees }>('/finance/card-fees');
+}
+
+export function saveCardFees(cardFees: CardFees) {
+  return apiRequest<{ cardFees: CardFees }>('/finance/card-fees', { method: 'PUT', body: JSON.stringify(cardFees) });
 }

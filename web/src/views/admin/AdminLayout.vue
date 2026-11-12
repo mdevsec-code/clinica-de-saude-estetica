@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { Flip, gsap, prefersReducedMotion, SplitText, supportsFinePointer } from '@/lib/motion';
 import { giveMasksRoom } from '@/composables/useSplitReveal';
-import { applyMagneticButtons } from '@/composables/useMagneticButton';
 import { useAuthStore } from '@/stores/auth';
 import { nowInClinicTimezone } from '@/utils/calendar';
 import { fetchDashboardStats } from '@/services/admin-dashboard.service';
@@ -86,30 +85,6 @@ function shineLogo() {
 // o mouse (em vez de cada link acender sozinho) — a pílula escura continua
 // marcando a aba ativa. Um listener só na nav (delegação), quickTo porque
 // mouseover dispara muito ao passar de link em link.
-const hoverPill = ref<HTMLElement | null>(null);
-// x/y/largura/altura: no topo (tablet) a pílula anda na horizontal; na
-// barra lateral (computador) anda na vertical.
-let hoverTo: Record<'x' | 'y' | 'width' | 'height', (v: number) => void> | null = null;
-function onNavHover(event: MouseEvent) {
-  if (!supportsFinePointer() || prefersReducedMotion() || !hoverPill.value || !nav.value) return;
-  const link = (event.target as HTMLElement).closest<HTMLElement>('.admin__nav > a');
-  if (!link) return;
-  const box = { x: link.offsetLeft, y: link.offsetTop, width: link.offsetWidth, height: link.offsetHeight };
-  if (!hoverTo) {
-    // Primeira vez: nasce já no lugar, sem deslizar do canto.
-    gsap.set(hoverPill.value, box);
-    const q = (prop: string) => gsap.quickTo(hoverPill.value, prop, { duration: 0.45, ease: 'premium-out' });
-    hoverTo = { x: q('x'), y: q('y'), width: q('width'), height: q('height') };
-  }
-  hoverTo.x(box.x);
-  hoverTo.y(box.y);
-  hoverTo.width(box.width);
-  hoverTo.height(box.height);
-  gsap.to(hoverPill.value, { opacity: 1, duration: 0.2, overwrite: 'auto' });
-}
-function onNavLeave() {
-  if (hoverPill.value) gsap.to(hoverPill.value, { opacity: 0, duration: 0.3, overwrite: 'auto' });
-}
 
 const nav = ref<HTMLElement | null>(null);
 const indicator = ref<HTMLElement | null>(null);
@@ -173,11 +148,6 @@ async function syncIndicator() {
   moveIndicatorTo(activeLink ?? null);
   activeLink?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
-  // Cada view do painel monta seus próprios botões primários (Criar
-  // categoria, Novo agendamento, Adicionar gasto...) — reaplica o
-  // magnetismo a cada troca de rota, já que os elementos de antes não
-  // existem mais no DOM depois da troca.
-  applyMagneticButtons('.admin__content .button--primary', 0.25);
 }
 
 watch(() => route.path, syncIndicator);
@@ -395,8 +365,7 @@ function onLogout() {
       </div>
 
       <div class="admin__navrow">
-      <nav ref="nav" class="admin__nav" aria-label="Navegação do painel" @mouseover="onNavHover" @mouseleave="onNavLeave">
-        <span ref="hoverPill" class="admin__nav-hover" aria-hidden="true" />
+      <nav ref="nav" class="admin__nav" aria-label="Navegação do painel">
         <span ref="indicator" class="admin__nav-indicator" aria-hidden="true" />
         <span class="admin__nav-group">Atendimento</span>
         <RouterLink :to="{ name: 'admin-dashboard' }">
@@ -782,17 +751,10 @@ function onLogout() {
   }
 }
 
-/* Pílula de hover (ver onNavHover): clara, atrás dos links e da pílula
-   ativa, deslizando até a aba sob o mouse. */
-.admin__nav-hover {
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0;
+/* Hover simples, sem animação seguindo o mouse (a clínica pediu para tirar). */
+.admin__nav > a:not([aria-current]):hover {
   background: var(--color-surface-muted);
   border-radius: var(--radius-pill);
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* Aba ativa: tom rosé pálido com texto escuro — num painel, a cor forte
@@ -1298,7 +1260,7 @@ function onLogout() {
     font-weight: 700;
   }
 
-  .admin__nav-hover {
+  .admin__nav > a:not([aria-current]):hover {
     background: rgba(255, 255, 255, 0.07);
     border-radius: 12px;
   }

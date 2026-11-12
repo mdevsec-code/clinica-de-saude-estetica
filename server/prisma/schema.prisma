@@ -126,6 +126,11 @@ model TenantSettings {
   // (ver availability.service). Nulos = sem pausa de almoço.
   lunchStart         String?  @default("12:00")
   lunchEnd           String?  @default("13:00")
+  // Taxa da maquininha por forma de pagamento, em centésimos de % (199 =
+  // 1,99%). Usada na comanda e descontada no resultado do Financeiro.
+  cardFeeDebitBps       Int @default(0)
+  cardFeeCreditBps      Int @default(0)
+  cardFeeInstallmentBps Int @default(0)
   updatedAt          DateTime @updatedAt @db.Timestamptz(3)
 }
 
@@ -414,6 +419,8 @@ model Appointment {
   chargedCents            Int?
   paymentMethod           String?
   paymentNote             String?
+  // Taxa da maquininha descontada deste serviço (parte proporcional).
+  feeCents                Int?
   // Evento espelhado no Google Agenda da clínica (ver modules/google-calendar).
   // Nulo = ainda não enviado (integração desligada, Google fora do ar) — a
   // sincronização periódica reenvia os confirmados que ficaram sem evento.
