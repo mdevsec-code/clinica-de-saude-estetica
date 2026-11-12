@@ -597,7 +597,7 @@ function formatUpcoming(iso: string) {
   margin-bottom: var(--space-6);
   padding: var(--space-6);
   border-radius: var(--radius-lg);
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   color: #fff;
   box-shadow: var(--shadow-lg);
 }
@@ -732,7 +732,7 @@ a.kpi-card {
 }
 
 .kpi-card--accent {
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   border-color: transparent;
   color: #fff;
 }
@@ -1002,7 +1002,7 @@ a.kpi-card {
 }
 
 .chart-range__btn--active {
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   color: #fff;
 }
 

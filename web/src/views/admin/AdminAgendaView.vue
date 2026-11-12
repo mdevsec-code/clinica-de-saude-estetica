@@ -616,7 +616,7 @@ function onAppointmentCreated() {
 }
 
 .admin-agenda__view-btn--active {
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   color: #fff;
   box-shadow: var(--shadow-sm);
 }

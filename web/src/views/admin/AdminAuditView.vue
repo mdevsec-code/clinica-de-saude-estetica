@@ -348,4 +348,34 @@ function formatChanges(changes: Record<string, unknown> | null): string {
   padding: 8px 18px;
   font-size: 0.85rem;
 }
+
+/* Celular: filtros em duas colunas e compactos — antes ocupavam a primeira
+   tela inteira (um campo por linha, botão solto de lado) e o histórico só
+   começava lá embaixo. Cartões do histórico mais enxutos. */
+@media (max-width: 640px) {
+  .admin-audit__filters {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .admin-audit__filters .admin-form-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-3);
+    align-items: end;
+  }
+
+  .admin-audit__filters .admin-field--small,
+  .admin-audit__filters .admin-field--date {
+    min-width: 0;
+  }
+
+  .admin-audit__filters .button--primary {
+    width: 100%;
+  }
+
+  .admin-audit__row {
+    padding: var(--space-3) var(--space-4);
+  }
+}
 </style>

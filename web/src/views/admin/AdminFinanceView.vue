@@ -666,7 +666,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
 }
 
 .admin-finance__tab--active {
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   border-color: transparent;
   color: #fff;
 }

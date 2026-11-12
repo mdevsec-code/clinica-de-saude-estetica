@@ -368,7 +368,7 @@ watch(
 }
 
 .admin-date__day--selected {
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   color: #fff;
   font-weight: 700;
 }

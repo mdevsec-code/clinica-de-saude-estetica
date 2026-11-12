@@ -303,6 +303,34 @@ function prefetchOtherTabs() {
 onMounted(() => document.documentElement.classList.add('is-admin'));
 onUnmounted(() => document.documentElement.classList.remove('is-admin'));
 
+// Modo escuro (padrão) ou claro, lembrado por aparelho. Vale só enquanto o
+// painel está aberto: ao sair dele o site público volta ao claro.
+const THEME_KEY = 'noely-admin-theme';
+function readTheme(): 'dark' | 'light' {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+const theme = ref<'dark' | 'light'>(readTheme());
+watch(
+  theme,
+  (value) => {
+    document.documentElement.dataset.theme = value;
+    try {
+      localStorage.setItem(THEME_KEY, value);
+    } catch {
+      // Navegação privada: segue só nesta visita.
+    }
+  },
+  { immediate: true },
+);
+onUnmounted(() => delete document.documentElement.dataset.theme);
+function toggleTheme() {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark';
+}
+
 function onLogout() {
   auth.logout();
   router.push({ name: 'admin-login' });
@@ -354,6 +382,16 @@ function onLogout() {
               <span class="admin__avatar-status" aria-hidden="true" />
             </span>
           </span>
+          <button
+            type="button"
+            class="admin__logout admin__theme"
+            :aria-label="theme === 'dark' ? 'Usar modo claro' : 'Usar modo escuro'"
+            :title="theme === 'dark' ? 'Modo claro' : 'Modo escuro'"
+            @click="toggleTheme"
+          >
+            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" /></svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" /></svg>
+          </button>
           <button type="button" class="admin__logout" @click="onLogout">
             <span>Sair</span>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -854,7 +892,7 @@ function onLogout() {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   color: #fff;
   font-family: var(--font-display);
   font-size: 0.95rem;
@@ -935,6 +973,10 @@ function onLogout() {
   font-size: 0.9rem;
   cursor: pointer;
   transition: border-color var(--duration-base) var(--ease-premium), background var(--duration-base) var(--ease-premium), transform var(--duration-base) var(--ease-premium);
+}
+
+.admin__theme {
+  padding: 8px 10px;
 }
 
 .admin__logout:hover {

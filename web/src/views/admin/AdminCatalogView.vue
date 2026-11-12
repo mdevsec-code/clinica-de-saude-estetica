@@ -902,14 +902,14 @@ async function toggleServiceActive(service: AdminService) {
 }
 
 .admin-chip-btn--primary {
-  background: var(--color-rose-700);
-  border-color: var(--color-rose-700);
+  background: var(--color-fill-700);
+  border-color: var(--color-fill-700);
   color: #fff;
 }
 
 .admin-chip-btn--primary:hover {
-  background: var(--color-rose-900);
-  border-color: var(--color-rose-900);
+  background: var(--color-fill-900);
+  border-color: var(--color-fill-900);
   color: #fff;
 }
 

@@ -22,6 +22,13 @@ import { gsap, prefersReducedMotion } from '@/lib/motion';
 // diagonal a partir do canto superior esquerdo — o stagger `grid:'auto'`
 // do GSAP lê a posição real de cada célula na tela.
 export const vStagger: Directive<HTMLElement, string | undefined> = {
+  // A revelação geral do painel (useAdminMotion: esconde cartões abaixo da
+  // dobra até a rolagem chegar) disputava os mesmos cartões e deixava alguns
+  // presos invisíveis — na Auditoria sobrava um buraco no lugar do primeiro
+  // registro. Lista com v-stagger fica só com esta entrada (nunca opacity).
+  beforeMount(el) {
+    el.setAttribute('data-own-motion', '');
+  },
   mounted(el, binding) {
     if (prefersReducedMotion()) return;
     const items = binding.value ? Array.from(el.querySelectorAll<HTMLElement>(binding.value)) : Array.from(el.children as HTMLCollectionOf<HTMLElement>);

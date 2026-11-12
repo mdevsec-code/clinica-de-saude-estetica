@@ -234,7 +234,7 @@ button, a.button, .tap-target {
 }
 
 .button--primary {
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   color: #fff;
 }
 
@@ -667,4 +667,39 @@ html.has-custom-cursor summary {
   .button::after {
     display: none;
   }
+}
+
+/* --- Modo escuro do painel: o que tem cor fixa no claro ------------------ */
+/* Botão primário: rosé da marca (não os tokens invertidos) com texto branco. */
+:root[data-theme='dark'] .button--primary {
+  background: linear-gradient(135deg, #c98a8d 0%, #9c5b60 55%, #6f3d43 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 10px 30px -12px rgba(201, 138, 141, 0.55);
+}
+
+:root[data-theme='dark'] .button--primary:hover {
+  background: linear-gradient(135deg, #d99a9c 0%, #a9666b 55%, #7a444a 100%);
+}
+
+:root[data-theme='dark'] .button--ghost,
+:root[data-theme='dark'] .button--light {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+  border-color: var(--color-border);
+}
+
+:root[data-theme='dark'] .admin-field input,
+:root[data-theme='dark'] .admin-field select,
+:root[data-theme='dark'] .admin-field textarea {
+  background-color: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+
+:root[data-theme='dark'] ::placeholder {
+  color: var(--color-ink-soft);
+}
+
+:root[data-theme='dark'] body {
+  background: var(--color-bg);
+  color: var(--color-ink);
 }

@@ -838,13 +838,13 @@ async function saveFichaUpload() {
 }
 
 .admin-badge--warning {
-  background: #fce4de;
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
 .admin-badge--ok {
-  background: #dff3e6;
-  color: #1f7a43;
+  background: var(--color-success-bg);
+  color: var(--color-success-ink);
 }
 
 .patient-detail__header {
@@ -985,7 +985,7 @@ async function saveFichaUpload() {
   top: 0;
   left: 0;
   border-radius: var(--radius-pill);
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
@@ -1188,8 +1188,8 @@ async function saveFichaUpload() {
 }
 
 .patient-detail__photo-filters button.is-active {
-  background: var(--color-rose-700);
-  border-color: var(--color-rose-700);
+  background: var(--color-fill-700);
+  border-color: var(--color-fill-700);
   color: #fff;
 }
 

@@ -32,6 +32,31 @@ const paymentOptions: AdminSelectOption[] = [...methodOptions, { value: 'COMBINA
 
 const first = computed(() => props.visit[0]);
 const finished = computed(() => props.visit.every((a) => a.status === 'COMPLETED'));
+const noShow = computed(() => props.visit.every((a) => a.status === 'NO_SHOW'));
+// Concluída ou falta: nada para cobrar até reabrir.
+const locked = computed(() => finished.value || noShow.value);
+
+// Ações do atendimento inteiro (antes ficavam num cartão abaixo da agenda):
+// falta, cancelamento (pede um segundo toque) e reabrir.
+const confirmingCancel = ref(false);
+async function setVisitStatus(status: 'CONFIRMED' | 'NO_SHOW' | 'CANCELLED') {
+  if (status === 'CANCELLED' && !confirmingCancel.value) {
+    confirmingCancel.value = true;
+    return;
+  }
+  confirmingCancel.value = false;
+  busy.value = true;
+  error.value = null;
+  try {
+    for (const appt of props.visit) await updateAppointmentStatus(appt.id, status);
+    emit('changed');
+    if (status === 'CANCELLED') emit('close');
+  } catch (err) {
+    error.value = err instanceof ApiError ? err.message : 'Não foi possível atualizar o atendimento.';
+  } finally {
+    busy.value = false;
+  }
+}
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE });
@@ -196,7 +221,7 @@ const whatsappHref = computed(() => {
 </script>
 
 <template>
-  <AdminModal :title="finished ? 'Comanda finalizada' : 'Comanda'" wide @close="emit('close')">
+  <AdminModal :title="noShow ? 'Não compareceu' : finished ? 'Comanda finalizada' : 'Comanda'" wide @close="emit('close')">
     <div class="comanda">
       <section class="comanda__col">
         <div class="comanda__client">
@@ -218,10 +243,10 @@ const whatsappHref = computed(() => {
             </span>
             <label class="comanda__price">
               <span>R$</span>
-              <input v-model="prices[appt.id]" type="text" inputmode="decimal" :disabled="finished || busy" :aria-label="`Valor de ${appt.service.name}`" />
+              <input v-model="prices[appt.id]" type="text" inputmode="decimal" :disabled="locked || busy" :aria-label="`Valor de ${appt.service.name}`" />
             </label>
             <button
-              v-if="!finished"
+              v-if="!locked"
               type="button"
               class="comanda__remove"
               :class="{ 'comanda__remove--confirm': confirmingRemove === appt.id }"
@@ -234,7 +259,7 @@ const whatsappHref = computed(() => {
           </li>
         </ul>
 
-        <AdminSelect v-if="!finished" v-model="addingServiceId" :options="serviceGroups" placeholder="+ Adicionar serviço" :disabled="busy" />
+        <AdminSelect v-if="!locked" v-model="addingServiceId" :options="serviceGroups" placeholder="+ Adicionar serviço" :disabled="busy" />
       </section>
 
       <section class="comanda__col comanda__col--pay">
@@ -244,6 +269,7 @@ const whatsappHref = computed(() => {
         </div>
 
         <p v-if="finished" class="comanda__paid">Pago · {{ paidLabel }}</p>
+        <p v-else-if="noShow" class="comanda__noshow">Marcado como não compareceu.</p>
         <template v-else>
           <AdminSelect v-model="payment" :options="paymentOptions" placeholder="Selecione a forma de pagamento" />
 
@@ -273,10 +299,28 @@ const whatsappHref = computed(() => {
         <p v-if="error" class="admin-error">{{ error }}</p>
 
         <div class="comanda__actions">
-          <button v-if="!finished" type="button" class="button button--primary comanda__finish" :disabled="busy || !paymentReady" @click="finish">
+          <button v-if="!locked" type="button" class="button button--primary comanda__finish" :disabled="busy || !paymentReady" @click="finish">
             {{ busy ? 'Salvando…' : 'Finalizar comanda' }}
           </button>
           <a class="button button--ghost" :href="whatsappHref" target="_blank" rel="noopener">WhatsApp</a>
+        </div>
+
+        <div class="comanda__status">
+          <template v-if="!locked">
+            <button type="button" class="comanda__status-btn" :disabled="busy" @click="setVisitStatus('NO_SHOW')">Não compareceu</button>
+            <button
+              type="button"
+              class="comanda__status-btn comanda__status-btn--danger"
+              :class="{ 'comanda__status-btn--confirm': confirmingCancel }"
+              :disabled="busy"
+              @click="setVisitStatus('CANCELLED')"
+            >
+              {{ confirmingCancel ? 'Toque de novo para cancelar' : 'Cancelar atendimento' }}
+            </button>
+          </template>
+          <button v-else type="button" class="comanda__status-btn" :disabled="busy" @click="setVisitStatus('CONFIRMED')">
+            Reabrir (voltar para confirmado)
+          </button>
         </div>
       </section>
     </div>
@@ -478,6 +522,46 @@ const whatsappHref = computed(() => {
 .comanda__hint {
   margin: 0;
   font-size: 0.85rem;
+  color: var(--color-danger);
+}
+
+.comanda__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.comanda__status-btn {
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.comanda__status-btn:hover {
+  color: var(--color-ink);
+}
+
+.comanda__status-btn--danger {
+  color: var(--color-danger);
+}
+
+.comanda__status-btn--confirm {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.comanda__noshow {
+  margin: 0;
+  font-weight: 600;
   color: var(--color-danger);
 }
 

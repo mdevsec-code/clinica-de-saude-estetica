@@ -518,8 +518,8 @@ async function onSubmit() {
 }
 
 .new-appt__service--on .new-appt__check {
-  border-color: var(--color-rose-700);
-  background: var(--color-rose-700);
+  border-color: var(--color-fill-700);
+  background: var(--color-fill-700);
   color: #fff;
 }
 
@@ -565,8 +565,8 @@ async function onSubmit() {
 }
 
 .new-appt__slot--selected {
-  border-color: var(--color-rose-700);
-  background: var(--color-rose-700);
+  border-color: var(--color-fill-700);
+  background: var(--color-fill-700);
   color: #fff;
 }
 

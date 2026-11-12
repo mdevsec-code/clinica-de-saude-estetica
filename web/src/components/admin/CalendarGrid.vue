@@ -166,7 +166,7 @@ function blocksLabel(dateKey: string): string | null {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--color-rose-700);
+  background: var(--color-fill-700);
   color: #fff;
 }
 
@@ -219,12 +219,12 @@ function blocksLabel(dateKey: string): string | null {
 }
 
 .calendar-chip--completed {
-  background: #e4ede6;
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
 .calendar-chip--no_show {
-  background: #f3e2df;
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 

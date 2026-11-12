@@ -338,12 +338,12 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
 }
 
 .admin-badge--completed {
-  background: #e4ede6;
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
 .admin-badge--no_show {
-  background: #f3e2df;
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 

@@ -15,6 +15,19 @@
   --color-rose-300: #dcaba8;
   --color-rose-100: #f3ddd6;
 
+  /* Fundo preenchido com texto branco (pílula selecionada, botão ativo,
+     dia de hoje...). Igual ao rosé no claro; no escuro NÃO inverte como a
+     escala rosé (que vira texto claro) — continua um rosé saturado. */
+  --color-fill-900: #6f3d43;
+  --color-fill-700: #9c5b60;
+
+  /* Fundos/textos de estado (concluído, faltou, pendente). */
+  --color-success-bg: #e4ede6;
+  --color-success-ink: #2f5a3b;
+  --color-danger-bg: #f3e2df;
+  --color-danger-ink: #7a2f2a;
+  --color-warn-ink: #6b5326;
+
   --color-success: #4f7a5c;
   --color-danger: #a4453f;
 
@@ -116,4 +129,53 @@
   --chart-cat-4: #eda100;
   --chart-cat-5: #e87ba4;
   --chart-cat-6: #008300;
+}
+
+/* Modo escuro do painel administrativo (data-theme="dark" no <html>, ligado
+   pelo AdminLayout só enquanto o painel está aberto — o site público fica
+   sempre claro). Mesma família de cor da marca: fundo marrom-noite quente
+   (nunca preto puro), texto creme-rosé, e a escala rosé invertida em
+   luminosidade — o 100 (fundos claros de destaque) vira um rosé escuro e o
+   900 (títulos) vira um rosé claro. Os botões primários continuam no rosé
+   saturado da marca (ver global.css), que "acende" sobre o fundo escuro. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: #140e0d;
+  --color-surface: #1d1513;
+  --color-surface-muted: #281d1b;
+  --color-border: #3a2b28;
+
+  --color-ink: #f4e8e3;
+  --color-ink-muted: #bfaaa3;
+  --color-ink-soft: #8e7a74;
+
+  --color-rose-900: #f2c6c2;
+  --color-rose-700: #e2a4a4;
+  --color-rose-500: #c88a8c;
+  --color-rose-300: #6f4649;
+  --color-rose-100: #34221f;
+
+  --color-fill-900: #9c5b60;
+  --color-fill-700: #b56d72;
+
+  --color-success-bg: #1c2d22;
+  --color-success-ink: #a9dcb6;
+  --color-danger-bg: #3a201e;
+  --color-danger-ink: #f3aaa3;
+  --color-warn-ink: #e8cd96;
+
+  --color-success: #8fc39d;
+  --color-danger: #ef8a83;
+
+  --color-gold-100: #352a19;
+  --color-gold-500: #d6b479;
+  --color-gold-700: #e2c48c;
+
+  --color-dusk-900: #0b0706;
+  --color-dusk-800: #120c0b;
+  --color-dusk-700: #1d1412;
+
+  --shadow-float: 0 1px 3px rgba(0, 0, 0, 0.5), 0 24px 60px -16px rgba(0, 0, 0, 0.75);
+  --shadow-glow: 0 0 0 1px rgba(242, 198, 194, 0.08), 0 24px 64px -16px rgba(0, 0, 0, 0.7);
 }

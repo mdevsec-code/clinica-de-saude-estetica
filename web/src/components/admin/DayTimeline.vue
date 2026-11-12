@@ -4,6 +4,7 @@ import { gsap, prefersReducedMotion } from '@/lib/motion';
 import type { AdminAppointment, AdminBlockedTime } from '@/types';
 import type { Schedule } from '@/services/admin-schedule.service';
 import DayAppointmentList from './DayAppointmentList.vue';
+import ComandaModal from './ComandaModal.vue';
 
 // Linha do tempo do dia: todos os horários, de 30 em 30 minutos, do início
 // ao fim do expediente — os vazios inclusive. Tocar num vazio abre o atalho
@@ -291,14 +292,12 @@ watch(selectedKey, async (v) => {
       </button>
     </div>
 
-    <div v-if="selected" class="tl-detail">
-      <DayAppointmentList
-        v-if="selected.appt"
-        :appointments="selectedVisit"
-        @changed="emit('changed')"
-        @unblocked="emit('unblocked')"
-      />
-      <DayAppointmentList v-else :appointments="[]" :blocks="[selected.block!]" hide-empty @unblocked="selectedKey = null; emit('unblocked')" />
+    <!-- Cliente: a comanda abre numa janela própria (antes aparecia um
+         cartão lá embaixo da agenda e a comanda só depois). Bloqueio: o
+         cartão com "Desbloquear" continua embaixo. -->
+    <ComandaModal v-if="selected?.appt && selectedVisit.length" :visit="selectedVisit" @close="selectedKey = null" @changed="emit('changed')" />
+    <div v-else-if="selected?.block" class="tl-detail">
+      <DayAppointmentList :appointments="[]" :blocks="[selected.block]" hide-empty @unblocked="selectedKey = null; emit('unblocked')" />
     </div>
 
     <details v-if="cancelled.length" class="tl__cancelled">
@@ -331,7 +330,7 @@ watch(selectedKey, async (v) => {
 }
 
 .tl__chip--rose { background: var(--color-rose-100); color: var(--color-rose-900); }
-.tl__chip--free { background: #e4efe7; color: var(--color-success); }
+.tl__chip--free { background: var(--color-success-bg); color: var(--color-success); }
 .tl__chip--gold { background: var(--color-gold-100); color: var(--color-gold-700); }
 
 .tl__fullday {
@@ -501,7 +500,7 @@ watch(selectedKey, async (v) => {
 }
 
 .tl-menu__item--primary {
-  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900));
+  background: linear-gradient(135deg, var(--color-fill-700), var(--color-fill-900));
   color: #fff;
 }
 
@@ -566,12 +565,12 @@ watch(selectedKey, async (v) => {
   box-shadow: var(--shadow-glow);
 }
 
-.tl-event--confirmed { background: linear-gradient(135deg, var(--color-rose-100), #f8e8e2); }
-.tl-event--done { background: #e4efe7; color: #2f5a3b; }
+.tl-event--confirmed { background: linear-gradient(135deg, var(--color-rose-100), var(--color-surface-muted)); }
+.tl-event--done { background: var(--color-success-bg); color: var(--color-success-ink); }
 .tl-event--done::before { background: var(--color-success); }
-.tl-event--noshow { background: #f6e3e0; color: #7a2f2a; }
+.tl-event--noshow { background: var(--color-danger-bg); color: var(--color-danger-ink); }
 .tl-event--noshow::before { background: var(--color-danger); }
-.tl-event--pending { background: var(--color-gold-100); color: #6b5326; }
+.tl-event--pending { background: var(--color-gold-100); color: var(--color-warn-ink); }
 .tl-event--pending::before { background: var(--color-gold-500); }
 .tl-event--block {
   background: repeating-linear-gradient(135deg, var(--color-surface-muted) 0 10px, var(--color-surface) 10px 20px);

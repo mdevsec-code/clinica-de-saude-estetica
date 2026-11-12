@@ -680,7 +680,7 @@ onUnmounted(stopPolling);
   top: 0;
   left: 0;
   border-radius: var(--radius-pill);
-  background: var(--color-rose-900);
+  background: var(--color-fill-900);
   box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
