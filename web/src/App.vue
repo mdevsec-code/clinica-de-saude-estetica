@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { setCustomCursor } from '@/composables/useCustomCursor';
 import { computed, nextTick, ref, watch } from 'vue';
 import { installRipple } from '@/composables/useRipple';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
@@ -20,9 +21,10 @@ const route = useRoute();
 // /admin/*, duplicando marca e navegação numa ferramenta de trabalho interna.
 const isAdminRoute = computed(() => route.path.startsWith('/admin'));
 
-// Onda de toque nos botões (site e painel). Sem cursor próprio nem efeitos
-// que seguem o mouse: a clínica pediu para tirar (nov/2026).
+// Onda de toque nos botões (site e painel) e cursor próprio só no site. Os
+// outros efeitos que seguiam o mouse saíram a pedido da clínica (nov/2026).
 installRipple();
+watch(isAdminRoute, (admin) => setCustomCursor(!admin), { immediate: true });
 
 // Ao abrir/recarregar o site, o código de cada página chega separado (lazy
 // import no router). Sem esperar, cabeçalho e rodapé apareciam sozinhos por
