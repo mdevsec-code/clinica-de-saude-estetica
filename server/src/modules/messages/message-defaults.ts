@@ -80,6 +80,18 @@ Se preferir outro horário, é só nos chamar por aqui. 💛`,
 📅 {Data} às {Horario} — {Servico}
 
 Obrigada pela compreensão! Até lá! 💖`,
+
+  // Enviada sozinha no dia do aniversário (cadastro com data de nascimento),
+  // a partir das 9h. Uma vez por ano por paciente.
+  BIRTHDAY: `{Saudacao}, {Cliente}! 🎉🎂
+
+Hoje é o seu dia, e toda a equipe da Clínica de Saúde Estética Noely Cerqueira deseja um *feliz aniversário*! 💖
+
+Para comemorar, você ganhou *50% de desconto* no próximo procedimento que quiser fazer com a gente. ✨
+
+É só agendar pelo link {LinkAgendamento} ou responder esta mensagem.
+
+Com carinho, {Profissional} 💐`,
 };
 
 export const MESSAGE_TEMPLATE_KEYS = Object.keys(DEFAULT_MESSAGE_TEMPLATES) as MessageTemplateKey[];

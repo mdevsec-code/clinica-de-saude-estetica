@@ -572,6 +572,46 @@ async function sendReminders(tenantId: string, timezone: string) {
   }
 }
 
+// --- 5. Aniversário ------------------------------------------------------
+// No dia do aniversário (data de nascimento do cadastro), a partir das 9h e
+// até as 20h no horário da clínica: uma mensagem por paciente por ano.
+// Quem faz 29/02 recebe em 28/02 nos anos que não são bissextos.
+async function sendBirthdays(tenantId: string, timezone: string) {
+  const now = new Date();
+  const hour = Number(formatInTimeZone(now, timezone, 'H'));
+  if (hour < 9 || hour >= 20) return;
+  const template = await enabledTemplate(tenantId, 'BIRTHDAY');
+  if (!template) return;
+
+  const year = Number(formatInTimeZone(now, timezone, 'yyyy'));
+  const today = formatInTimeZone(now, timezone, 'MM-dd');
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const days = today === '02-28' && !isLeap ? ['02-28', '02-29'] : [today];
+
+  const due = await prisma.$queryRaw<{ id: string; name: string; whatsapp: string }[]>`
+    SELECT "id", "name", "whatsapp" FROM "Customer"
+    WHERE "tenantId" = ${tenantId}
+      AND "birthDate" IS NOT NULL
+      AND to_char("birthDate", 'MM-DD') = ANY(${days})
+      AND ("birthdayMessageYear" IS NULL OR "birthdayMessageYear" < ${year})`;
+
+  for (const customer of due) {
+    try {
+      await sendWhatsappText(tenantId, customer.whatsapp, renderTemplate(template, await buildVariables(tenantId, timezone, undefined, customer.name)));
+      await prisma.customer.update({ where: { id: customer.id }, data: { birthdayMessageYear: year } });
+      await markContactGreeted(tenantId, customer.whatsapp);
+      logger.info({ customerId: customer.id }, 'Mensagem de aniversário enviada');
+    } catch (err) {
+      logger.error({ err, customerId: customer.id }, 'Falha ao enviar mensagem de aniversário');
+      // Número sem WhatsApp não vai passar a ter: marca o ano para não tentar a cada minuto.
+      if (err instanceof Error && err.message.includes('não tem WhatsApp')) {
+        await prisma.customer.update({ where: { id: customer.id }, data: { birthdayMessageYear: year } });
+      }
+      if (!isWhatsappConnected(tenantId)) return;
+    }
+  }
+}
+
 let sweeping = false;
 
 // Varredura a cada minuto: confirmações que ficaram para trás e lembretes.
@@ -588,6 +628,7 @@ export function startReminderScheduler(intervalMs = 60_000) {
         await sendPendingConfirmations(tenant.id);
         await sendRescheduleOffers(tenant.id, tenant.timezone);
         await sendReminders(tenant.id, tenant.timezone);
+        await sendBirthdays(tenant.id, tenant.timezone);
       }
     } catch (err) {
       logger.error({ err }, 'Falha na varredura de lembretes');

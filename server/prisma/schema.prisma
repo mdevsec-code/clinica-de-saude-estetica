@@ -147,6 +147,8 @@ model Customer {
   phone           String?
   email           String?
   birthDate       DateTime? @db.Date
+  // Ano em que a mensagem automática de aniversário já foi enviada (uma por ano).
+  birthdayMessageYear Int?
   profilePhotoUrl String?
   notes           String?
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
@@ -547,6 +549,7 @@ enum MessageTemplateKey {
   REMINDER_2H
   RESCHEDULE_OFFER
   RESCHEDULE_DONE
+  BIRTHDAY
 }
 
 model MessageTemplate {

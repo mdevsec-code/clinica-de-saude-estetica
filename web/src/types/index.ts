@@ -372,7 +372,8 @@ export type MessageTemplateKey =
   | 'REMINDER_DAY_BEFORE'
   | 'REMINDER_2H'
   | 'RESCHEDULE_OFFER'
-  | 'RESCHEDULE_DONE';
+  | 'RESCHEDULE_DONE'
+  | 'BIRTHDAY';
 
 export interface MessageTemplate {
   key: MessageTemplateKey;

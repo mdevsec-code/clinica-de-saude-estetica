@@ -1,3 +1,4 @@
+import { MESSAGE_TEMPLATE_KEYS } from './message-defaults';
 import type { MessageTemplateKey } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -11,7 +12,9 @@ export const messagesRouter = Router();
 // (é a voz da clínica falando com as pacientes).
 messagesRouter.use(requireAuth);
 
-const keySchema = z.enum(['WELCOME', 'CONFIRMATION', 'CONFIRMATION_THANKS', 'REMINDER_DAY_BEFORE', 'REMINDER_2H']);
+// Todos os modelos (antes a lista fixa deixava os de remarcação de fora e
+// eles não podiam ser editados no painel).
+const keySchema = z.enum(MESSAGE_TEMPLATE_KEYS as [MessageTemplateKey, ...MessageTemplateKey[]]);
 const updateSchema = z
   .object({
     body: z.string().trim().min(1, 'A mensagem não pode ficar vazia.').max(4000, 'A mensagem pode ter no máximo 4000 caracteres.').optional(),
