@@ -3,61 +3,132 @@ withDefaults(defineProps<{ label?: string }>(), { label: 'Carregando…' });
 </script>
 
 <template>
+  <!-- Esqueleto da tela no lugar do círculo girando: blocos no formato de
+       título e cartões, com um brilho champagne atravessando. Dá a forma do
+       que vem (lê como "quase pronto", não "travado") e é barato — o brilho
+       é um pseudo-elemento movido com transform. -->
   <div class="loading" role="status" aria-live="polite">
-    <span class="loading__spinner" aria-hidden="true" />
-    <span class="loading__label">{{ label }}</span>
+    <div class="loading__bars" aria-hidden="true">
+      <span class="sk sk--title" />
+      <span class="sk sk--line" />
+      <div class="loading__cards">
+        <span class="sk sk--card" />
+        <span class="sk sk--card" />
+        <span class="sk sk--card" />
+      </div>
+    </div>
+    <span class="loading__label">
+      <span class="loading__dots" aria-hidden="true"><i /><i /><i /></span>
+      {{ label }}
+    </span>
   </div>
 </template>
 
 <style scoped>
-/* min-height propositalmente generoso: um spinner pequeno sozinho no meio de
-   uma página que ficou vazia (ex.: trocando de aba no painel administrativo,
-   onde cada view refaz o fetch do zero) lia como "tela em branco/quebrada"
-   em vez de "carregando" — ocupar um espaço vertical previsível, com o
-   spinner maior e centralizado, deixa claro que algo está de fato
-   acontecendo ali, mesmo numa rede mais lenta que o localhost. */
 .loading {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
   min-height: 240px;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-6) 0;
   color: var(--color-ink-muted);
   opacity: 0;
-  animation: loading-fade-in 0.35s var(--ease-premium) 0.15s forwards;
+  animation: loading-fade-in 0.35s var(--ease-premium) 0.12s forwards;
 }
 
-.loading__spinner {
-  width: 34px;
-  height: 34px;
-  border: 3px solid var(--color-rose-100);
-  border-top-color: var(--color-rose-700);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.loading__bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
+
+.loading__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.sk {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(220, 171, 168, 0.28), rgba(244, 234, 214, 0.45));
+}
+
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.75) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: sk-shine 1.6s var(--ease-premium) infinite;
+}
+
+.sk--title {
+  width: min(320px, 70%);
+  height: 30px;
+}
+
+.sk--line {
+  width: min(520px, 90%);
+  height: 14px;
+  border-radius: 8px;
+}
+
+.sk--card {
+  height: 120px;
+  border-radius: var(--radius-lg);
+}
+
+.sk--card:nth-child(2)::after { animation-delay: 0.15s; }
+.sk--card:nth-child(3)::after { animation-delay: 0.3s; }
 
 .loading__label {
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.loading__dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.loading__dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-rose-500);
+  animation: dot 1.1s ease-in-out infinite;
+}
+
+.loading__dots i:nth-child(2) { animation-delay: 0.15s; }
+.loading__dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes sk-shine {
+  to { transform: translateX(100%); }
+}
+
+@keyframes dot {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-4px); opacity: 1; }
 }
 
 @keyframes loading-fade-in {
-  to {
-    opacity: 1;
-  }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .loading {
     opacity: 1;
+    animation: none;
+  }
+  .sk::after,
+  .loading__dots i {
     animation: none;
   }
 }

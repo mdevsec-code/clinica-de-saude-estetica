@@ -556,3 +556,124 @@ button, a.button, .tap-target {
 [data-tooltip]:focus:not(:focus-visible)::before {
   opacity: 0;
 }
+
+/* ── Acabamento premium (rework) ─────────────────────────────────────────
+   Botão primário ganha profundidade: degradê sutil vinho → chocolate, um
+   fio de luz no topo e um reflexo que atravessa no hover. A onda de toque
+   (useRipple.ts) é um <span class="ripple"> criado no clique. Tudo em
+   transform/opacity: barato até em hardware modesto. */
+.button {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.button--primary {
+  background: linear-gradient(135deg, var(--color-rose-700) 0%, var(--color-rose-900) 55%, var(--color-dusk-700) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 28px -14px rgba(111, 61, 67, 0.75);
+}
+
+.button--primary:hover {
+  background: linear-gradient(135deg, var(--color-rose-900) 0%, var(--color-dusk-700) 70%, var(--color-dusk-800) 100%);
+}
+
+.button--primary::after,
+.button--ghost::after,
+.button--light::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.28) 48%, rgba(255, 236, 196, 0.22) 52%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.9s var(--ease-premium);
+}
+
+.button--ghost::after,
+.button--light::after {
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+}
+
+.button:hover::after {
+  transform: translateX(120%);
+}
+
+.ripple {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.18) 45%, transparent 70%);
+}
+
+.button--ghost .ripple,
+.button--light .ripple,
+.tl-menu__item:not(.tl-menu__item--primary) .ripple {
+  background: radial-gradient(circle, rgba(156, 91, 96, 0.35) 0%, rgba(156, 91, 96, 0.12) 45%, transparent 70%);
+}
+
+.tl-menu__item,
+.admin__logout,
+.admin-cmdk-trigger {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Brilho que segue o mouse nos cartões do painel (useAdminMotion.ts): só em
+   cartões de fundo liso (.spot-ok, decidido pelo JS), para não apagar os
+   degradês dos cartões de destaque. */
+.spot-ok {
+  background-image: radial-gradient(460px circle at var(--sx, -999px) var(--sy, -999px), rgba(200, 164, 101, 0.12), transparent 60%);
+  transition: box-shadow var(--duration-slow) var(--ease-premium), border-color var(--duration-slow) var(--ease-premium);
+}
+
+.spot-ok.spot-on {
+  box-shadow: 0 0 0 1px rgba(200, 164, 101, 0.28), 0 22px 50px -26px rgba(111, 61, 67, 0.45);
+}
+
+/* Cursor próprio do site público (useCustomCursor.ts). */
+html.has-custom-cursor,
+html.has-custom-cursor body,
+html.has-custom-cursor a,
+html.has-custom-cursor button,
+html.has-custom-cursor [role='button'],
+html.has-custom-cursor label,
+html.has-custom-cursor summary {
+  cursor: none;
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.cursor-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--color-rose-900);
+}
+
+.cursor-ring {
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid rgba(111, 61, 67, 0.45);
+  transition: background-color var(--duration-base) var(--ease-premium), border-color var(--duration-base) var(--ease-premium);
+}
+
+.cursor-ring--active {
+  background: rgba(220, 171, 168, 0.22);
+  border-color: rgba(200, 164, 101, 0.75);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button::after {
+    display: none;
+  }
+}

@@ -9,6 +9,7 @@ import { nowInClinicTimezone } from '@/utils/calendar';
 import { fetchDashboardStats } from '@/services/admin-dashboard.service';
 import type { DashboardStats } from '@/types';
 import AdminCommandPalette from '@/components/admin/AdminCommandPalette.vue';
+import { animateViewTitle, installAdminMotion } from '@/composables/useAdminMotion';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -86,21 +87,24 @@ function shineLogo() {
 // marcando a aba ativa. Um listener só na nav (delegação), quickTo porque
 // mouseover dispara muito ao passar de link em link.
 const hoverPill = ref<HTMLElement | null>(null);
-let hoverX: ((v: number) => void) | null = null;
-let hoverW: ((v: number) => void) | null = null;
+// x/y/largura/altura: no topo (tablet) a pílula anda na horizontal; na
+// barra lateral (computador) anda na vertical.
+let hoverTo: Record<'x' | 'y' | 'width' | 'height', (v: number) => void> | null = null;
 function onNavHover(event: MouseEvent) {
   if (!supportsFinePointer() || prefersReducedMotion() || !hoverPill.value || !nav.value) return;
   const link = (event.target as HTMLElement).closest<HTMLElement>('.admin__nav > a');
   if (!link) return;
-  const x = link.offsetLeft;
-  if (!hoverX || !hoverW) {
-    // Primeira vez: nasce já no lugar, sem deslizar do canto esquerdo.
-    gsap.set(hoverPill.value, { x, width: link.offsetWidth, y: link.offsetTop, height: link.offsetHeight });
-    hoverX = gsap.quickTo(hoverPill.value, 'x', { duration: 0.45, ease: 'premium-out' });
-    hoverW = gsap.quickTo(hoverPill.value, 'width', { duration: 0.45, ease: 'premium-out' });
+  const box = { x: link.offsetLeft, y: link.offsetTop, width: link.offsetWidth, height: link.offsetHeight };
+  if (!hoverTo) {
+    // Primeira vez: nasce já no lugar, sem deslizar do canto.
+    gsap.set(hoverPill.value, box);
+    const q = (prop: string) => gsap.quickTo(hoverPill.value, prop, { duration: 0.45, ease: 'premium-out' });
+    hoverTo = { x: q('x'), y: q('y'), width: q('width'), height: q('height') };
   }
-  hoverX(x);
-  hoverW(link.offsetWidth);
+  hoverTo.x(box.x);
+  hoverTo.y(box.y);
+  hoverTo.width(box.width);
+  hoverTo.height(box.height);
   gsap.to(hoverPill.value, { opacity: 1, duration: 0.2, overwrite: 'auto' });
 }
 function onNavLeave() {
@@ -116,7 +120,7 @@ const indicator = ref<HTMLElement | null>(null);
 // estivesse "adiante" na fila); indo para uma mais à esquerda, entra vindo
 // da esquerda. Sem isso, toda troca de aba tinha a mesma animação genérica
 // independente de para onde o usuário estava realmente navegando.
-const NAV_ORDER = ['admin-dashboard', 'admin-catalog', 'admin-agenda', 'admin-patients', 'admin-patient-detail', 'admin-finance', 'admin-inventory', 'admin-users', 'admin-whatsapp', 'admin-audit'];
+const NAV_ORDER = ['admin-dashboard', 'admin-agenda', 'admin-patients', 'admin-patient-detail', 'admin-catalog', 'admin-finance', 'admin-inventory', 'admin-users', 'admin-whatsapp', 'admin-schedule', 'admin-audit'];
 const transitionName = ref<'admin-tab-forward' | 'admin-tab-back'>('admin-tab-forward');
 watch(
   () => route.name,
@@ -216,6 +220,24 @@ onMounted(() => {
 });
 
 onUnmounted(() => resizeObserver?.disconnect());
+
+// Movimento de fábrica de todas as abas (ver useAdminMotion.ts): cartões
+// revelados ao aparecer, brilho que segue o mouse e o título da aba
+// subindo palavra por palavra a cada troca.
+const content = ref<HTMLElement | null>(null);
+let uninstallMotion: (() => void) | null = null;
+onMounted(() => {
+  if (content.value) uninstallMotion = installAdminMotion(content.value);
+  router.isReady().then(() => requestAnimationFrame(() => animateViewTitle(content.value?.querySelector('.admin__view-stack > :last-child') ?? null)));
+});
+onUnmounted(() => uninstallMotion?.());
+watch(
+  () => route.path,
+  async () => {
+    await nextTick();
+    requestAnimationFrame(() => animateViewTitle(content.value?.querySelector('.admin__view-stack > :last-child') ?? null));
+  },
+);
 
 // Entrada do topo inteiro na primeira vez que o painel monta — só na
 // primeira vez mesmo: graças ao fix de :key em App.vue (a rota-mãe /admin é
@@ -376,13 +398,10 @@ function onLogout() {
       <nav ref="nav" class="admin__nav" aria-label="Navegação do painel" @mouseover="onNavHover" @mouseleave="onNavLeave">
         <span ref="hoverPill" class="admin__nav-hover" aria-hidden="true" />
         <span ref="indicator" class="admin__nav-indicator" aria-hidden="true" />
+        <span class="admin__nav-group">Atendimento</span>
         <RouterLink :to="{ name: 'admin-dashboard' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.2" /><rect x="14" y="3" width="7" height="5" rx="1.2" /><rect x="14" y="12" width="7" height="9" rx="1.2" /><rect x="3" y="16" width="7" height="5" rx="1.2" /></svg>
           Painel
-        </RouterLink>
-        <RouterLink :to="{ name: 'admin-catalog' }">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12.5 12.5 20.5a2 2 0 0 1-2.83 0l-6.17-6.17a2 2 0 0 1 0-2.83L11.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5Z" /><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" /></svg>
-          Serviços
         </RouterLink>
         <RouterLink :to="{ name: 'admin-agenda' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
@@ -392,6 +411,11 @@ function onLogout() {
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" /></svg>
           Pacientes
         </RouterLink>
+        <span class="admin__nav-group">Clínica</span>
+        <RouterLink :to="{ name: 'admin-catalog' }">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12.5 12.5 20.5a2 2 0 0 1-2.83 0l-6.17-6.17a2 2 0 0 1 0-2.83L11.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5Z" /><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" /></svg>
+          Serviços
+        </RouterLink>
         <RouterLink :to="{ name: 'admin-finance' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="13" rx="2" /><path d="M2.5 10h19M6 15h4" /></svg>
           Financeiro
@@ -400,6 +424,7 @@ function onLogout() {
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" /><path d="M8 21v-7h8v7" /></svg>
           Estoque
         </RouterLink>
+        <span class="admin__nav-group" v-if="auth.user?.role === 'ADMIN'">Configurações</span>
         <RouterLink v-if="auth.user?.role === 'ADMIN'" :to="{ name: 'admin-users' }">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" /></svg>
           Usuários
@@ -459,7 +484,7 @@ function onLogout() {
       </div>
     </header>
 
-    <main class="container admin__content">
+    <main ref="content" class="container admin__content">
       <div class="admin__view-stack">
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition :name="transitionName">
@@ -485,11 +510,16 @@ function onLogout() {
 </template>
 
 <style scoped>
+/* Fundo com dois brilhos parados (rosé no alto, champagne embaixo) — dá
+   profundidade ao creme sem nada animado nem desfoque. */
 .admin {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--color-surface-muted);
+  background:
+    radial-gradient(70% 45% at 100% 0%, rgba(220, 171, 168, 0.32) 0%, transparent 70%),
+    radial-gradient(55% 40% at 0% 100%, rgba(200, 164, 101, 0.16) 0%, transparent 70%),
+    var(--color-surface-muted);
 }
 
 /* --- Topo do painel: overhaul visual (era um gradiente liso + logo + nav,
@@ -1100,6 +1130,278 @@ function onLogout() {
   .admin-tab-forward-enter-active,
   .admin-tab-back-enter-active {
     transition: none;
+  }
+}
+
+/* Títulos dos grupos do menu: só existem na barra lateral. */
+.admin__nav-group {
+  display: none;
+}
+
+/* ── Computador: o topo vira uma barra lateral escura ─────────────────────
+   Com 11 abas, a linha do topo quebrava em duas (Auditoria caía para baixo).
+   A partir de 1180px o <header> inteiro vira uma coluna fixa à esquerda, em
+   chocolate com toques champagne — o contraste que faltava ao painel todo
+   em creme. Feito só com CSS: as linhas internas (topbar-row, navrow,
+   account) viram `display: contents`, então logo, busca, abas, atalhos e a
+   conta passam a ser itens da mesma coluna e são reordenados com `order`. */
+@media (min-width: 1180px) {
+  .admin {
+    --sidebar-w: 276px;
+    padding-left: var(--sidebar-w);
+  }
+
+  .admin__topbar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: var(--sidebar-w);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-4) var(--space-4);
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    color: #fff;
+    background:
+      radial-gradient(140% 50% at 0% 0%, rgba(185, 124, 127, 0.28) 0%, transparent 60%),
+      radial-gradient(120% 40% at 100% 100%, rgba(200, 164, 101, 0.16) 0%, transparent 60%),
+      linear-gradient(180deg, var(--color-dusk-800) 0%, var(--color-dusk-900) 100%);
+  }
+
+  .admin__topbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Textura fininha de ruído: dá "matéria" ao chocolate sem custo (imagem
+     parada, nada animado). */
+  .admin__topbar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .admin__topbar-row,
+  .admin__navrow,
+  .admin__account {
+    display: contents;
+  }
+
+  .admin__brand {
+    order: 1;
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    padding: 0 var(--space-2) var(--space-3);
+  }
+
+  .admin__brand img {
+    height: 70px;
+    /* Logo em champagne claro sobre o chocolate (o PNG original é rosé
+       escuro, que sumiria no fundo). */
+    filter: brightness(0) invert(1) sepia(0.35) saturate(1.6) hue-rotate(-12deg) brightness(0.96);
+  }
+
+  .admin__brand-divider {
+    display: none;
+  }
+
+  .admin__brand-title {
+    font-size: 1.5rem;
+    color: #fff;
+    white-space: normal;
+  }
+
+  .admin__brand-title em {
+    color: var(--color-gold-500);
+  }
+
+  .admin__brand-date {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .admin__topbar :deep(.admin-cmdk-trigger) {
+    order: 2;
+    width: 100%;
+    justify-content: flex-start;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .admin__topbar :deep(.admin-cmdk-trigger:hover) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(200, 164, 101, 0.5);
+    color: #fff;
+  }
+
+  .admin__topbar :deep(.admin-cmdk-trigger kbd) {
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .admin__nav {
+    order: 3;
+    flex: none;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.66);
+  }
+
+  .admin__nav-group {
+    display: block;
+    position: relative;
+    z-index: 1;
+    padding: var(--space-4) 14px 6px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(200, 164, 101, 0.7);
+  }
+
+  .admin__nav-group:first-child {
+    padding-top: var(--space-2);
+  }
+
+  .admin__nav > a {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 14px;
+    gap: 12px;
+    border-radius: 12px;
+  }
+
+  .admin__nav > a svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .admin__nav > a:hover {
+    color: #fff;
+    transform: translateX(3px);
+  }
+
+  .admin__nav a.router-link-exact-active,
+  .admin__nav a.router-link-exact-active:hover {
+    color: var(--color-dusk-900);
+    font-weight: 700;
+  }
+
+  .admin__nav-hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+  }
+
+  /* Aba ativa: champagne com um brilho por baixo — a joia da coluna. */
+  .admin__nav-indicator {
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fbf3e3 0%, var(--color-gold-100) 55%, #e9d3a8 100%);
+    box-shadow: 0 10px 28px -10px rgba(200, 164, 101, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .admin__quickstats {
+    order: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--space-4) 0 0;
+    margin-top: var(--space-2);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .admin__quickstat {
+    justify-content: flex-start;
+    border-radius: 12px;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .admin__quickstat:hover {
+    border-color: rgba(200, 164, 101, 0.45);
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: none;
+  }
+
+  .admin__quickstat svg {
+    color: var(--color-gold-500);
+  }
+
+  .admin__quickstat strong {
+    color: #fff;
+  }
+
+  .admin__quickstat-short {
+    display: none;
+  }
+
+  .admin__quickstat-label {
+    display: inline;
+  }
+
+  .admin__quickstat--warning {
+    background: rgba(164, 69, 63, 0.16);
+    border-color: rgba(220, 120, 110, 0.35);
+  }
+
+  .admin__quickstat--warning svg,
+  .admin__quickstat--warning strong {
+    color: #f0a49b;
+  }
+
+  .admin__user {
+    order: 5;
+    margin-top: auto;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    padding: var(--space-4) var(--space-2) 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .admin__user-text {
+    align-items: flex-start;
+    color: #fff;
+  }
+
+  .admin__role {
+    align-self: flex-start;
+  }
+
+  .admin__avatar {
+    background: linear-gradient(135deg, var(--color-gold-500), var(--color-rose-700));
+  }
+
+  .admin__avatar-status {
+    border-color: var(--color-dusk-900);
+  }
+
+  .admin__logout {
+    order: 6;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.78);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  .admin__logout:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 164, 101, 0.5);
+  }
+
+  .admin__content {
+    padding-top: var(--space-7);
   }
 }
 </style>

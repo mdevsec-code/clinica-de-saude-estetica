@@ -41,6 +41,7 @@ const ALL_COMMANDS: (CommandItem & { adminOnly?: boolean })[] = [
   { label: 'Estoque', hint: 'Itens e quantidades', name: 'admin-inventory', iconInner: ICON_INVENTORY },
   { label: 'Usuários', hint: 'Contas de acesso ao painel', name: 'admin-users', iconInner: ICON_USERS, adminOnly: true },
   { label: 'WhatsApp', hint: 'Conexão e mensagens automáticas', name: 'admin-whatsapp', iconInner: ICON_WHATSAPP, adminOnly: true },
+  { label: 'Horários', hint: 'Horário de atendimento e almoço', name: 'admin-schedule', iconInner: '<circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />', adminOnly: true },
   { label: 'Auditoria', hint: 'Histórico de ações da equipe', name: 'admin-audit', iconInner: ICON_AUDIT, adminOnly: true },
 ];
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
+import { installRipple } from '@/composables/useRipple';
+import { setCustomCursor } from '@/composables/useCustomCursor';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRoute, useRouter } from 'vue-router';
 import AppHeader from '@/components/AppHeader.vue';
@@ -18,6 +20,10 @@ const route = useRoute();
 // contato) ficava renderizado por cima E embaixo do painel em TODA rota
 // /admin/*, duplicando marca e navegação numa ferramenta de trabalho interna.
 const isAdminRoute = computed(() => route.path.startsWith('/admin'));
+
+// Onda de toque nos botões (site e painel) e cursor próprio só no site.
+installRipple();
+watch(isAdminRoute, (admin) => setCustomCursor(!admin), { immediate: true });
 
 // Ao abrir/recarregar o site, o código de cada página chega separado (lazy
 // import no router). Sem esperar, cabeçalho e rodapé apareciam sozinhos por
