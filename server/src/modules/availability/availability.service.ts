@@ -79,7 +79,14 @@ export async function computeAvailableSlots(tenantId: string, serviceIds: string
     }),
   ]);
 
-  const busyPeriods = [...existingAppointments, ...blockedTimes];
+  // Almoço (TenantSettings.lunchStart/lunchEnd): fechado todo dia, como um
+  // bloqueio fixo — agendamentos já marcados nesse horário continuam valendo.
+  const lunch =
+    settings?.lunchStart && settings?.lunchEnd
+      ? [{ startAt: fromZonedTime(`${dateStr}T${settings.lunchStart}:00`, timezone), endAt: fromZonedTime(`${dateStr}T${settings.lunchEnd}:00`, timezone) }]
+      : [];
+
+  const busyPeriods = [...existingAppointments, ...blockedTimes, ...lunch];
   const earliestAllowedStart = addMinutes(today, minAdvanceMinutes);
   const durationMs = totalMinutes * 60 * 1000;
   const stepMs = slotGranularityMin * 60 * 1000;

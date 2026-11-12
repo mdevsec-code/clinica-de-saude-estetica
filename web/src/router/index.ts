@@ -91,6 +91,12 @@ export const router = createRouter({
           component: () => import('@/views/admin/AdminWhatsappView.vue'),
         },
         {
+          path: 'horarios',
+          name: 'admin-schedule',
+          meta: { requiresRole: 'ADMIN' },
+          component: () => import('@/views/admin/AdminScheduleView.vue'),
+        },
+        {
           path: 'auditoria',
           name: 'admin-audit',
           meta: { requiresRole: 'ADMIN' },

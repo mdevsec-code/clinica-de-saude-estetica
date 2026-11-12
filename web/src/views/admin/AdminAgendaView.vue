@@ -33,7 +33,8 @@ import {
   type CalendarDay,
 } from '@/utils/calendar';
 import CalendarGrid from '@/components/admin/CalendarGrid.vue';
-import DayAppointmentList from '@/components/admin/DayAppointmentList.vue';
+import DayTimeline from '@/components/admin/DayTimeline.vue';
+import { fetchSchedule, type Schedule } from '@/services/admin-schedule.service';
 import AdminModal from '@/components/admin/AdminModal.vue';
 import NewAppointmentModal from '@/components/admin/NewAppointmentModal.vue';
 import BlockTimeModal from '@/components/admin/BlockTimeModal.vue';
@@ -262,18 +263,38 @@ function openDayModalForAppointment(appt: AdminAppointment) {
   dayModalKey.value = toLocalDateKey(new Date(appt.startAt));
 }
 
-// --- Novo agendamento ---
+// Horário de funcionamento + almoço: monta a linha do tempo do dia. Sem ele
+// (falha de rede), a linha do tempo mostra 08:00–18:00 sem expediente.
+const schedule = ref<Schedule | null>(null);
+onMounted(async () => {
+  schedule.value = await fetchSchedule().catch(() => null);
+});
+
+// --- Novo agendamento / bloqueio (botões do topo ou atalho da linha do tempo) ---
 const showNewAppointment = ref(false);
 const showBlockTime = ref(false);
+const prefill = ref<{ date?: string; time?: string; end?: string }>({});
+
+function openNewAppointment(date?: string, time?: string) {
+  prefill.value = { date, time };
+  showNewAppointment.value = true;
+}
+
+function openBlockTime(date?: string, time?: string, end?: string) {
+  prefill.value = { date, time, end };
+  showBlockTime.value = true;
+}
+
+const focusedDateKey = computed(() => (viewMode.value === 'day' ? toLocalDateKey(referenceDate.value) : dayModalKey.value ?? undefined));
 
 function onBlockCreated() {
   showBlockTime.value = false;
-  load();
+  load(true);
 }
 
 function onAppointmentCreated() {
   showNewAppointment.value = false;
-  load();
+  load(true);
 }
 </script>
 
@@ -287,8 +308,8 @@ function onAppointmentCreated() {
         </div>
       </div>
       <div class="admin-agenda__actions">
-        <button type="button" class="button button--ghost" @click="showBlockTime = true">Bloquear horário</button>
-        <button type="button" class="button button--primary" @click="showNewAppointment = true">+ Novo agendamento</button>
+        <button type="button" class="button button--ghost" @click="openBlockTime(focusedDateKey)">Bloquear horário</button>
+        <button type="button" class="button button--primary" @click="openNewAppointment(focusedDateKey)">+ Novo agendamento</button>
       </div>
     </div>
 
@@ -358,7 +379,18 @@ function onAppointmentCreated() {
       <EmptyState v-else-if="error" key="error" title="Algo deu errado" :description="error" action-label="Tentar novamente" @action="load()" />
       <div v-else key="content" v-stagger.grid="'.calendar-day'">
         <Transition name="fade-swap">
-          <DayAppointmentList v-if="viewMode === 'day'" key="day" :appointments="dayAppointments" :blocks="dayBlocks" @unblocked="load()" @changed="load(true)" />
+          <DayTimeline
+            v-if="viewMode === 'day'"
+            key="day"
+            :date-key="toLocalDateKey(referenceDate)"
+            :appointments="dayAppointments"
+            :blocks="dayBlocks"
+            :schedule="schedule"
+            @book="(t) => openNewAppointment(toLocalDateKey(referenceDate), t)"
+            @block="(s, e) => openBlockTime(toLocalDateKey(referenceDate), s, e)"
+            @unblocked="load(true)"
+            @changed="load(true)"
+          />
           <CalendarGrid
             v-else
             :key="viewMode"
@@ -372,17 +404,34 @@ function onAppointmentCreated() {
       </div>
     </Transition>
 
-    <AdminModal v-if="dayModalKey" :title="dayModalTitle" @close="dayModalKey = null">
-      <DayAppointmentList :appointments="dayModalAppointments" :blocks="dayModalBlocks" @unblocked="load()" @changed="load(true)" />
+    <AdminModal v-if="dayModalKey" :title="dayModalTitle" wide @close="dayModalKey = null">
+      <DayTimeline
+        :date-key="dayModalKey"
+        :appointments="dayModalAppointments"
+        :blocks="dayModalBlocks"
+        :schedule="schedule"
+        @book="(t) => openNewAppointment(dayModalKey!, t)"
+        @block="(s, e) => openBlockTime(dayModalKey!, s, e)"
+        @unblocked="load(true)"
+        @changed="load(true)"
+      />
     </AdminModal>
 
     <BlockTimeModal
       v-if="showBlockTime"
-      :initial-date="viewMode === 'day' ? toLocalDateKey(referenceDate) : dayModalKey ?? undefined"
+      :initial-date="prefill.date"
+      :initial-start="prefill.time"
+      :initial-end="prefill.end"
       @close="showBlockTime = false"
       @created="onBlockCreated"
     />
-    <NewAppointmentModal v-if="showNewAppointment" :initial-date="viewMode === 'day' ? toLocalDateKey(referenceDate) : undefined" @close="showNewAppointment = false" @created="onAppointmentCreated" />
+    <NewAppointmentModal
+      v-if="showNewAppointment"
+      :initial-date="prefill.date"
+      :initial-time="prefill.time"
+      @close="showNewAppointment = false"
+      @created="onAppointmentCreated"
+    />
   </div>
 </template>
 

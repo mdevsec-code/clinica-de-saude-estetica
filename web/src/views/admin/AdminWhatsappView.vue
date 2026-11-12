@@ -127,8 +127,13 @@ const TEMPLATE_META: Record<MessageTemplateKey, { label: string; when: string }>
     when: 'Enviada 24 horas antes do atendimento (nunca entre 21h e 7h — nesse caso, às 7h).',
   },
   REMINDER_2H: { label: 'Lembrete 2h antes', when: 'Enviada 2 horas antes do atendimento.' },
+  RESCHEDULE_OFFER: {
+    label: 'Proposta de novo horário',
+    when: 'Enviada quando um agendamento ficou antes da abertura do dia (ex.: sábado, que agora abre às 09:00). Use {NovoHorario} para o horário proposto. Se a paciente responder SIM, o horário é remarcado sozinho.',
+  },
+  RESCHEDULE_DONE: { label: 'Remarcação confirmada', when: 'Enviada quando a paciente responde SIM à proposta e o horário é remarcado.' },
 };
-const TEMPLATE_ORDER: MessageTemplateKey[] = ['WELCOME', 'CONFIRMATION', 'CONFIRMATION_THANKS', 'REMINDER_DAY_BEFORE', 'REMINDER_2H'];
+const TEMPLATE_ORDER: MessageTemplateKey[] = ['WELCOME', 'CONFIRMATION', 'CONFIRMATION_THANKS', 'REMINDER_DAY_BEFORE', 'REMINDER_2H', 'RESCHEDULE_OFFER', 'RESCHEDULE_DONE'];
 
 const templates = ref<MessageTemplate[]>([]);
 const loading = ref(true);

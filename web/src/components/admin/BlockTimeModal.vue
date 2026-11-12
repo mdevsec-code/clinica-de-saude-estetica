@@ -6,7 +6,8 @@ import { createBlockedTime } from '@/services/admin-appointments.service';
 import { ApiError } from '@/services/api';
 import { toLocalDateKey } from '@/utils/calendar';
 
-const props = defineProps<{ initialDate?: string }>();
+// initialStart/initialEnd: vêm do atalho da linha do tempo (horário vazio).
+const props = defineProps<{ initialDate?: string; initialStart?: string; initialEnd?: string }>();
 const emit = defineEmits<{ close: []; created: [] }>();
 
 const TZ_OFFSET = '-03:00'; // America/Bahia, sem horário de verão.
@@ -15,8 +16,8 @@ const todayKey = toLocalDateKey(new Date());
 const startDate = ref(props.initialDate && props.initialDate >= todayKey ? props.initialDate : todayKey);
 const endDate = ref(startDate.value);
 const allDay = ref(false);
-const startTime = ref('12:00');
-const endTime = ref('13:00');
+const startTime = ref(props.initialStart ?? '12:00');
+const endTime = ref(props.initialEnd ?? '13:00');
 const reason = ref('');
 const submitting = ref(false);
 const submitError = ref<string | null>(null);

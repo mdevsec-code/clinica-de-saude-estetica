@@ -11,7 +11,7 @@ const BUSINESS_HOURS: Array<{ weekday: number; opensAt: string; closesAt: string
   { weekday: 3, opensAt: '09:00', closesAt: '17:00' }, // quarta
   { weekday: 4, opensAt: '09:00', closesAt: '17:00' }, // quinta
   { weekday: 5, opensAt: '09:00', closesAt: '17:00' }, // sexta
-  { weekday: 6, opensAt: '08:00', closesAt: '12:00' }, // sábado
+  { weekday: 6, opensAt: '09:00', closesAt: '12:00' }, // sábado
 ];
 
 // Categorias e serviços extraídos da agenda real da clínica (agendas.link),

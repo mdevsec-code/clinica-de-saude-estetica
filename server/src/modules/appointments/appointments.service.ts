@@ -189,6 +189,9 @@ export async function listAppointments({ tenantId, from, to }: ListAppointmentsI
     // Sem estes dois, o selo "Paciente confirmou ✓" da agenda nunca aparecia.
     confirmationSentAt: appt.confirmationSentAt,
     clientConfirmedAt: appt.clientConfirmedAt,
+    rescheduleProposedStartAt: appt.rescheduleProposedStartAt,
+    rescheduleOfferSentAt: appt.rescheduleOfferSentAt,
+    rescheduleAcceptedAt: appt.rescheduleAcceptedAt,
     chargedCents: appt.chargedCents,
     paymentMethod: appt.paymentMethod,
     paymentNote: appt.paymentNote,

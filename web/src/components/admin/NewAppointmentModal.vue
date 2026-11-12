@@ -11,7 +11,8 @@ import { ApiError } from '@/services/api';
 import { toLocalDateKey } from '@/utils/calendar';
 import type { PatientListItem, Service, ServiceCategory, Slot } from '@/types';
 
-const props = defineProps<{ initialDate?: string }>();
+// initialTime: vem do atalho da linha do tempo (tocar num horário vazio).
+const props = defineProps<{ initialDate?: string; initialTime?: string }>();
 const emit = defineEmits<{ close: []; created: [] }>();
 
 const TIMEZONE = 'America/Bahia';
@@ -81,7 +82,7 @@ function formatDuration(minutes: number) {
 // --- Data e horário: horários livres como sugestão + encaixe em qualquer horário ---
 const todayKey = toLocalDateKey(new Date());
 const date = ref(props.initialDate && props.initialDate >= todayKey ? props.initialDate : todayKey);
-const time = ref('');
+const time = ref(props.initialTime ?? '');
 const slots = ref<Slot[]>([]);
 const loadingSlots = ref(false);
 

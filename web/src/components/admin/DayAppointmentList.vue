@@ -6,7 +6,9 @@ import { ApiError } from '@/services/api';
 import EmptyState from '@/components/EmptyState.vue';
 import ComandaModal from './ComandaModal.vue';
 
-const props = defineProps<{ appointments: AdminAppointment[]; blocks?: AdminBlockedTime[] }>();
+// hideEmpty: usado pela linha do tempo para mostrar só um bloqueio, sem o
+// aviso de "nenhum atendimento".
+const props = defineProps<{ appointments: AdminAppointment[]; blocks?: AdminBlockedTime[]; hideEmpty?: boolean }>();
 const emit = defineEmits<{ unblocked: []; changed: [] }>();
 
 // Comanda: a visita é tudo da mesma paciente no mesmo dia (vários serviços
@@ -105,8 +107,8 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
       </button>
     </li>
   </ul>
-  <EmptyState v-if="!appointments.length" title="Nenhum atendimento neste dia." />
-  <ul v-else class="day-list">
+  <EmptyState v-if="!appointments.length && !hideEmpty" title="Nenhum atendimento neste dia." />
+  <ul v-else-if="appointments.length" class="day-list">
     <li v-for="appt in appointments" :key="appt.id" class="day-item">
       <div class="day-item__main">
         <span class="day-item__time">{{ formatTime(appt.startAt) }}</span>
@@ -138,6 +140,13 @@ async function setStatus(appointment: AdminAppointment, status: AppointmentStatu
           <!-- Resposta à confirmação automática do WhatsApp (só para
                agendamentos ativos que de fato receberam a confirmação). -->
           <template v-if="appt.status === 'CONFIRMED'">
+            <span v-if="appt.rescheduleOfferSentAt && appt.rescheduleProposedStartAt && !appt.rescheduleAcceptedAt" class="day-item__wa">
+              Proposta de {{ formatTime(appt.rescheduleProposedStartAt) }} enviada · aguardando SIM
+            </span>
+            <span v-else-if="appt.rescheduleOfferSentAt && !appt.rescheduleProposedStartAt && !appt.rescheduleAcceptedAt" class="day-item__wa">
+              Antes da abertura · remarcar à mão
+            </span>
+            <span v-if="appt.rescheduleAcceptedAt" class="day-item__wa day-item__wa--yes">Remarcado pelo WhatsApp ✓</span>
             <span v-if="appt.clientConfirmedAt" class="day-item__wa day-item__wa--yes">Paciente confirmou ✓</span>
             <span v-else-if="appt.confirmationSentAt" class="day-item__wa">Aguardando SIM</span>
           </template>

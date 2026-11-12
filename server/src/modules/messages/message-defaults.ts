@@ -62,6 +62,24 @@ Seu horário é *hoje às {Horario}* — {Servico}.
 📍 Nossa localização: {Localizacao}
 
 Até já! 💫`,
+
+  // Agendamento que ficou antes da abertura do dia (o sábado passou a abrir
+  // às 09:00). {NovoHorario} é o horário de abertura; respondendo SIM, o
+  // sistema remarca sozinho e manda RESCHEDULE_DONE.
+  RESCHEDULE_OFFER: `{Saudacao}, {Cliente}! Tudo bem? ✨
+
+Uma atualização importante: aos sábados, nosso atendimento agora começa às *{NovoHorario}*.
+
+Seu horário de *{Servico}* está marcado para *{Data} às {Horario}*. Podemos passar para as *{NovoHorario}* do mesmo dia?
+
+✅ *Responda SIM para confirmar o novo horário.*
+Se preferir outro horário, é só nos chamar por aqui. 💛`,
+
+  RESCHEDULE_DONE: `Prontinho, {Cliente}! ✨ Seu horário foi remarcado:
+
+📅 {Data} às {Horario} — {Servico}
+
+Obrigada pela compreensão! Até lá! 💖`,
 };
 
 export const MESSAGE_TEMPLATE_KEYS = Object.keys(DEFAULT_MESSAGE_TEMPLATES) as MessageTemplateKey[];

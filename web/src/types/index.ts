@@ -109,6 +109,11 @@ export interface AdminAppointment {
   // WhatsApp automático: confirmação enviada / paciente respondeu "SIM".
   confirmationSentAt?: string | null;
   clientConfirmedAt?: string | null;
+  // Proposta de novo horário pelo WhatsApp (ex.: sábado que passou a abrir
+  // às 09:00). Proposta enviada sem horário = abertura ocupada, remarcar à mão.
+  rescheduleProposedStartAt?: string | null;
+  rescheduleOfferSentAt?: string | null;
+  rescheduleAcceptedAt?: string | null;
   // Comanda: valor cobrado e forma de pagamento (ver ComandaModal.vue).
   chargedCents?: number | null;
   paymentMethod?: string | null;
@@ -358,7 +363,14 @@ export interface DashboardStats {
 }
 
 // --- WhatsApp (conexão por QR code + mensagens automáticas) ---
-export type MessageTemplateKey = 'WELCOME' | 'CONFIRMATION' | 'CONFIRMATION_THANKS' | 'REMINDER_DAY_BEFORE' | 'REMINDER_2H';
+export type MessageTemplateKey =
+  | 'WELCOME'
+  | 'CONFIRMATION'
+  | 'CONFIRMATION_THANKS'
+  | 'REMINDER_DAY_BEFORE'
+  | 'REMINDER_2H'
+  | 'RESCHEDULE_OFFER'
+  | 'RESCHEDULE_DONE';
 
 export interface MessageTemplate {
   key: MessageTemplateKey;

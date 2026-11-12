@@ -18,7 +18,7 @@ export const FALLBACK_SETTINGS: PublicSettings = {
     { weekday: 3, opensAt: '09:00', closesAt: '17:00' },
     { weekday: 4, opensAt: '09:00', closesAt: '17:00' },
     { weekday: 5, opensAt: '09:00', closesAt: '17:00' },
-    { weekday: 6, opensAt: '08:00', closesAt: '12:00' },
+    { weekday: 6, opensAt: '09:00', closesAt: '12:00' },
   ],
 };
 

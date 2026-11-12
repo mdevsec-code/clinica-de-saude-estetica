@@ -1,5 +1,6 @@
 import type { MessageTemplateKey } from '@prisma/client';
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { syncAppointmentToGoogle } from '../google-calendar/google-calendar.service';
 import pino from 'pino';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
@@ -291,6 +292,22 @@ async function handleIncoming(message: IncomingWhatsappMessage) {
     // próximo desse número que recebeu a confirmação e ainda não foi
     // confirmado pela paciente.
     if (YES_RE.test(normalize(message.text))) {
+      // SIM para uma proposta de novo horário vem antes da confirmação: quem
+      // recebeu a proposta já tinha confirmado o horário antigo.
+      const offers = await prisma.appointment.findMany({
+        where: {
+          tenantId, status: 'CONFIRMED', startAt: { gt: new Date() },
+          rescheduleOfferSentAt: { not: null }, rescheduleProposedStartAt: { not: null }, rescheduleAcceptedAt: null,
+        },
+        include: messageInclude,
+        orderBy: { startAt: 'asc' },
+      });
+      const offer = offers.find((a) => phoneKey(a.customer.whatsapp) === key);
+      if (offer) {
+        await acceptReschedule(tenantId, timezone, offer, replyJid, phoneDigits);
+        return;
+      }
+
       const pending = await prisma.appointment.findMany({
         where: { tenantId, status: 'CONFIRMED', confirmationSentAt: { not: null }, clientConfirmedAt: null, startAt: { gt: new Date() } },
         include: messageInclude,
@@ -367,6 +384,124 @@ async function sendWelcomeWithRetry(tenantId: string, jid: string, text: string)
 onIncomingWhatsappMessage(handleIncoming);
 onOutgoingWhatsappMessage(touchConversation);
 
+// --- 5. Proposta de novo horário ---------------------------------------
+// Agendamento futuro que começa antes da abertura do dia — hoje, o sábado
+// que passou a abrir às 09:00 com pacientes já marcadas às 08:00. Propõe o
+// horário de abertura pelo WhatsApp; com SIM, acceptReschedule remarca.
+// Uma proposta por visita, nunca repetida (rescheduleOfferSentAt).
+// ignoreQuiet: só para teste (o envio real respeita a janela de silêncio).
+export async function sendRescheduleOffers(tenantId: string, timezone: string, { ignoreQuiet = false } = {}) {
+  const hour = Number(formatInTimeZone(new Date(), timezone, 'H'));
+  if (!ignoreQuiet && (hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR)) return;
+  const template = await enabledTemplate(tenantId, 'RESCHEDULE_OFFER');
+  if (!template) return;
+
+  const [hours, candidates] = await Promise.all([
+    prisma.businessHour.findMany({ where: { tenantId, active: true } }),
+    prisma.appointment.findMany({
+      // Pelo menos 2h de antecedência: em cima da hora, a clínica resolve
+      // direto com a paciente.
+      where: { tenantId, status: 'CONFIRMED', rescheduleOfferSentAt: null, startAt: { gt: new Date(Date.now() + 2 * HOUR) } },
+      include: messageInclude,
+      orderBy: { startAt: 'asc' },
+    }),
+  ]);
+
+  const handled = new Set<string>();
+  for (const appt of candidates) {
+    if (handled.has(appt.id)) continue;
+    const dateStr = formatInTimeZone(appt.startAt, timezone, 'yyyy-MM-dd');
+    const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+    const opens = hours.filter((h) => h.weekday === weekday).map((h) => h.opensAt).sort()[0];
+    if (!opens) continue;
+    const opening = fromZonedTime(`${dateStr}T${opens}:00`, timezone);
+    if (appt.startAt >= opening) continue;
+
+    const visit = await visitOf(appt);
+    const ids = visit.map((a) => a.id);
+    ids.forEach((id) => handled.add(id));
+    const delta = opening.getTime() - visit[0].startAt.getTime();
+    const newEnd = new Date(visit[visit.length - 1].endAt.getTime() + delta);
+
+    const [clash, blocked] = await Promise.all([
+      prisma.appointment.findFirst({ where: { tenantId, status: 'CONFIRMED', id: { notIn: ids }, startAt: { lt: newEnd }, endAt: { gt: opening } } }),
+      prisma.blockedTime.findFirst({ where: { tenantId, startAt: { lt: newEnd }, endAt: { gt: opening } } }),
+    ]);
+    if (clash || blocked) {
+      // Marca como tratado (sem horário proposto) para não tentar a cada
+      // minuto; o painel mostra "remarcar manualmente".
+      await prisma.appointment.updateMany({ where: { id: { in: ids } }, data: { rescheduleOfferSentAt: new Date(), rescheduleProposedStartAt: null } });
+      logger.warn({ appointmentId: appt.id }, 'Horário de abertura ocupado — proposta de remarcação não enviada; remarcar pelo painel');
+      continue;
+    }
+
+    try {
+      const vars = { ...(await buildVariables(tenantId, timezone, asVisit(visit))), NovoHorario: formatInTimeZone(opening, timezone, 'HH:mm') };
+      await sendWhatsappText(tenantId, appt.customer.whatsapp, renderTemplate(template, vars));
+      await prisma.appointment.updateMany({ where: { id: { in: ids } }, data: { rescheduleOfferSentAt: new Date(), rescheduleProposedStartAt: opening } });
+      await markContactGreeted(tenantId, appt.customer.whatsapp);
+      logger.info({ appointmentId: appt.id, proposed: opening.toISOString() }, 'Proposta de novo horário enviada');
+    } catch (err) {
+      logger.error({ err, appointmentId: appt.id }, 'Falha ao enviar proposta de novo horário');
+      if (err instanceof Error && err.message.includes('não tem WhatsApp')) {
+        await prisma.appointment.updateMany({ where: { id: { in: ids } }, data: { rescheduleOfferSentAt: new Date(), rescheduleProposedStartAt: null } });
+      }
+      if (!isWhatsappConnected(tenantId)) return;
+    }
+  }
+}
+
+type OfferAppointment = Awaited<ReturnType<typeof prisma.appointment.findFirstOrThrow<{ include: typeof messageInclude }>>>;
+
+// A paciente respondeu SIM à proposta: move a visita inteira (todos os
+// serviços, mantendo os intervalos) para o horário proposto.
+async function acceptReschedule(tenantId: string, timezone: string, offer: OfferAppointment, replyJid: string, phoneDigits: string) {
+  const proposed = offer.rescheduleProposedStartAt!;
+  const visit = await prisma.appointment.findMany({
+    where: { tenantId, customerId: offer.customerId, status: 'CONFIRMED', rescheduleProposedStartAt: proposed, rescheduleAcceptedAt: null },
+    include: messageInclude,
+    orderBy: { startAt: 'asc' },
+  });
+  const delta = proposed.getTime() - visit[0].startAt.getTime();
+  // Para frente, atualiza do último para o primeiro: senão o primeiro
+  // serviço remarcado encostaria no segundo e a trava anti-sobreposição do
+  // banco recusaria.
+  const ordered = delta > 0 ? [...visit].reverse() : visit;
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const a of ordered) {
+        await tx.appointment.update({
+          where: { id: a.id },
+          data: {
+            startAt: new Date(a.startAt.getTime() + delta),
+            endAt: new Date(a.endAt.getTime() + delta),
+            rescheduleAcceptedAt: new Date(),
+            clientConfirmedAt: a.clientConfirmedAt ?? new Date(),
+            reminder2hSentAt: null,
+          },
+        });
+      }
+    });
+  } catch (err) {
+    // Alguém ocupou o horário entre a proposta e a resposta.
+    logger.error({ err, appointmentId: offer.id }, 'Não deu para remarcar no horário proposto');
+    await replyWhatsapp(tenantId, replyJid, 'Obrigada pela resposta! 💛 A Noely vai confirmar o seu novo horário com você em instantes.');
+    return;
+  }
+
+  for (const a of visit) {
+    await syncAppointmentToGoogle(a.id).catch((err) => logger.error({ err, appointmentId: a.id }, 'Falha ao atualizar o Google Agenda'));
+  }
+  logger.info({ appointmentId: offer.id, newStart: proposed.toISOString() }, 'Paciente aceitou o novo horário — remarcado');
+
+  const done = await enabledTemplate(tenantId, 'RESCHEDULE_DONE');
+  if (done) {
+    const moved = await prisma.appointment.findMany({ where: { id: { in: visit.map((a) => a.id) } }, include: messageInclude, orderBy: { startAt: 'asc' } });
+    await replyWhatsapp(tenantId, replyJid, renderTemplate(done, await buildVariables(tenantId, timezone, asVisit(moved))));
+  }
+  await markContactGreeted(tenantId, phoneDigits);
+}
+
 // --- 4. Lembretes ------------------------------------------------------
 async function sendReminders(tenantId: string, timezone: string) {
   const now = new Date();
@@ -384,7 +519,13 @@ async function sendReminders(tenantId: string, timezone: string) {
     // Quem agendou já dentro da antecedência do lembrete (ex.: marcou hoje
     // para amanhã de manhã) acabou de receber a confirmação — o lembrete
     // seria repetitivo.
-    return candidates.filter((a) => a.createdAt.getTime() <= a.startAt.getTime() - leadMs);
+    // Com proposta de novo horário em aberto, o lembrete com o horário
+    // antigo só confundiria — espera a paciente responder.
+    return candidates.filter(
+      (a) =>
+        a.createdAt.getTime() <= a.startAt.getTime() - leadMs &&
+        !(a.rescheduleOfferSentAt && a.rescheduleProposedStartAt && !a.rescheduleAcceptedAt),
+    );
   }
 
   const jobs: Job[] = [];
@@ -445,6 +586,7 @@ export function startReminderScheduler(intervalMs = 60_000) {
       for (const tenant of tenants) {
         if (!isWhatsappConnected(tenant.id)) continue;
         await sendPendingConfirmations(tenant.id);
+        await sendRescheduleOffers(tenant.id, tenant.timezone);
         await sendReminders(tenant.id, tenant.timezone);
       }
     } catch (err) {
