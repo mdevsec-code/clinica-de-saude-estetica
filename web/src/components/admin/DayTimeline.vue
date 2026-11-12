@@ -39,6 +39,12 @@ const hours = computed(() => props.schedule?.days.find((d) => d.weekday === week
 const isOpen = computed(() => !!hours.value?.open);
 const lunch = computed(() => (props.schedule?.lunch.enabled ? { start: toMin(props.schedule.lunch.start), end: toMin(props.schedule.lunch.end) } : null));
 
+// Só sinaliza o almoço quando ele cai dentro do expediente (o sábado, que
+// fecha às 12:00, não tem almoço).
+const lunchInHours = computed(
+  () => !!lunch.value && isOpen.value && lunch.value.start < toMin(hours.value!.closesAt) && lunch.value.end > toMin(hours.value!.opensAt),
+);
+
 const active = computed(() => props.appointments.filter((a) => a.status !== 'CANCELLED'));
 const cancelled = computed(() => props.appointments.filter((a) => a.status === 'CANCELLED'));
 
@@ -171,9 +177,11 @@ async function animateIn() {
   await nextTick();
   if (prefersReducedMotion() || !root.value) return;
   const tl = gsap.timeline({ defaults: { ease: 'premium-out' } });
-  tl.from(root.value.querySelectorAll('.tl-row'), { opacity: 0, x: -10, duration: 0.45, stagger: 0.018 })
-    .from(root.value.querySelectorAll('.tl-event'), { opacity: 0, scale: 0.94, y: 8, duration: 0.5, stagger: 0.05, transformOrigin: 'left center' }, 0.12)
-    .from(root.value.querySelectorAll('.tl-now'), { scaleX: 0, transformOrigin: 'left center', duration: 0.6 }, 0.3);
+  // clearProps: transform residual nas linhas criaria um contexto de
+  // empilhamento e prenderia o menu do atalho atrás dos atendimentos.
+  tl.from(root.value.querySelectorAll('.tl-row'), { opacity: 0, x: -10, duration: 0.45, stagger: 0.018, clearProps: 'transform,opacity' })
+    .from(root.value.querySelectorAll('.tl-event'), { opacity: 0, scale: 0.94, y: 8, duration: 0.5, stagger: 0.05, transformOrigin: 'left center', clearProps: 'transform,opacity' }, 0.12)
+    .from(root.value.querySelectorAll('.tl-now'), { scaleX: 0, transformOrigin: 'left center', duration: 0.6, clearProps: 'transform' }, 0.3);
 }
 onMounted(animateIn);
 watch(() => props.dateKey, animateIn);
@@ -198,7 +206,7 @@ watch(selectedKey, async (v) => {
       <span class="tl__chip">{{ isOpen ? `${hours!.opensAt} – ${hours!.closesAt}` : 'Fechado neste dia' }}</span>
       <span class="tl__chip tl__chip--rose">{{ active.length }} atendimento{{ active.length === 1 ? '' : 's' }}</span>
       <span class="tl__chip tl__chip--free">{{ freeCount }} horário{{ freeCount === 1 ? '' : 's' }} livre{{ freeCount === 1 ? '' : 's' }}</span>
-      <span v-if="lunch && isOpen" class="tl__chip tl__chip--gold">Almoço {{ schedule!.lunch.start }} – {{ schedule!.lunch.end }}</span>
+      <span v-if="lunchInHours" class="tl__chip tl__chip--gold">Almoço {{ schedule!.lunch.start }} – {{ schedule!.lunch.end }}</span>
     </div>
 
     <div v-if="fullDayBlock" class="tl__fullday">
@@ -211,7 +219,7 @@ watch(selectedKey, async (v) => {
         v-for="row in rows"
         :key="row.start"
         class="tl-row"
-        :class="`tl-row--${row.state}`"
+        :class="[`tl-row--${row.state}`, { 'tl-row--menu': menuAt === row.start }]"
         :style="{ top: `${top(row.start)}px`, height: `${ROW}px` }"
       >
         <span class="tl-row__time">{{ row.label }}</span>
@@ -253,7 +261,10 @@ watch(selectedKey, async (v) => {
         :key="e.key"
         type="button"
         class="tl-event"
-        :class="[e.kind === 'block' ? 'tl-event--block' : `tl-event--${apptTone(e.appt!)}`, { 'tl-event--selected': selectedKey === e.key }]"
+        :class="[
+          e.kind === 'block' ? 'tl-event--block' : `tl-event--${apptTone(e.appt!)}`,
+          { 'tl-event--selected': selectedKey === e.key, 'tl-event--compact': e.end - e.start <= 40 },
+        ]"
         :style="{
           top: `${top(e.start) + 2}px`,
           height: `${Math.max((e.end - e.start) * PX - 4, 26)}px`,
@@ -346,6 +357,12 @@ watch(selectedKey, async (v) => {
   display: flex;
   align-items: stretch;
   border-top: 1px solid var(--color-border);
+}
+
+/* Linha com o atalho aberto fica acima dos atendimentos (z 3) e da linha
+   do "agora" (z 4). */
+.tl-row--menu {
+  z-index: 8;
 }
 
 .tl-row:nth-child(2n) {
@@ -559,6 +576,29 @@ watch(selectedKey, async (v) => {
   border: 1px dashed var(--color-border);
 }
 .tl-event--block::before { background: var(--color-ink-soft); }
+
+/* Atendimento curto (até 40 min): tudo numa linha só — horário, nome,
+   serviço e o aviso —, senão o nome da paciente ficava cortado. */
+.tl-event--compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  column-gap: 10px;
+  row-gap: 0;
+}
+
+.tl-event--compact .tl-event__service {
+  max-width: none;
+  flex: 0 1 auto;
+}
+
+.tl-event--compact .tl-event__flag {
+  margin-top: 0;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.6);
+}
 
 .tl-event__time {
   font-size: 0.72rem;

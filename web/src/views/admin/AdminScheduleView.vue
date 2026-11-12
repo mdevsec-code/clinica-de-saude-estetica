@@ -69,7 +69,15 @@ function dayBar(d: { opensAt: string; closesAt: string }) {
   return { left: `${left}%`, width: `${Math.max(0, right - left)}%` };
 }
 
-const lunchBar = computed(() => (schedule.value?.lunch.enabled ? dayBar({ opensAt: schedule.value.lunch.start, closesAt: schedule.value.lunch.end }) : null));
+// Almoço recortado ao expediente de cada dia (no sábado, que fecha às 12:00,
+// não aparece).
+function lunchBar(d: { opensAt: string; closesAt: string }) {
+  const l = schedule.value?.lunch;
+  if (!l?.enabled) return null;
+  const start = l.start > d.opensAt ? l.start : d.opensAt;
+  const end = l.end < d.closesAt ? l.end : d.closesAt;
+  return start < end ? dayBar({ opensAt: start, closesAt: end }) : null;
+}
 
 async function onSave() {
   if (!schedule.value || !canSave.value) return;
@@ -138,7 +146,7 @@ function discard() {
 
             <div class="schedule-day__track" aria-hidden="true">
               <span v-if="d.open && !invalidDays.has(d.weekday)" class="schedule-day__bar" :style="dayBar(d)" />
-              <span v-if="d.open && lunchBar" class="schedule-day__lunch" :style="lunchBar" />
+              <span v-if="d.open && lunchBar(d)" class="schedule-day__lunch" :style="lunchBar(d)!" />
             </div>
             <p v-if="invalidDays.has(d.weekday)" class="schedule-day__error">O horário de fechar precisa ser depois do de abrir.</p>
           </li>
