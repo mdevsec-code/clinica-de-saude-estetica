@@ -703,3 +703,11 @@ html.has-custom-cursor summary {
   background: var(--color-bg);
   color: var(--color-ink);
 }
+
+/* Troca de tema do painel (AdminLayout.toggleTheme): sem o fade padrão do
+   navegador — quem anima é o círculo que revela o tema novo. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

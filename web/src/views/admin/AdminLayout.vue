@@ -327,8 +327,34 @@ watch(
   { immediate: true },
 );
 onUnmounted(() => delete document.documentElement.dataset.theme);
-function toggleTheme() {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark';
+// Troca com um círculo do tema novo nascendo do botão e cobrindo a tela
+// (View Transitions do navegador: fotografa a tela antiga e revela a nova
+// por um clip-path circular). Navegador sem suporte ou com movimento
+// reduzido: troca direta.
+function toggleTheme(event: MouseEvent) {
+  const next = theme.value === 'dark' ? 'light' : 'dark';
+  const doc = document as Document & { startViewTransition?: (update: () => void) => { ready: Promise<void> } };
+  if (!doc.startViewTransition || prefersReducedMotion()) {
+    theme.value = next;
+    return;
+  }
+  // Centro do botão (funciona também ao ativar pelo teclado, sem posição do mouse).
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height / 2;
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+  const transition = doc.startViewTransition(() => {
+    // O tema precisa estar aplicado quando esta função termina (o watch só
+    // rodaria depois): aplica direto e o watch só confirma.
+    document.documentElement.dataset.theme = next;
+    theme.value = next;
+  });
+  transition.ready.then(() => {
+    document.documentElement.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+      { duration: 750, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', pseudoElement: '::view-transition-new(root)' },
+    );
+  });
 }
 
 function onLogout() {
@@ -389,8 +415,10 @@ function onLogout() {
             :title="theme === 'dark' ? 'Modo claro' : 'Modo escuro'"
             @click="toggleTheme"
           >
-            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" /></svg>
-            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" /></svg>
+            <Transition name="theme-icon" mode="out-in">
+            <svg v-if="theme === 'dark'" key="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" /></svg>
+            <svg v-else key="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" /></svg>
+            </Transition>
           </button>
           <button type="button" class="admin__logout" @click="onLogout">
             <span>Sair</span>
@@ -977,6 +1005,22 @@ function onLogout() {
 
 .admin__theme {
   padding: 8px 10px;
+}
+
+/* Sol e lua giram ao trocar. */
+.theme-icon-enter-active,
+.theme-icon-leave-active {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+}
+
+.theme-icon-enter-from {
+  transform: rotate(-120deg) scale(0.4);
+  opacity: 0;
+}
+
+.theme-icon-leave-to {
+  transform: rotate(120deg) scale(0.4);
+  opacity: 0;
 }
 
 .admin__logout:hover {
