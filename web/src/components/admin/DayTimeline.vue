@@ -73,6 +73,8 @@ const range = computed(() => {
 });
 
 const fullDayBlock = computed(() => props.blocks.find((b) => minOfDay(b.endAt) - minOfDay(b.startAt) >= 24 * 60 - 1) ?? null);
+// Dia inteiro bloqueado (ex.: feriado): tocar na faixa abre o "Desbloquear".
+const fullDayOpen = ref(false);
 
 interface Event {
   key: string;
@@ -208,10 +210,10 @@ watch(menuAt, async (v) => {
       <span v-if="lunchInHours" class="tl__chip tl__chip--gold">Almoço {{ schedule!.lunch.start }} – {{ schedule!.lunch.end }}</span>
     </div>
 
-    <div v-if="fullDayBlock" class="tl__fullday">
+    <button v-if="fullDayBlock" type="button" class="tl__fullday" @click="fullDayOpen = true">
       <strong>Dia bloqueado</strong> · {{ fullDayBlock.reason || 'Indisponível' }}
-      <span>{{ fullDayBlock.source === 'MANUAL' ? 'bloqueado no painel' : 'Google Agenda' }}</span>
-    </div>
+      <span>{{ fullDayBlock.source === 'MANUAL' ? 'bloqueado no painel · toque para desbloquear' : 'Google Agenda' }}</span>
+    </button>
 
     <div class="tl__grid" :style="{ height: `${height}px` }">
       <div
@@ -290,8 +292,13 @@ watch(menuAt, async (v) => {
     <!-- Cliente → comanda; bloqueio → "Desbloquear". Os dois em janela
          própria (antes era um cartão lá embaixo da agenda). -->
     <ComandaModal v-if="selected?.appt && selectedVisit.length" :visit="selectedVisit" @close="selectedKey = null" @changed="emit('changed')" />
-    <AdminModal v-else-if="selected?.block" title="Horário bloqueado" @close="selectedKey = null">
-      <DayAppointmentList :appointments="[]" :blocks="[selected.block]" hide-empty @unblocked="selectedKey = null; emit('unblocked')" />
+    <AdminModal v-else-if="selected?.block || (fullDayOpen && fullDayBlock)" title="Horário bloqueado" @close="selectedKey = null; fullDayOpen = false">
+      <DayAppointmentList
+        :appointments="[]"
+        :blocks="[selected?.block ?? fullDayBlock!]"
+        hide-empty
+        @unblocked="selectedKey = null; fullDayOpen = false; emit('unblocked')"
+      />
     </AdminModal>
 
     <details v-if="cancelled.length" class="tl__cancelled">
@@ -328,6 +335,11 @@ watch(menuAt, async (v) => {
 .tl__chip--gold { background: var(--color-gold-100); color: var(--color-gold-700); }
 
 .tl__fullday {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--color-ink);
+  cursor: pointer;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
