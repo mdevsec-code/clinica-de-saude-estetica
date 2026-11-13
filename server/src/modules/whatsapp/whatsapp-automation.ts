@@ -125,8 +125,14 @@ async function tenantTimezone(tenantId: string) {
 // Qualquer mensagem automática conta como conversa ativa: a paciente que
 // acabou de receber a confirmação e responde com uma dúvida não recebe a
 // Saudação de boas-vindas no meio da conversa.
+// Chave da conversa: DDD + 8 dígitos; contato sem número vem como "lid:…"
+// (ver whatsapp-connection.ts) e usa isso direto.
+function contactKey(phoneOrLid: string) {
+  return phoneOrLid.startsWith('lid:') ? phoneOrLid : phoneKey(phoneOrLid);
+}
+
 async function markContactGreeted(tenantId: string, phone: string) {
-  const key = phoneKey(phone);
+  const key = contactKey(phone);
   const now = new Date();
   await prisma.whatsappContact.upsert({
     where: { tenantId_phoneKey: { tenantId, phoneKey: key } },
@@ -137,7 +143,7 @@ async function markContactGreeted(tenantId: string, phone: string) {
 
 // Mensagem da pessoa ou da Noely pelo celular: a conversa está ativa.
 async function touchConversation(tenantId: string, phone: string) {
-  const key = phoneKey(phone);
+  const key = contactKey(phone);
   const now = new Date();
   await prisma.whatsappContact.upsert({
     where: { tenantId_phoneKey: { tenantId, phoneKey: key } },
@@ -270,7 +276,7 @@ function maskPhone(digits: string) {
 
 async function handleIncoming(message: IncomingWhatsappMessage) {
   const { tenantId, phoneDigits, replyJid } = message;
-  const key = phoneKey(phoneDigits);
+  const key = contactKey(phoneDigits);
 
   // Quanto tempo a conversa estava parada ANTES desta mensagem — lido
   // primeiro, porque logo abaixo esta própria mensagem já marca a conversa

@@ -177,7 +177,13 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
       // parte (senderPn / remoteJidAlt, conforme a versão do protocolo).
       const key = message.key as typeof message.key & { senderPn?: string; remoteJidAlt?: string };
       const phoneJid = jid.endsWith('@s.whatsapp.net') ? jid : (key.senderPn ?? key.remoteJidAlt);
-      const phoneDigits = phoneJid ? phoneJid.split('@')[0].split(':')[0] : lidToPhone.get(jid);
+      // Contato que esconde o número (privacidade do WhatsApp — comum em quem
+      // não tem a clínica salva): sem o número, a conversa é identificada
+      // pelo próprio lid. A Saudação responde na conversa mesmo assim; só o
+      // "SIM" de confirmação precisa do número para achar o agendamento.
+      const phoneDigits =
+        (phoneJid ? phoneJid.split('@')[0].split(':')[0] : lidToPhone.get(jid)) ??
+        (jid.endsWith('@lid') ? `lid:${jid.split('@')[0]}` : undefined);
       if (phoneJid && jid.endsWith('@lid')) rememberLid(jid, phoneJid.split('@')[0].split(':')[0]);
 
       if (message.key.fromMe) {
@@ -195,8 +201,7 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
         continue;
       }
       if (!phoneDigits) {
-        // Sem o número não dá para achar a paciente (nem o "SIM" dela).
-        logger.warn({ tenantId, jid }, 'Mensagem recebida sem número de telefone');
+        logger.warn({ tenantId, jid }, 'Mensagem recebida sem identificação do contato');
         continue;
       }
 
