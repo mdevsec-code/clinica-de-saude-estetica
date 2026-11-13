@@ -16,6 +16,7 @@ interface CreateVisitInput {
   startAt: string; // ISO 8601
   customer: { name: string; whatsapp: string; email?: string };
   notes?: string;
+  fitIn?: boolean; // só pelo painel
 }
 
 async function loadServices(tenantId: string, serviceIds: string[]) {
@@ -65,7 +66,8 @@ async function insertVisit(
     try {
       const created = await prisma.$transaction(
         async (tx) => {
-          const overlap = await tx.appointment.findFirst({
+          // Encaixe é decisão consciente da clínica: não confere sobreposição.
+          const overlap = input.fitIn ? null : await tx.appointment.findFirst({
             where: { tenantId: input.tenantId, status: 'CONFIRMED', startAt: { lt: visitEnd }, endAt: { gt: start } },
             include: { customer: { select: { name: true } } },
           });
@@ -89,6 +91,7 @@ async function insertVisit(
                   endAt: period.endAt,
                   notes: input.notes,
                   source,
+                  fitIn: !!input.fitIn,
                 },
               }),
             );
@@ -149,7 +152,7 @@ export async function createAppointment(input: CreateVisitInput) {
 
 // Agendamento pelo painel, inclusive encaixe: qualquer horário — fora do
 // expediente, sem a antecedência mínima do site —, porque quem marca é a
-// própria clínica. Sobrepor outro atendimento confirmado continua proibido.
+// própria clínica. Sobrepor outro atendimento só no modo encaixe (fitIn).
 export async function createInternalAppointments(input: CreateVisitInput) {
   const services = await loadServices(input.tenantId, input.serviceIds);
   const { created } = await insertVisit(input, services, parseStart(input.startAt), 'INTERNAL');

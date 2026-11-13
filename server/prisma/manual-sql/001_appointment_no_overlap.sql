@@ -27,4 +27,4 @@ ALTER TABLE "Appointment"
     "tenantId" WITH =,
     "period" WITH &&
   )
-  WHERE (status = 'CONFIRMED');
+  WHERE (status = 'CONFIRMED' AND NOT "fitIn"); -- encaixe pode sobrepor (migration 20261114150000)

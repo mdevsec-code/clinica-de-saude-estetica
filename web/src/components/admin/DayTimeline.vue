@@ -5,6 +5,7 @@ import type { AdminAppointment, AdminBlockedTime } from '@/types';
 import type { Schedule } from '@/services/admin-schedule.service';
 import DayAppointmentList from './DayAppointmentList.vue';
 import ComandaModal from './ComandaModal.vue';
+import AdminModal from './AdminModal.vue';
 
 // Linha do tempo do dia: todos os horários, de 30 em 30 minutos, do início
 // ao fim do expediente — os vazios inclusive. Tocar num vazio abre o atalho
@@ -196,12 +197,6 @@ watch(menuAt, async (v) => {
   const el = root.value?.querySelector('.tl-menu');
   if (el) gsap.fromTo(el, { opacity: 0, y: -6, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'premium-out' });
 });
-watch(selectedKey, async (v) => {
-  if (!v || prefersReducedMotion()) return;
-  await nextTick();
-  const el = root.value?.querySelector('.tl-detail');
-  if (el) gsap.fromTo(el, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, ease: 'premium-out' });
-});
 </script>
 
 <template>
@@ -292,13 +287,12 @@ watch(selectedKey, async (v) => {
       </button>
     </div>
 
-    <!-- Cliente: a comanda abre numa janela própria (antes aparecia um
-         cartão lá embaixo da agenda e a comanda só depois). Bloqueio: o
-         cartão com "Desbloquear" continua embaixo. -->
+    <!-- Cliente → comanda; bloqueio → "Desbloquear". Os dois em janela
+         própria (antes era um cartão lá embaixo da agenda). -->
     <ComandaModal v-if="selected?.appt && selectedVisit.length" :visit="selectedVisit" @close="selectedKey = null" @changed="emit('changed')" />
-    <div v-else-if="selected?.block" class="tl-detail">
+    <AdminModal v-else-if="selected?.block" title="Horário bloqueado" @close="selectedKey = null">
       <DayAppointmentList :appointments="[]" :blocks="[selected.block]" hide-empty @unblocked="selectedKey = null; emit('unblocked')" />
-    </div>
+    </AdminModal>
 
     <details v-if="cancelled.length" class="tl__cancelled">
       <summary>{{ cancelled.length }} cancelado{{ cancelled.length === 1 ? '' : 's' }} neste dia</summary>
@@ -632,13 +626,6 @@ watch(selectedKey, async (v) => {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-}
-
-.tl-detail {
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
 }
 
 .tl__cancelled summary {

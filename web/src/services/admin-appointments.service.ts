@@ -42,6 +42,10 @@ export function checkoutAppointments(payload: {
   return apiRequest<{ ids: string[]; feeCents: number }>('/appointments/checkout', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+export function setClientConfirmed(id: string, confirmed: boolean) {
+  return apiRequest<{ ok: true }>(`/appointments/${id}/client-confirmed`, { method: 'PATCH', body: JSON.stringify({ confirmed }) });
+}
+
 export function updateAppointmentStatus(id: string, status: AppointmentStatus) {
   return apiRequest<{ appointment: AdminAppointment }>(`/appointments/${id}/status`, {
     method: 'PATCH',

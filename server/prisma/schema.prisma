@@ -487,6 +487,8 @@ model Appointment {
   startAt     DateTime          @db.Timestamptz(3)
   endAt       DateTime          @db.Timestamptz(3)
   status      AppointmentStatus @default(CONFIRMED)
+  // Encaixe feito pela clínica: pode ficar por cima de outro atendimento.
+  fitIn       Boolean           @default(false)
   source      AppointmentSource @default(PUBLIC_SITE)
   notes       String?
   createdAt   DateTime          @default(now()) @db.Timestamptz(3)

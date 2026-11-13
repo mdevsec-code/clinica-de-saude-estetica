@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AdminModal from './AdminModal.vue';
 import AdminSelect, { type AdminSelectGroup, type AdminSelectOption } from './AdminSelect.vue';
-import { checkoutAppointments, fetchCardFees, updateAppointmentStatus, type CardFees } from '@/services/admin-appointments.service';
+import { checkoutAppointments, fetchCardFees, setClientConfirmed, updateAppointmentStatus, type CardFees } from '@/services/admin-appointments.service';
 import { createInternalAppointment } from '@/services/appointments.service';
 import { fetchCategories } from '@/services/catalog.service';
 import { ApiError } from '@/services/api';
@@ -54,6 +54,24 @@ async function setVisitStatus(status: 'CONFIRMED' | 'NO_SHOW' | 'CANCELLED') {
     if (status === 'CANCELLED') emit('close');
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'Não foi possível atualizar o atendimento.';
+  } finally {
+    busy.value = false;
+  }
+}
+
+// Selo "cliente confirmou" (o mesmo do SIM no WhatsApp), marcado à mão.
+const clientConfirmed = ref(props.visit.every((a) => !!a.clientConfirmedAt));
+const waitingYes = computed(() => props.visit.some((a) => a.confirmationSentAt));
+async function toggleClientConfirmed() {
+  busy.value = true;
+  error.value = null;
+  try {
+    const next = !clientConfirmed.value;
+    for (const appt of props.visit) await setClientConfirmed(appt.id, next);
+    clientConfirmed.value = next;
+    emit('changed');
+  } catch (err) {
+    error.value = err instanceof ApiError ? err.message : 'Não foi possível atualizar.';
   } finally {
     busy.value = false;
   }
@@ -309,6 +327,16 @@ const whatsappHref = computed(() => {
 
         <div class="comanda__status">
           <template v-if="!locked">
+            <button
+              type="button"
+              class="comanda__status-btn comanda__status-btn--ok"
+              :class="{ 'is-done': clientConfirmed }"
+              :disabled="busy"
+              :title="clientConfirmed ? 'Tocar desfaz' : 'Marque quando ela confirmar por ligação ou mensagem'"
+              @click="toggleClientConfirmed"
+            >
+              {{ clientConfirmed ? 'Cliente confirmou ✓' : waitingYes ? 'Aguardando SIM · marcar confirmado' : 'Cliente confirmou presença' }}
+            </button>
             <button type="button" class="comanda__status-btn" :disabled="busy" @click="setVisitStatus('NO_SHOW')">Não compareceu</button>
             <button
               type="button"
@@ -592,5 +620,13 @@ const whatsappHref = computed(() => {
   margin: 0;
   color: var(--color-danger);
   font-size: 0.85rem;
+}
+.comanda__status-btn--ok,
+.comanda__status-btn--ok:hover {
+  color: var(--color-success);
+}
+
+.comanda__status-btn--ok:not(.is-done) {
+  color: var(--color-ink-muted);
 }
 </style>

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
-import { AppError } from '../../utils/errors';
+import { AppError, NotFoundError } from '../../utils/errors';
+import { prisma } from '../../lib/prisma';
 import { describeAppointment, notify } from '../notifications/notifications.service';
 import { PAYMENT_METHODS, type PaymentMethod } from '../finance/payment-methods';
 import { bookingRateLimiter } from '../../middleware/rate-limit';
@@ -118,6 +119,7 @@ appointmentsRouter.post(
 const internalSchema = createSchema.omit({ serviceId: true, serviceIds: true }).extend({
   serviceIds: z.array(z.string().min(1)).min(1, 'Escolha ao menos um serviço.').max(10),
   startAt: z.string().datetime({ offset: true }),
+  fitIn: z.boolean().optional(),
 });
 
 appointmentsRouter.post(
@@ -176,5 +178,22 @@ appointmentsRouter.patch(
       const info = await describeAppointment(req.tenant.id, [appointment.id]);
       if (info) await notify(req.tenant.id, 'CANCELLED', `Desmarcado por ${req.user!.name}`, info.text, req.user!.id);
     }
+  }),
+);
+
+// Marca à mão que a cliente confirmou presença (ligou, mandou mensagem fora
+// da automação…) — o mesmo selo do "SIM" no WhatsApp. confirmed=false desfaz.
+appointmentsRouter.patch(
+  '/:id/client-confirmed',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    const { confirmed } = z.object({ confirmed: z.boolean() }).parse(req.body);
+    const { count } = await prisma.appointment.updateMany({
+      where: { id: req.params.id, tenantId: req.tenant.id },
+      data: { clientConfirmedAt: confirmed ? new Date() : null },
+    });
+    if (!count) throw new NotFoundError('Agendamento não encontrado.');
+    res.json({ ok: true });
   }),
 );

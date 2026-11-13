@@ -178,6 +178,7 @@ async function onSubmit() {
         email: customer.email.trim() || undefined,
       },
       notes: notes.value.trim() || undefined,
+      fitIn: !!props.fitIn,
     });
     emit('created');
   } catch (err) {
@@ -258,7 +259,7 @@ async function onSubmit() {
           Horário
           <input v-model="time" type="time" step="300" required />
         </label>
-        <p v-if="fitIn && !time" class="new-appt__note">Digite qualquer horário, mesmo fora do expediente ou do que o site oferece.</p>
+        <p v-if="fitIn && !time" class="new-appt__note">Digite qualquer horário — pode ficar por cima de outra cliente, fora do expediente ou do que o site oferece.</p>
         <p v-if="isOutsideSlots" class="new-appt__note">Encaixe: fora dos horários livres do site. Pode agendar normalmente.</p>
         <template v-if="selectedServices.length">
           <p v-if="loadingSlots" class="new-appt__hint">Carregando horários livres…</p>
