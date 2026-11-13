@@ -33,6 +33,7 @@ model Tenant {
   settings          TenantSettings?
   siteContent       SiteContent?
   notifications     Notification[]
+  tasks             Task[]
   expenses          Expense[]
   inventoryItems    InventoryItem[]
   bankTransactions  BankTransaction[]
@@ -120,6 +121,22 @@ model SiteContent {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   data      Json     @default("{}")
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// Quadro de tarefas da semana (Painel → Tarefas), compartilhado pela equipe.
+model Task {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  date          DateTime @db.Date
+  title         String
+  done          Boolean  @default(false)
+  position      Int      @default(0)
+  createdByName String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([tenantId, date])
 }
 
 // Sino do painel (ver modules/notifications).

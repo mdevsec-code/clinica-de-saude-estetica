@@ -10,6 +10,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { catalogRouter } from './modules/catalog/catalog.routes';
 import { availabilityRouter } from './modules/availability/availability.routes';
 import { appointmentsRouter } from './modules/appointments/appointments.routes';
+import { tasksRouter } from './modules/tasks/tasks.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { siteContentRouter } from './modules/site-content/site-content.routes';
 import { settingsRouter } from './modules/settings/settings.routes';
@@ -90,6 +91,7 @@ export function createApp() {
   app.use('/settings', settingsRouter);
   app.use('/site-content', siteContentRouter);
   app.use('/notifications', notificationsRouter);
+  app.use('/tasks', tasksRouter);
   app.use('/finance', financeRouter);
   app.use('/inventory', inventoryRouter);
   app.use('/dashboard', dashboardRouter);

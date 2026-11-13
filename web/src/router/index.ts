@@ -54,6 +54,11 @@ export const router = createRouter({
           component: () => import('@/views/admin/AdminCatalogView.vue'),
         },
         {
+          path: 'tarefas',
+          name: 'admin-tasks',
+          component: () => import('@/views/admin/AdminTasksView.vue'),
+        },
+        {
           path: 'site',
           name: 'admin-site',
           component: () => import('@/views/admin/AdminSiteView.vue'),
