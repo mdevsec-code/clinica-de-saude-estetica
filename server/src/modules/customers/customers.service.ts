@@ -15,8 +15,8 @@ type TxClient = PrismaClient | Prisma.TransactionClient;
 // número dele. Correções de cadastro são feitas pela equipe, no painel.
 // Mesmo celular escrito de outro jeito (com/sem 55, com/sem o 9º dígito,
 // com máscara) é a mesma paciente: compara pela chave DDD + 8 últimos
-// dígitos. O banco garante isso também (índice único em "phoneKey", ver
-// migration 20261113120000_customer_unique_phone).
+// dígitos. O banco também pode garantir isso (índice único em "phoneKey", ver
+// prisma/manual-sql/002_customer_unique_phone.sql).
 export async function findCustomerByPhone(tx: TxClient, tenantId: string, whatsapp: string, exceptId?: string) {
   const key = phoneKey(whatsapp);
   const candidates = await tx.customer.findMany({

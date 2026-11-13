@@ -3,6 +3,9 @@
 //
 //   node dist/scripts/merge-duplicate-customers.js           → só mostra (não muda nada)
 //   node dist/scripts/merge-duplicate-customers.js --apply   → junta de verdade
+//   ... --only-same-name   → só grupos em que o primeiro nome bate (o mesmo
+//   celular com nomes diferentes pode ser mãe e filha dividindo o WhatsApp:
+//   esses ficam para conferir à mão).
 //
 // Fica o cadastro com mais histórico (atendimentos + procedimentos + fichas
 // + fotos); empate → o mais antigo. Tudo das duplicadas (agendamentos,
@@ -14,6 +17,8 @@ import { prisma } from '../lib/prisma';
 import { phoneKey } from '../modules/whatsapp/whatsapp-connection';
 
 const apply = process.argv.includes('--apply');
+const onlySameName = process.argv.includes('--only-same-name');
+const firstName = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().split(/\s+/)[0];
 
 async function main() {
   const customers = await prisma.customer.findMany({
@@ -37,6 +42,10 @@ async function main() {
   console.log(apply ? 'MODO: juntando de verdade' : 'MODO: simulação (nada é alterado; use --apply)');
 
   for (const group of dupGroups) {
+    if (onlySameName && new Set(group.map((c) => firstName(c.name))).size > 1) {
+      console.log(`- PULADO (nomes diferentes, conferir à mão): ${group.map((c) => c.id).join(', ')}`);
+      continue;
+    }
     const sorted = [...group].sort((a, b) => history(b) - history(a) || a.createdAt.getTime() - b.createdAt.getTime());
     const [keep, ...dups] = sorted;
     console.log(

@@ -3,7 +3,10 @@
 -- só dígitos, sem o 55 do país, DDD + 8 últimos dígitos (o mesmo número com
 -- ou sem o 9º dígito, com ou sem máscara, dá a mesma chave). O índice único
 -- impede um segundo cadastro do mesmo número, venha de onde vier.
--- Rode ANTES: node dist/scripts/merge-duplicate-customers.js --apply (com
+-- Aplicar à mão, DEPOIS de não sobrar duplicata (merge-duplicate-customers.js
+-- sem --apply mostra "0 pacientes com duplicata"):
+--   npx prisma db execute --file prisma/manual-sql/002_customer_unique_phone.sql --schema prisma/schema.prisma
+-- (com
 -- duplicatas existentes esta migration falha e não altera nada).
 -- Fora do schema.prisma de propósito (Prisma não declara coluna gerada),
 -- mesmo caso do EXCLUDE de prisma/manual-sql/001.
