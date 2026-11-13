@@ -7,6 +7,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET deve ter pelo menos 32 caracteres'),
   JWT_EXPIRES_IN: z.string().default('8h'),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
+  // Outros endereços do site aceitos pela API, separados por vírgula (ex.: o
+  // antigo da Netlify e o www enquanto o domínio novo entra no ar).
+  WEB_ORIGIN_EXTRA: z.string().optional(),
   // Quantos proxies reversos ficam na frente da API (ex.: 1 com Nginx na
   // VPS). Sem isso, atrás de um proxy todo req.ip vira 127.0.0.1 e os rate
   // limiters por IP (ver middleware/rate-limit.ts) passam a contar todos os

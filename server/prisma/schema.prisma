@@ -34,6 +34,8 @@ model Tenant {
   siteContent       SiteContent?
   notifications     Notification[]
   tasks             Task[]
+  addressContacts   WhatsappAddressContact[]
+  broadcasts        Broadcast[]
   expenses          Expense[]
   inventoryItems    InventoryItem[]
   bankTransactions  BankTransaction[]
@@ -121,6 +123,52 @@ model SiteContent {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   data      Json     @default("{}")
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// Contatos salvos no celular da clínica (sincronizados pelo WhatsApp do
+// aparelho) — público da lista de transmissão.
+model WhatsappAddressContact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  phone     String
+  name      String
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, phone])
+}
+
+// Lista de transmissão (Painel → WhatsApp): status RUNNING | DONE | CANCELLED.
+model Broadcast {
+  id            String               @id @default(cuid())
+  tenantId      String
+  tenant        Tenant               @relation(fields: [tenantId], references: [id])
+  message       String
+  status        String               @default("RUNNING")
+  total         Int
+  sent          Int                  @default(0)
+  failed        Int                  @default(0)
+  createdByName String?
+  createdAt     DateTime             @default(now()) @db.Timestamptz(3)
+  finishedAt    DateTime?            @db.Timestamptz(3)
+  recipients    BroadcastRecipient[]
+
+  @@index([tenantId, status])
+}
+
+// Status: PENDING | SENT | FAILED.
+model BroadcastRecipient {
+  id          String    @id @default(cuid())
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  phone       String
+  name        String
+  status      String    @default("PENDING")
+  error       String?
+  sentAt      DateTime? @db.Timestamptz(3)
+
+  @@index([broadcastId, status])
+  @@index([sentAt])
 }
 
 // Quadro de tarefas da semana (Painel → Tarefas), compartilhado pela equipe.

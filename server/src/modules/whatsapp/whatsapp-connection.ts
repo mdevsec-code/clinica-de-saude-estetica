@@ -77,6 +77,29 @@ export function onIncomingWhatsappMessage(handler: (message: IncomingWhatsappMes
 
 // Mensagem que a Noely mandou pelo celular (ou WhatsApp Web) numa conversa
 // — conta como conversa ativa, para a Saudação não cair no meio do papo.
+// Contatos salvos no celular da clínica (nome que a Noely deu + número),
+// usados pela lista de transmissão. Chegam quando o WhatsApp do aparelho
+// sincroniza a agenda (ver syncPhoneContacts).
+export interface PhoneContact {
+  phone: string;
+  name: string;
+}
+let contactsHandler: ((tenantId: string, contacts: PhoneContact[]) => Promise<void>) | null = null;
+export function onWhatsappContacts(handler: (tenantId: string, contacts: PhoneContact[]) => Promise<void>) {
+  contactsHandler = handler;
+}
+
+function toPhoneContacts(list: { id?: string; jid?: string; name?: string }[]): PhoneContact[] {
+  const out: PhoneContact[] = [];
+  for (const c of list) {
+    const jid = [c.id, c.jid].find((j) => j?.endsWith('@s.whatsapp.net'));
+    const name = c.name?.trim();
+    if (!jid || !name) continue; // só os salvos (com nome) e com número
+    out.push({ phone: jid.split('@')[0].split(':')[0], name });
+  }
+  return out;
+}
+
 let outgoingHandler: ((tenantId: string, phoneDigits: string) => Promise<void>) | null = null;
 export function onOutgoingWhatsappMessage(handler: (tenantId: string, phoneDigits: string) => Promise<void>) {
   outgoingHandler = handler;
@@ -155,6 +178,16 @@ export async function connectWhatsapp(tenantId: string): Promise<void> {
   conn.socket = socket;
 
   socket.ev.on('creds.update', saveCreds);
+
+  const forwardContacts = (list: { id?: string; jid?: string; name?: string }[]) => {
+    const contacts = toPhoneContacts(list);
+    if (contacts.length && contactsHandler) {
+      contactsHandler(tenantId, contacts).catch((err) => logger.error({ err, tenantId }, 'Falha ao salvar contatos do celular'));
+    }
+  };
+  socket.ev.on('contacts.upsert', forwardContacts);
+  socket.ev.on('contacts.update', (list) => forwardContacts(list as { id?: string; name?: string }[]));
+  socket.ev.on('messaging-history.set', ({ contacts }) => forwardContacts(contacts));
 
   // type 'append' também conta: é como o WhatsApp entrega o que chegou
   // enquanto a conexão estava caindo/voltando (o servidor reconecta várias
@@ -334,4 +367,12 @@ export async function replyWhatsapp(tenantId: string, jid: string, text: string)
   return enqueue(tenantId, async () => {
     rememberSent(tenantId, await connectedSocket(tenantId).sendMessage(jid, { text }));
   });
+}
+
+// Pede ao celular a agenda de contatos de novo (o WhatsApp só manda tudo de
+// uma vez ao vincular o aparelho). Os contatos chegam por contacts.upsert.
+export async function syncPhoneContacts(tenantId: string) {
+  const conn = getConnection(tenantId);
+  if (conn.status !== 'connected' || !conn.socket) throw new Error('WhatsApp da clínica não está conectado.');
+  await conn.socket.resyncAppState(['critical_unblock_low', 'regular_high', 'regular_low', 'critical_block', 'regular'], true);
 }

@@ -35,7 +35,7 @@ export function createApp() {
     res.set('Cache-Control', 'private, no-cache');
     next();
   });
-  app.use(cors({ origin: env.WEB_ORIGIN }));
+  app.use(cors({ origin: [env.WEB_ORIGIN, ...(env.WEB_ORIGIN_EXTRA ?? '').split(',').map((o) => o.trim()).filter(Boolean)] }));
   // Corpo grande (10mb) SÓ nas rotas de upload — extrato OFX e foto/ficha
   // digitalizada de paciente em base64 (uma foto de celular comprimida passa
   // de 5mb com alguma folga). Todas as demais, incluindo as públicas

@@ -16,6 +16,7 @@ import type { MessageTemplate, MessageTemplateKey, WhatsappState } from '@/types
 import { Flip, gsap, prefersReducedMotion } from '@/lib/motion';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import BroadcastPanel from '@/components/admin/BroadcastPanel.vue';
 
 const router = useRouter();
 
@@ -477,6 +478,8 @@ onUnmounted(stopPolling);
             </div>
           </div>
         </section>
+
+        <BroadcastPanel :connected="wa.status === 'connected'" />
       </div>
     </Transition>
   </div>
