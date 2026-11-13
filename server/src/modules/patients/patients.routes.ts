@@ -105,7 +105,8 @@ patientsRouter.get(
 
 const patientInputSchema = z.object({
   name: z.string().min(2, 'Informe o nome completo.'),
-  whatsapp: z.string().min(10, 'Informe um WhatsApp válido com DDD.'),
+  // Só os dígitos: o mesmo número digitado com máscara ou espaço é o mesmo.
+  whatsapp: z.preprocess((v) => (typeof v === 'string' ? v.replace(/\D/g, '') : v), z.string().regex(/^\d{10,15}$/, 'Informe um WhatsApp válido com DDD.')),
   phone: z.string().min(8).nullable().optional(),
   email: z.string().email().nullable().optional(),
   birthDate: z.string().nullable().optional(),

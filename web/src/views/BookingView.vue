@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useBookingStore } from '@/stores/booking';
 import { fetchCategories } from '@/services/catalog.service';
-import { fetchAvailableSlots } from '@/services/availability.service';
+import { fetchAvailableDays, fetchAvailableSlots } from '@/services/availability.service';
 import { createAppointment } from '@/services/appointments.service';
 import { ApiError } from '@/services/api';
 import type { Service, ServiceCategory, Slot } from '@/types';
@@ -56,6 +56,23 @@ function toLocalDateKey(date: Date) {
 
 // --- Etapa 2: data ---
 const DAYS_AHEAD = 21;
+// Dias com horário livre para os serviços escolhidos: dia cheio, bloqueado
+// ou fechado nem aparece (antes aparecia e dava "sem horários" ao tocar).
+const availableDays = ref<Set<string> | null>(null);
+const loadingDays = ref(false);
+async function loadAvailableDays() {
+  if (!booking.selectedIds.length) return;
+  loadingDays.value = true;
+  availableDays.value = null;
+  try {
+    const { days } = await fetchAvailableDays(booking.selectedIds, toLocalDateKey(new Date()), DAYS_AHEAD);
+    availableDays.value = new Set(days);
+  } catch {
+    availableDays.value = null; // sem a consulta, mostra todos como antes
+  } finally {
+    loadingDays.value = false;
+  }
+}
 const dateOptions = computed(() => {
   const options: { value: string; weekday: string; day: string; month: string }[] = [];
   const today = new Date();
@@ -63,6 +80,8 @@ const dateOptions = computed(() => {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
     const value = toLocalDateKey(date);
+    // Só os dias com horário livre (quando a consulta já voltou).
+    if (availableDays.value && !availableDays.value.has(value)) continue;
     options.push({
       value,
       weekday: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
@@ -83,9 +102,22 @@ const maxDateKey = (() => {
   return toLocalDateKey(d);
 })();
 
-function pickOtherDate(event: Event) {
+const otherDateMessage = ref<string | null>(null);
+async function pickOtherDate(event: Event) {
   const value = (event.target as HTMLInputElement).value;
-  if (value && value >= minDateKey && value <= maxDateKey) booking.selectDate(value);
+  otherDateMessage.value = null;
+  if (!value || value < minDateKey || value > maxDateKey) return;
+  try {
+    const { slots: result } = await fetchAvailableSlots(booking.selectedIds, value);
+    if (!result.length) {
+      const [y, m, d] = value.split('-').map(Number);
+      otherDateMessage.value = `Não há horários livres em ${new Date(y, m - 1, d).toLocaleDateString('pt-BR')}. Escolha outro dia.`;
+      return;
+    }
+  } catch {
+    // Sem confirmar, segue para a tela de horários (que mostra o resultado).
+  }
+  booking.selectDate(value);
 }
 
 // --- Etapa 3: horários ---
@@ -203,6 +235,10 @@ watch(
 // sucesso ganha uma entrada com leve "quique" (CustomBounce, registrado em
 // lib/motion.ts) em vez de um simples fade, para marcar o momento como o
 // ponto alto do fluxo inteiro.
+watch(step, (value) => {
+  if (value === 'date') loadAvailableDays();
+}, { immediate: true });
+
 watch(step, async (value) => {
   await nextTick();
   refreshScroll();
@@ -316,7 +352,12 @@ function goBack() {
 
       <section v-else-if="step === 'date'" class="booking-step" key="date">
         <h2>Escolha o dia</h2>
-        <div class="date-strip" role="listbox" aria-label="Datas disponíveis">
+        <LoadingState v-if="loadingDays" label="Buscando dias com horário livre…" />
+        <p v-else-if="availableDays && !dateOptions.length" class="date-empty">
+          Não há horários livres nas próximas 3 semanas para {{ booking.selectedServices.length > 1 ? 'esses procedimentos' : 'esse procedimento' }}.
+          Escolha uma data mais adiante abaixo ou fale com a clínica pelo WhatsApp.
+        </p>
+        <div v-else class="date-strip" role="listbox" aria-label="Datas disponíveis">
           <button
             v-for="option in dateOptions"
             :key="option.value"
@@ -334,6 +375,7 @@ function goBack() {
           Outra data
           <input type="date" :min="minDateKey" :max="maxDateKey" @change="pickOtherDate" />
         </label>
+        <p v-if="otherDateMessage" class="field-error">{{ otherDateMessage }}</p>
       </section>
 
       <section v-else-if="step === 'time'" class="booking-step" key="time">
@@ -542,6 +584,11 @@ function goBack() {
 .date-chip__month {
   font-size: 0.8rem;
   opacity: 0.75;
+}
+
+.date-empty {
+  max-width: 560px;
+  color: var(--color-ink-muted);
 }
 
 .date-other {

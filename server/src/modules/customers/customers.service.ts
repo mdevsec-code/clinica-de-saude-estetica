@@ -13,20 +13,25 @@ type TxClient = PrismaClient | Prisma.TransactionClient;
 // viesse do formulário — qualquer visitante podia trocar os dados da ficha
 // de um paciente real (inclusive o e-mail de contato) só informando o
 // número dele. Correções de cadastro são feitas pela equipe, no painel.
+// Mesmo celular escrito de outro jeito (com/sem 55, com/sem o 9º dígito,
+// com máscara) é a mesma paciente: compara pela chave DDD + 8 últimos
+// dígitos. O banco garante isso também (índice único em "phoneKey", ver
+// migration 20261113120000_customer_unique_phone).
+export async function findCustomerByPhone(tx: TxClient, tenantId: string, whatsapp: string, exceptId?: string) {
+  const key = phoneKey(whatsapp);
+  const candidates = await tx.customer.findMany({
+    where: { tenantId, whatsapp: { endsWith: key.slice(-8) }, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    orderBy: { createdAt: 'asc' },
+  });
+  return candidates.find((c) => phoneKey(c.whatsapp) === key) ?? null;
+}
+
 export async function findOrCreateCustomer(
   tx: TxClient,
   tenantId: string,
   data: { name: string; whatsapp: string; email?: string },
 ) {
-  // Mesmo celular escrito de outro jeito (com/sem 55, com/sem o 9º dígito)
-  // é a mesma paciente: compara pela chave DDD + 8 últimos dígitos — antes
-  // "71 99999-0000" e "5571999990000" viravam dois cadastros.
-  const key = phoneKey(data.whatsapp);
-  const candidates = await tx.customer.findMany({
-    where: { tenantId, whatsapp: { endsWith: key.slice(-8) } },
-    orderBy: { createdAt: 'asc' },
-  });
-  const existing = candidates.find((c) => phoneKey(c.whatsapp) === key) ?? null;
+  const existing = await findCustomerByPhone(tx, tenantId, data.whatsapp);
 
   if (existing) {
     return { customer: existing, created: false };

@@ -161,6 +161,8 @@ model Customer {
 
   @@index([tenantId, whatsapp])
   @@index([tenantId, birthDate])
+  // Também há a coluna gerada "phoneKey" com índice único (uma paciente por
+  // celular) — criada só por SQL, ver migration 20261113120000_customer_unique_phone.
 }
 
 // Ficha de acompanhamento clínico (anamnese, ficha de bioestimulador de

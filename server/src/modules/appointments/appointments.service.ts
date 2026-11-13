@@ -111,7 +111,10 @@ async function insertVisit(
       }
       return { created, visitEnd };
     } catch (err) {
-      const isSerializationConflict = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';
+      // P2002: outra requisição acabou de cadastrar a mesma paciente (índice
+      // único do telefone) — na nova tentativa ela já é encontrada.
+      const isSerializationConflict =
+        err instanceof Prisma.PrismaClientKnownRequestError && (err.code === 'P2034' || err.code === 'P2002');
       if (isSerializationConflict && attempt < MAX_ATTEMPTS) continue;
       throw err;
     }

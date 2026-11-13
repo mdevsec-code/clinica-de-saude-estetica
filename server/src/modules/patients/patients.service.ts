@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
-import { NotFoundError } from '../../utils/errors';
+import { ConflictError, NotFoundError } from '../../utils/errors';
+import { findCustomerByPhone } from '../customers/customers.service';
 import { deletePatientPhoto, isSupportedImageMime, readPatientPhoto, savePatientPhoto } from '../../lib/file-storage';
 import type { PatientPhotoCategory } from '@prisma/client';
 
@@ -134,6 +135,8 @@ interface UpsertPatientInput {
 }
 
 export async function createPatient(tenantId: string, input: UpsertPatientInput) {
+  const existing = await findCustomerByPhone(prisma, tenantId, input.whatsapp);
+  if (existing) throw new ConflictError(`Esta paciente já está cadastrada: ${existing.name}. Procure pelo nome ou WhatsApp na lista.`);
   return prisma.customer.create({
     data: {
       tenantId,
@@ -151,6 +154,10 @@ export async function createPatient(tenantId: string, input: UpsertPatientInput)
 export async function updatePatient(tenantId: string, patientId: string, input: Partial<UpsertPatientInput>) {
   const existing = await prisma.customer.findFirst({ where: { id: patientId, tenantId } });
   if (!existing) throw new NotFoundError('Paciente não encontrado.');
+  if (input.whatsapp !== undefined) {
+    const other = await findCustomerByPhone(prisma, tenantId, input.whatsapp, patientId);
+    if (other) throw new ConflictError(`Este WhatsApp já é de outra paciente: ${other.name}.`);
+  }
 
   return prisma.customer.update({
     where: { id: patientId },
