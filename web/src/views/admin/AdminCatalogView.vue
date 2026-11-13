@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { thumbUrl } from '@/utils/images';
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
@@ -392,7 +393,7 @@ async function toggleServiceActive(service: AdminService) {
             </template>
             <template v-else>
               <div class="admin-service__icon" :class="{ 'admin-service__icon--photo': service.imageUrl }">
-                <img v-if="service.imageUrl" :src="service.imageUrl" alt="" />
+                <img v-if="service.imageUrl" :src="thumbUrl(service.imageUrl)" alt="" loading="lazy" decoding="async" />
                 <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7l9 5 9-5-9-5Z" /><path d="M3 12l9 5 9-5" /></svg>
               </div>
               <div class="admin-service__info">

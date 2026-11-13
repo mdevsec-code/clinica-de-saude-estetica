@@ -1260,6 +1260,29 @@ function onLogout() {
     display: none;
   }
 
+  /* Botão de tema no alto da barra lateral (pedido da clínica: não lá
+     embaixo, ao lado do Sair). Duas classes: vence o estilo do .admin__logout. */
+  .admin__logout.admin__theme {
+    /* fixed (não absolute): a barra lateral tem rolagem própria e o botão
+       rolava junto, sumindo. Canto de cima da barra, sempre visível. */
+    position: fixed;
+    top: var(--space-4);
+    left: calc(var(--sidebar-w) - 40px - var(--space-4));
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    border-color: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .admin__logout.admin__theme:hover {
+    border-color: rgba(200, 164, 101, 0.6);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
   .admin__brand-title {
     font-size: 1.5rem;
     color: #fff;

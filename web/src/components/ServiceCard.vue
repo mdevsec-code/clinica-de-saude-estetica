@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { thumbUrl } from '@/utils/images';
 import type { Service } from '@/types';
 
 defineProps<{ service: Service; selected?: boolean }>();
@@ -13,7 +14,7 @@ function formatPrice(price: number | null) {
 <template>
   <button type="button" class="service-card" :class="{ 'service-card--selected': selected }" @click="$emit('select')">
     <span class="service-card__thumb" aria-hidden="true">
-      <img v-if="service.imageUrl" :src="service.imageUrl" :alt="service.name" />
+      <img v-if="service.imageUrl" :src="thumbUrl(service.imageUrl)" :alt="service.name" loading="lazy" decoding="async" />
       <span v-else class="service-card__thumb-fallback">{{ service.name.charAt(0) }}</span>
     </span>
 

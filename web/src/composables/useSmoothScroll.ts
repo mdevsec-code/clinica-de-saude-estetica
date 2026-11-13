@@ -39,8 +39,30 @@ export function initSmoothScroll(): ScrollSmoother | null {
     ignoreMobileResize: true,
   });
 
-  ignoreClicksAfterTouchDrag();
+  if (!dragGuardInstalled) {
+    dragGuardInstalled = true;
+    ignoreClicksAfterTouchDrag();
+  }
   return smoother;
+}
+
+let dragGuardInstalled = false;
+
+// Painel administrativo: rolagem nativa do navegador. Com o ScrollSmoother a
+// página inteira é movida por transform — a barra lateral "fixa" rolava
+// junto e a rolagem pesava (era a maior causa do painel lento). O site
+// público continua com a rolagem suave. As animações das telas (GSAP,
+// ScrollTrigger) seguem funcionando: sem o smoother elas usam a janela.
+export function setSmoothScrollEnabled(on: boolean) {
+  if (on) {
+    initSmoothScroll();
+    return;
+  }
+  if (!smoother) return;
+  smoother.kill();
+  smoother = null;
+  ScrollTrigger.normalizeScroll(false);
+  ScrollTrigger.refresh();
 }
 
 // normalizeScroll rola a página por conta própria e o navegador não percebe

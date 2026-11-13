@@ -2,6 +2,7 @@
 import { setCustomCursor } from '@/composables/useCustomCursor';
 import { computed, nextTick, ref, watch } from 'vue';
 import { installRipple } from '@/composables/useRipple';
+import { installTooltips } from '@/composables/useTooltip';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRoute, useRouter } from 'vue-router';
 import AppHeader from '@/components/AppHeader.vue';
@@ -9,7 +10,7 @@ import AppFooter from '@/components/AppFooter.vue';
 import WhatsAppButton from '@/components/WhatsAppButton.vue';
 import ScrollProgress from '@/components/ScrollProgress.vue';
 import AppIntroLoader from '@/components/AppIntroLoader.vue';
-import { refreshScroll, resetScrollTop } from '@/composables/useSmoothScroll';
+import { refreshScroll, resetScrollTop, setSmoothScrollEnabled } from '@/composables/useSmoothScroll';
 
 const router = useRouter();
 const route = useRoute();
@@ -21,10 +22,17 @@ const route = useRoute();
 // /admin/*, duplicando marca e navegação numa ferramenta de trabalho interna.
 const isAdminRoute = computed(() => route.path.startsWith('/admin'));
 
-// Onda de toque nos botões (site e painel) e cursor próprio só no site. Os
+// Onda de toque nos botões (site e painel). Os
 // outros efeitos que seguiam o mouse saíram a pedido da clínica (nov/2026).
 installRipple();
-watch(isAdminRoute, (admin) => setCustomCursor(!admin), { immediate: true });
+installTooltips();
+// Cursor próprio no programa inteiro (site e painel), a pedido da clínica.
+setCustomCursor(true);
+
+// Rolagem suave só no site público (ver setSmoothScrollEnabled). flush 'sync':
+// troca no instante da mudança de rota, antes da página nova montar as
+// animações dela.
+watch(isAdminRoute, (admin) => setSmoothScrollEnabled(!admin), { immediate: true, flush: 'sync' });
 
 // Ao abrir/recarregar o site, o código de cada página chega separado (lazy
 // import no router). Sem esperar, cabeçalho e rodapé apareciam sozinhos por

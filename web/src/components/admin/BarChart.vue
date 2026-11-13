@@ -76,50 +76,6 @@ function showLabel(i: number) {
   return i === props.data.length - 1 || i % labelStep.value === 0;
 }
 
-// A pílula do tooltip compartilhado (ver [data-tooltip] em global.css) é
-// sempre centralizada no gatilho — perfeito na maioria dos casos, mas aqui
-// as colunas legitimamente colam nas duas bordas do card (a primeira e a
-// última SÃO a borda, por design), então a pílula centralizada estourava
-// pra fora do card e o próprio card (overflow:hidden, cantos arredondados)
-// cortava ela na hora. Em telas com muitos dias (30/60/90, ver needsScroll)
-// isso também acontecia no MEIO da lista, não só nas pontas — qualquer
-// coluna perto da borda VISÍVEL do scroll, dependendo de onde a pessoa
-// rolou. Por isso o cálculo é em JS, no hover de cada coluna (não dá pra
-// prever isso só com CSS: precisa da posição real, já rolada, no momento).
-// --tooltip-shift (lida por global.css) empurra só a PÍLULA pra dentro dos
-// limites; a seta (::before) fica sempre centrada no gatilho de propósito,
-// senão pareceria apontar pro lugar errado.
-function onColHover(event: MouseEvent) {
-  const col = event.currentTarget as HTMLElement;
-  const scrollEl = col.closest<HTMLElement>('.bar-chart__scroll');
-  if (!scrollEl) return;
-
-  const pillWidthRaw = getComputedStyle(col, '::after').width;
-  const pillWidth = parseFloat(pillWidthRaw);
-  if (!pillWidth || Number.isNaN(pillWidth)) {
-    col.style.removeProperty('--tooltip-shift');
-    return;
-  }
-
-  const colRect = col.getBoundingClientRect();
-  const scrollRect = scrollEl.getBoundingClientRect();
-  const colCenter = colRect.left + colRect.width / 2;
-  const halfPill = pillWidth / 2;
-  const margin = 6; // respiro mínimo até a borda, pra não colar exatamente nela
-
-  const pillLeft = colCenter - halfPill;
-  const pillRight = colCenter + halfPill;
-
-  let shift = 0;
-  if (pillLeft < scrollRect.left + margin) {
-    shift = scrollRect.left + margin - pillLeft;
-  } else if (pillRight > scrollRect.right - margin) {
-    shift = scrollRect.right - margin - pillRight;
-  }
-
-  if (shift) col.style.setProperty('--tooltip-shift', `${shift}px`);
-  else col.style.removeProperty('--tooltip-shift');
-}
 </script>
 
 <template>
@@ -133,7 +89,6 @@ function onColHover(event: MouseEvent) {
             class="bar-chart__col"
             :data-tooltip="valueFormatter(d.value)"
             :style="colWidthPx ? { flex: `1 0 ${colWidthPx}px` } : undefined"
-            @mouseenter="onColHover"
           >
             <div
               class="bar-chart__bar"

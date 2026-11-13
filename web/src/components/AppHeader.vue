@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
-import { Flip, ScrollTrigger, prefersReducedMotion } from '@/lib/motion';
+import { Flip, ScrollTrigger, gsap, prefersReducedMotion } from '@/lib/motion';
+import { useSettingsStore } from '@/stores/settings';
+import { instagramLink, whatsappLink } from '@/services/settings.service';
+import { getSmoother } from '@/composables/useSmoothScroll';
 
 const isMenuOpen = ref(false);
 const isScrolled = ref(false);
@@ -14,6 +17,40 @@ function closeMenu() {
   isMenuOpen.value = false;
 }
 
+// --- Menu do celular: tela cheia, abre num círculo a partir do botão ---
+const settings = useSettingsStore();
+settings.load();
+const waHref = computed(() =>
+  settings.data?.whatsapp ? whatsappLink(settings.data.whatsapp, 'Olá! Vim pelo site da Noely Cerqueira.') : null,
+);
+const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings.data.instagram) : null));
+const MOBILE_LINKS = [
+  { to: '/', label: 'Início' },
+  { to: '/servicos', label: 'Serviços' },
+  { to: '/contato', label: 'Contato' },
+  { to: '/agendar', label: 'Agendar' },
+];
+
+// A página não rola por trás do menu aberto; Esc fecha.
+watch(isMenuOpen, (open) => getSmoother()?.paused(open));
+watch(() => route.fullPath, closeMenu);
+function onKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeMenu();
+}
+
+function onMenuEnter(el: Element, done: () => void) {
+  if (prefersReducedMotion()) return done();
+  gsap
+    .timeline({ onComplete: done })
+    .fromTo(el, { clipPath: 'circle(0% at calc(100% - 38px) 38px)' }, { clipPath: 'circle(150% at calc(100% - 38px) 38px)', duration: 0.7, ease: 'premium-out' })
+    .from(el.querySelectorAll('.mnav__link'), { yPercent: 60, opacity: 0, duration: 0.6, stagger: 0.07, ease: 'premium-out' }, 0.18)
+    .from(el.querySelectorAll('.mnav__foot > *'), { y: 16, opacity: 0, duration: 0.5, stagger: 0.06, ease: 'premium-out' }, 0.38);
+}
+function onMenuLeave(el: Element, done: () => void) {
+  if (prefersReducedMotion()) return done();
+  gsap.to(el, { clipPath: 'circle(0% at calc(100% - 38px) 38px)', duration: 0.45, ease: 'premium-in-out', onComplete: done });
+}
+
 let scrollTrigger: ScrollTrigger | null = null;
 
 // A "pílula" atrás do link ativo desliza suavemente até o novo destino a
@@ -21,7 +58,11 @@ let scrollTrigger: ScrollTrigger | null = null;
 // Flip.from calcula sozinho a diferença entre a posição antiga e a nova (que
 // já lemos ANTES da rota mudar) e anima só essa diferença.
 function moveIndicatorTo(link: HTMLElement | null) {
-  if (!indicator.value || !link) return;
+  if (!indicator.value) return;
+  // Sem aba ativa (ex.: na página de agendamento): esconde, em vez de deixar
+  // a pílula parada na aba anterior parecendo selecionada.
+  indicator.value.style.opacity = link ? '1' : '0';
+  if (!link) return;
   const navRect = nav.value?.getBoundingClientRect();
   if (!navRect) return;
 
@@ -44,6 +85,7 @@ async function syncIndicator() {
 watch(() => route.path, syncIndicator);
 
 onMounted(() => {
+  window.addEventListener('keydown', onKey);
   scrollTrigger = ScrollTrigger.create({
     start: 'top -80',
     onUpdate: (self) => {
@@ -69,6 +111,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   scrollTrigger?.kill();
+  window.removeEventListener('keydown', onKey);
+  getSmoother()?.paused(false);
 });
 </script>
 
@@ -122,7 +166,7 @@ onUnmounted(() => {
           type="button"
           :aria-expanded="isMenuOpen"
           aria-controls="mobile-nav"
-          aria-label="Abrir menu"
+          :aria-label="isMenuOpen ? 'Fechar menu' : 'Abrir menu'"
           @click="isMenuOpen = !isMenuOpen"
         >
           <span />
@@ -132,28 +176,39 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <Transition name="mobile-nav">
-      <nav
-        v-if="isMenuOpen"
-        id="mobile-nav"
-        class="header__nav header__nav--mobile"
-        aria-label="Navegação móvel"
-      >
-        <RouterLink to="/" @click="closeMenu">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5" /><path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" /></svg>
-          Início
-        </RouterLink>
-        <RouterLink to="/servicos" @click="closeMenu">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="m7 7 2.5 2.5M17 7l-2.5 2.5M7 17l2.5-2.5M17 17l-2.5-2.5" /></svg>
-          Serviços
-        </RouterLink>
-        <RouterLink to="/contato" @click="closeMenu">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-11.8 7.8L4 21l1.8-5A8.5 8.5 0 1 1 21 11.5Z" /></svg>
-          Contato
-        </RouterLink>
-        <RouterLink to="/agendar" class="header__cta" @click="closeMenu">Agendar atendimento</RouterLink>
-      </nav>
-    </Transition>
+    <!-- Fora do conteúdo suavizado (ScrollSmoother): position fixed só
+         funciona lá. Tem a própria barra com o X, por cima de tudo. -->
+    <Teleport to="#overlay-slot">
+      <Transition :css="false" @enter="onMenuEnter" @leave="onMenuLeave">
+        <div v-if="isMenuOpen" id="mobile-nav" class="mnav" role="dialog" aria-modal="true" aria-label="Menu">
+          <div class="mnav__bar">
+            <RouterLink to="/" class="mnav__brand" @click="closeMenu">
+              <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" />
+            </RouterLink>
+            <button type="button" class="mnav__close" aria-label="Fechar menu" @click="closeMenu">
+              <span /><span />
+            </button>
+          </div>
+
+          <nav class="mnav__links" aria-label="Navegação móvel">
+            <RouterLink v-for="(link, i) in MOBILE_LINKS" :key="link.to" :to="link.to" class="mnav__link" @click="closeMenu">
+              <span class="mnav__num">0{{ i + 1 }}</span>
+              <span class="mnav__label">{{ link.label }}</span>
+              <svg class="mnav__arrow" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </RouterLink>
+          </nav>
+
+          <div class="mnav__foot">
+            <RouterLink to="/agendar" class="mnav__cta" @click="closeMenu">Agendar atendimento</RouterLink>
+            <div class="mnav__social">
+              <a v-if="waHref" :href="waHref" target="_blank" rel="noopener">WhatsApp</a>
+              <a v-if="igHref" :href="igHref" target="_blank" rel="noopener">Instagram</a>
+            </div>
+            <p class="mnav__tag">Clínica de Saúde Estética · Camaçari (BA)</p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </header>
 </template>
 
@@ -209,15 +264,18 @@ onUnmounted(() => {
   transition: transform var(--duration-base) var(--ease-premium), opacity var(--duration-fast) var(--ease-standard);
 }
 
-.mobile-nav-enter-active,
-.mobile-nav-leave-active {
-  transition: opacity var(--duration-base) var(--ease-premium), transform var(--duration-base) var(--ease-premium);
+/* As 3 barras viram um X. */
+.header__menu-toggle[aria-expanded='true'] span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
 }
 
-.mobile-nav-enter-from,
-.mobile-nav-leave-to {
+.header__menu-toggle[aria-expanded='true'] span:nth-child(2) {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: scaleX(0);
+}
+
+.header__menu-toggle[aria-expanded='true'] span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -337,13 +395,17 @@ onUnmounted(() => {
   transition: transform var(--duration-base) var(--ease-premium);
 }
 
-.header__cta:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-glow);
-}
+/* Só em aparelho com mouse: no celular o :hover ficava "grudado" depois do
+   toque e o botão parecia preso em selecionado. */
+@media (hover: hover) {
+  .header__cta:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+  }
 
-.header__cta:hover svg {
-  transform: translateX(3px);
+  .header__cta:hover svg {
+    transform: translateX(3px);
+  }
 }
 
 .header__cta:active {
@@ -426,6 +488,145 @@ onUnmounted(() => {
   height: 2px;
   background: var(--color-rose-900);
   border-radius: 2px;
+}
+
+/* --- Menu do celular em tela cheia --- */
+.mnav {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) var(--space-5) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  background:
+    radial-gradient(120% 70% at 100% 0%, rgba(220, 171, 168, 0.55), transparent 60%),
+    radial-gradient(90% 60% at 0% 100%, rgba(200, 164, 101, 0.22), transparent 65%),
+    var(--color-bg);
+  overflow-y: auto;
+}
+
+.mnav__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 76px;
+}
+
+.mnav__brand img {
+  height: 58px;
+  width: auto;
+}
+
+.mnav__close {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--color-rose-300);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mnav__close span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 2px;
+  margin: -1px 0 0 -10px;
+  background: var(--color-rose-900);
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.mnav__close span + span {
+  transform: rotate(-45deg);
+}
+
+.mnav__links {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-6);
+}
+
+.mnav__link {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr auto;
+  align-items: baseline;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid rgba(111, 61, 67, 0.14);
+  color: var(--color-rose-900);
+  text-decoration: none;
+}
+
+.mnav__num {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-gold-700);
+}
+
+.mnav__label {
+  font-family: var(--font-serif);
+  font-size: clamp(2.1rem, 9vw, 2.8rem);
+  line-height: 1.1;
+}
+
+.mnav__arrow {
+  align-self: center;
+  opacity: 0.45;
+  transition: transform var(--duration-base) var(--ease-premium), opacity var(--duration-base) var(--ease-premium);
+}
+
+.mnav__link.router-link-exact-active .mnav__label {
+  font-style: italic;
+}
+
+.mnav__link.router-link-exact-active .mnav__arrow,
+.mnav__link:active .mnav__arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+.mnav__foot {
+  margin-top: auto;
+  padding-top: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mnav__cta {
+  display: block;
+  padding: 16px;
+  border-radius: var(--radius-pill);
+  text-align: center;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-rose-700), var(--color-rose-900) 60%, var(--color-dusk-700));
+  box-shadow: 0 14px 34px -16px rgba(111, 61, 67, 0.8);
+}
+
+.mnav__social {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.mnav__social a {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid var(--color-rose-300);
+  border-radius: var(--radius-pill);
+  text-align: center;
+  font-weight: 600;
+  color: var(--color-rose-900);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.mnav__tag {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
 }
 
 .header__nav--mobile {

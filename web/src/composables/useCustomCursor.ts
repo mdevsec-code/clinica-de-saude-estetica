@@ -1,10 +1,9 @@
 import { gsap, prefersReducedMotion, supportsFinePointer } from '@/lib/motion';
 
-// Cursor do site público (só computador com mouse): um ponto que acompanha o
+// Cursor próprio do programa inteiro — site e painel (só computador com mouse): um ponto que acompanha o
 // ponteiro sem atraso e um anel que vem logo atrás. Em cima de link/botão o
 // anel cresce e ganha um véu rosé; em campo de texto e em mapas/iframes o
-// cursor próprio some e o do sistema volta. O painel administrativo
-// continua com o cursor normal (a classe .has-custom-cursor só fora de /admin).
+// cursor próprio some e o do sistema volta.
 //
 // Por que está escrito assim (versão anterior parecia "travada"):
 // - o ponto é posicionado direto a cada movimento (quickSetter), sem tween;
@@ -19,7 +18,7 @@ let ring: HTMLElement | null = null;
 let enabled = false;
 
 const TYPING = 'input, textarea, select, [contenteditable="true"]';
-const INTERACTIVE = 'a, button, [role="button"], label, summary, [data-cursor]';
+const INTERACTIVE = 'a, button, [role="button"], [role="option"], [role="tab"], [role="menuitem"], label, summary, [data-cursor], [tabindex]:not([tabindex="-1"])';
 
 function build() {
   dot = document.createElement('div');
@@ -109,7 +108,7 @@ function build() {
   });
 }
 
-// Liga/desliga conforme a rota (site público sim, painel não).
+// Liga/desliga o cursor próprio.
 export function setCustomCursor(on: boolean) {
   if (typeof window === 'undefined' || !supportsFinePointer() || prefersReducedMotion()) return;
   if (on && !dot) build();

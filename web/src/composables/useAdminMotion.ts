@@ -25,8 +25,6 @@ export const CARD_SELECTOR = [
   '[data-reveal]',
 ].join(',');
 
-const SPOT_SELECTOR = `${CARD_SELECTOR},.kpi-card,[data-spotlight]`;
-
 export function installAdminMotion(root: HTMLElement) {
   if (prefersReducedMotion()) return () => {};
 

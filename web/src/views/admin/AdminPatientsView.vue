@@ -141,7 +141,7 @@ async function onCreate() {
           @click="router.push({ name: 'admin-patient-detail', params: { id: patient.id } })"
         >
           <span class="admin-patients__avatar">
-            <img v-if="patient.profilePhotoUrl" :src="patient.profilePhotoUrl" :alt="patient.name" />
+            <img v-if="patient.profilePhotoUrl" :src="patient.profilePhotoUrl" :alt="patient.name" loading="lazy" decoding="async" />
             <span v-else>{{ initials(patient.name) }}</span>
           </span>
           <div class="admin-patients__info">
