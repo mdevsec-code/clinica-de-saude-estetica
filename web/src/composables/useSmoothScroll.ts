@@ -54,6 +54,11 @@ let dragGuardInstalled = false;
 // público continua com a rolagem suave. As animações das telas (GSAP,
 // ScrollTrigger) seguem funcionando: sem o smoother elas usam a janela.
 export function setSmoothScrollEnabled(on: boolean) {
+  // Mesmo depois do kill(), o GSAP continua chamando o refreshHeight do
+  // smoother morto e regrava no <body> a altura da página do site (vindo do
+  // site para o painel sobrava rolagem infinita em branco). A classe trava a
+  // altura do body em CSS com !important (ver global.css).
+  document.documentElement.classList.toggle('smooth-off', !on);
   if (on) {
     initSmoothScroll();
     return;

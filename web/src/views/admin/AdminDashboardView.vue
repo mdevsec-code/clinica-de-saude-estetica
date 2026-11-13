@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { RouterLink } from 'vue-router';
@@ -18,6 +19,8 @@ import AdminDatePicker from '@/components/admin/AdminDatePicker.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
 
+// Recepção não vê receita/gastos/saldo (o servidor manda zerado).
+const canSeeMoney = useAuthStore().user?.role === 'ADMIN';
 const router = useRouter();
 const stats = ref<DashboardStats | null>(null);
 const loading = ref(true);
@@ -333,7 +336,7 @@ function formatUpcoming(iso: string) {
           <span class="kpi-card__value" :data-count="stats.appointmentsThisMonth">{{ stats.appointmentsThisMonth }}</span>
           <span class="kpi-card__hint">agendamentos no total</span>
         </div>
-        <div class="kpi-card kpi-card--accent" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card kpi-card--accent" data-reveal>
           <span class="kpi-card__label">Receita do mês</span>
           <span class="kpi-card__value" :data-count="stats.revenueThisMonthCents" data-count-currency>{{ formatCurrency(stats.revenueThisMonthCents) }}</span>
           <span v-if="revenueTrend" class="kpi-trend kpi-trend--on-accent">
@@ -342,7 +345,7 @@ function formatUpcoming(iso: string) {
           </span>
           <span v-else class="kpi-card__hint">atendimentos concluídos</span>
         </div>
-        <div class="kpi-card" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card" data-reveal>
           <span class="kpi-card__label">Gastos do mês</span>
           <span class="kpi-card__value" :data-count="stats.expensesThisMonthCents" data-count-currency>{{ formatCurrency(stats.expensesThisMonthCents) }}</span>
           <span v-if="expensesTrend" class="kpi-trend" :class="expensesTrend.good ? 'kpi-trend--good' : 'kpi-trend--bad'">
@@ -351,7 +354,7 @@ function formatUpcoming(iso: string) {
           </span>
           <span v-else class="kpi-card__hint">gastos cadastrados</span>
         </div>
-        <div class="kpi-card" :class="{ 'kpi-card--negative': stats.balanceThisMonthCents < 0 }" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card" :class="{ 'kpi-card--negative': stats.balanceThisMonthCents < 0 }" data-reveal>
           <span class="kpi-card__label">Saldo do mês</span>
           <span class="kpi-card__value" :data-count="stats.balanceThisMonthCents" data-count-currency>{{ formatCurrency(stats.balanceThisMonthCents) }}</span>
           <span class="kpi-card__hint">receita − gastos</span>
@@ -360,7 +363,7 @@ function formatUpcoming(iso: string) {
              convenção do design system (ver tokens.css), pra um único "momento
              premium" por tela — aqui, o ticket médio, por ser a métrica de
              qualidade/posicionamento do atendimento, não só de volume. -->
-        <div class="kpi-card kpi-card--gold" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card kpi-card--gold" data-reveal>
           <span class="kpi-card__label">Ticket médio</span>
           <span class="kpi-card__value" :data-count="stats.avgTicketCents" data-count-currency>{{ formatCurrency(stats.avgTicketCents) }}</span>
           <span class="kpi-card__hint">por atendimento concluído</span>
@@ -468,7 +471,7 @@ function formatUpcoming(iso: string) {
           <p v-else-if="!dayLoading" class="admin-dashboard__empty-hint">Escolha uma data e clique em "Ver dia" para ver os agendamentos detalhados daquele dia.</p>
         </div>
 
-        <div v-if="revenueVsExpenses" class="admin-card admin-card--list">
+        <div v-if="canSeeMoney && revenueVsExpenses" class="admin-card admin-card--list">
           <h2>
             Receita x Gastos (mês)
           </h2>
@@ -490,7 +493,7 @@ function formatUpcoming(iso: string) {
           </div>
         </div>
 
-        <div class="admin-card admin-card--list">
+        <div v-if="canSeeMoney" class="admin-card admin-card--list">
           <h2>
             Gastos por categoria (mês)
           </h2>

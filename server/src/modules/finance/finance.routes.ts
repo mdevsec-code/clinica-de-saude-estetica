@@ -22,6 +22,10 @@ import {
 
 export const financeRouter = Router();
 financeRouter.use(requireAuth, requireRole('ADMIN', 'RECEPTION'));
+// A recepção usa o Financeiro para lançar e pagar contas, mas não vê receita
+// nem perdas (pedido da clínica): faturamento, DRE, taxas da maquininha e
+// extrato bancário são só do ADMIN. Bloqueado aqui, não só escondido na tela.
+financeRouter.use(['/card-fees', '/revenue-daily', '/dre', '/bank'], requireRole('ADMIN'));
 
 // Taxas da maquininha, em centésimos de % (199 = 1,99%).
 const cardFeesSchema = z.object({
@@ -122,6 +126,11 @@ financeRouter.get(
   '/today-summary',
   asyncHandler(async (req, res) => {
     const summary = await getTodaySummary(req.tenant.id);
+    // Recepção: só as contas que vencem hoje, sem o que entrou.
+    if (req.user?.role !== 'ADMIN') {
+      res.json({ ...summary, recebimentosHojeCents: 0, recebimentosHoje: [], moneyHidden: true });
+      return;
+    }
     res.json(summary);
   }),
 );

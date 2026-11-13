@@ -152,6 +152,14 @@ async function syncIndicator() {
 
 watch(() => route.path, syncIndicator);
 
+// Celular/tablet: as abas ficam atrás do botão ☰ (antes ficavam sempre
+// abertas no topo, em grade, e ocupavam metade da tela em toda página).
+const navOpen = ref(false);
+watch(() => route.path, () => (navOpen.value = false));
+watch(navOpen, (open) => {
+  if (open) syncIndicator();
+});
+
 // A pílula ativa é posicionada com um transform em pixels calculado uma vez
 // (na troca de rota) — sem isso, ela fica "grudada" nas coordenadas antigas
 // sempre que o layout da nav muda de tamanho sem trocar de rota: rotação de
@@ -364,7 +372,7 @@ function onLogout() {
 </script>
 
 <template>
-  <div class="admin">
+  <div class="admin" :class="{ 'admin--nav-open': navOpen }">
     <header class="admin__topbar">
 
       <div class="admin__topbar-row">
@@ -428,9 +436,19 @@ function onLogout() {
             </svg>
           </button>
         </div>
+        <button
+          type="button"
+          class="admin__menu-btn"
+          :aria-expanded="navOpen"
+          aria-controls="admin-navrow"
+          :aria-label="navOpen ? 'Fechar menu' : 'Abrir menu'"
+          @click="navOpen = !navOpen"
+        >
+          <span /><span /><span />
+        </button>
       </div>
 
-      <div class="admin__navrow">
+      <div id="admin-navrow" class="admin__navrow">
       <nav ref="nav" class="admin__nav" aria-label="Navegação do painel">
         <span ref="indicator" class="admin__nav-indicator" aria-hidden="true" />
         <span class="admin__nav-group">Atendimento</span>
@@ -500,6 +518,7 @@ function onLogout() {
             <span class="admin__quickstat-label">{{ quickStats.appointmentsToday === 1 ? 'agendamento hoje' : 'agendamentos hoje' }}</span>
           </RouterLink>
           <RouterLink
+            v-if="auth.user?.role === 'ADMIN'"
             :to="{ name: 'admin-finance' }"
             class="admin__quickstat"
           >
@@ -522,6 +541,7 @@ function onLogout() {
       </Transition>
       </div>
     </header>
+    <div v-if="navOpen" class="admin__nav-backdrop" aria-hidden="true" @click="navOpen = false" />
 
     <main ref="content" class="container admin__content">
       <div class="admin__view-stack">
@@ -1477,6 +1497,127 @@ function onLogout() {
 
   .admin__content {
     padding-top: var(--space-7);
+  }
+}
+
+/* --- Celular e tablet: barra fina + menu ☰ ------------------------------ */
+.admin__menu-btn {
+  display: none;
+}
+
+@media (max-width: 1179px) {
+  .admin__topbar-row {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .admin__brand img {
+    height: 46px;
+  }
+
+  .admin__brand-divider,
+  .admin__brand-text {
+    display: none;
+  }
+
+  .admin__account {
+    margin-left: auto;
+    gap: var(--space-2);
+  }
+
+  .admin__menu-btn {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--color-rose-300);
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .admin__menu-btn span {
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--color-rose-900);
+    transition: transform 0.3s var(--ease-premium), opacity 0.2s ease;
+  }
+
+  .admin--nav-open .admin__menu-btn span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .admin--nav-open .admin__menu-btn span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .admin--nav-open .admin__menu-btn span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  /* As abas viram um painel que abre por cima da página. */
+  .admin__navrow {
+    display: none;
+  }
+
+  .admin--nav-open .admin__navrow {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: 0 24px 40px -24px rgba(28, 18, 16, 0.45);
+    animation: admin-nav-in 0.28s var(--ease-premium);
+  }
+
+  .admin--nav-open .admin__nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 0;
+  }
+
+  .admin--nav-open .admin__nav > a {
+    justify-content: flex-start;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  .admin__nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgba(28, 18, 16, 0.35);
+  }
+
+  .admin__topbar {
+    z-index: 40;
+    /* O painel do menu abre para fora da barra. */
+    overflow: visible;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin__avatar-wrap,
+  .admin__user {
+    display: none;
+  }
+}
+
+@keyframes admin-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
   }
 }
 </style>

@@ -653,3 +653,8 @@ html.has-custom-cursor *:not(input):not(textarea):not(select):not([contenteditab
   content-visibility: auto;
   contain-intrinsic-size: auto 96px;
 }
+
+/* Painel (rolagem nativa, sem ScrollSmoother): ver setSmoothScrollEnabled. */
+html.smooth-off body {
+  height: auto !important;
+}

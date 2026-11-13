@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
@@ -29,11 +30,16 @@ const router = useRouter();
 // padrão de pílula segmentada já usado em Agenda (mês/semana/dia). ---
 type FinanceTab = 'overview' | 'dre' | 'bank';
 const activeTab = ref<FinanceTab>('overview');
-const TABS: { key: FinanceTab; label: string }[] = [
+// Recepção: lança e paga contas, sem ver receita nem perdas (o servidor
+// também bloqueia faturamento, DRE, taxas e extrato para quem não é ADMIN).
+const auth = useAuthStore();
+const isAdmin = computed(() => auth.user?.role === 'ADMIN');
+const ALL_TABS: { key: FinanceTab; label: string }[] = [
   { key: 'overview', label: 'Visão geral' },
   { key: 'dre', label: 'DRE' },
   { key: 'bank', label: 'Conciliação bancária' },
 ];
+const TABS = computed(() => (isAdmin.value ? ALL_TABS : ALL_TABS.slice(0, 1)));
 
 const expenses = ref<Expense[]>([]);
 const loading = ref(true);
@@ -86,7 +92,7 @@ async function loadRevenueHistory() {
 onMounted(() => {
   load();
   loadToday();
-  loadRevenueHistory();
+  if (isAdmin.value) loadRevenueHistory();
 });
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -260,6 +266,7 @@ const toPct = (bps: number) => (bps / 100).toLocaleString('pt-BR', { maximumFrac
 const toBps = (pct: string) => Math.round(Number(pct.replace(',', '.').replace(/[^\d.]/g, '') || 0) * 100);
 
 onMounted(async () => {
+  if (!isAdmin.value) return;
   try {
     const { cardFees } = await fetchCardFees();
     feeForm.debit = toPct(cardFees.cardFeeDebitBps);
@@ -328,7 +335,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
       <div class="admin-finance__title">
         <div>
           <h1>Financeiro</h1>
-          <p>Gastos, DRE e conciliação bancária da clínica.</p>
+          <p>{{ isAdmin ? 'Gastos, DRE e conciliação bancária da clínica.' : 'Contas e gastos da clínica.' }}</p>
         </div>
       </div>
     </div>
@@ -351,13 +358,13 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
     <!-- ================= VISÃO GERAL ================= -->
     <div v-if="activeTab === 'overview'">
       <div class="admin-finance__stats">
-        <div class="admin-finance__stat">
+        <div v-if="isAdmin" class="admin-finance__stat">
           <div>
             <span class="admin-finance__stat-label">Total listado</span>
             <strong class="admin-finance__stat-value">{{ formatCurrency(total) }}</strong>
           </div>
         </div>
-        <div class="admin-finance__stat">
+        <div v-if="isAdmin" class="admin-finance__stat">
           <div>
             <span class="admin-finance__stat-label">Gastos pagos este mês</span>
             <strong class="admin-finance__stat-value">{{ formatCurrency(monthTotal) }}</strong>
@@ -375,7 +382,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
             <strong class="admin-finance__stat-value">{{ todayLoading ? '…' : formatCurrency(today?.vencimentosHojeCents ?? 0) }}</strong>
           </div>
         </div>
-        <div class="admin-finance__stat admin-finance__stat--received">
+        <div v-if="isAdmin" class="admin-finance__stat admin-finance__stat--received">
           <div>
             <span class="admin-finance__stat-label">Recebimentos de hoje</span>
             <strong class="admin-finance__stat-value">{{ todayLoading ? '…' : formatCurrency(today?.recebimentosHojeCents ?? 0) }}</strong>
@@ -393,7 +400,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
             </li>
           </ul>
         </div>
-        <div v-if="today.recebimentosHoje.length" class="admin-card admin-finance__today-card">
+        <div v-if="isAdmin && today.recebimentosHoje.length" class="admin-card admin-finance__today-card">
           <h3 class="admin-finance__today-title admin-finance__today-title--success">Atendimentos concluídos hoje</h3>
           <ul class="admin-finance__today-list">
             <li v-for="a in today.recebimentosHoje" :key="a.id">
@@ -404,7 +411,7 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
         </div>
       </div>
 
-      <div class="admin-card admin-finance__revenue-card">
+      <div v-if="isAdmin" class="admin-card admin-finance__revenue-card">
         <div class="admin-finance__revenue-header">
           <h2>
             Faturamento diário (últimos 30 dias)

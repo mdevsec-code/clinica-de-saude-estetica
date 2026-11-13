@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AdminModal from './AdminModal.vue';
 import AdminSelect, { type AdminSelectGroup, type AdminSelectOption } from './AdminSelect.vue';
@@ -210,7 +211,8 @@ async function finish() {
 const paidLabel = computed(() => {
   const a = first.value;
   const method = a.paymentNote || (a.paymentMethod ? METHOD_LABELS[a.paymentMethod] ?? a.paymentMethod : 'Forma de pagamento não registrada');
-  const fee = props.visit.reduce((sum, v) => sum + (v.feeCents ?? 0), 0);
+  // Taxa (perda com a maquininha) só para quem é ADMIN.
+  const fee = useAuthStore().user?.role === 'ADMIN' ? props.visit.reduce((sum, v) => sum + (v.feeCents ?? 0), 0) : 0;
   return fee ? `${method} · taxa ${formatBRL(fee)}` : method;
 });
 

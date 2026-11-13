@@ -50,6 +50,12 @@ function blocksLabel(dateKey: string): string | null {
         @click="emit('select-day', day.dateKey)"
       >
         <span class="calendar-day__number">{{ day.date.getDate() }}</span>
+        <!-- Celular: no lugar dos nomes (cortados em 3 letras por linha), só
+             quantos atendimentos o dia tem; tocar no dia abre a lista. -->
+        <span class="calendar-day__compact" aria-hidden="true">
+          <span v-if="appointmentsFor(day.dateKey).length" class="calendar-day__count">{{ appointmentsFor(day.dateKey).length }}</span>
+          <span v-if="blocksLabel(day.dateKey)" class="calendar-day__blocked-dot" />
+        </span>
 
         <span class="calendar-day__items">
           <span v-if="blocksLabel(day.dateKey)" class="calendar-chip calendar-chip--blocked">
@@ -256,6 +262,47 @@ function blocksLabel(dateKey: string): string | null {
   }
   .calendar-chip {
     font-size: 0.62rem;
+  }
+}
+
+.calendar-day__compact {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .calendar-day {
+    min-height: 58px;
+    align-items: center;
+    padding: 6px 2px;
+  }
+
+  .calendar-day__items {
+    display: none;
+  }
+
+  .calendar-day__compact {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-height: 20px;
+  }
+
+  .calendar-day__count {
+    min-width: 22px;
+    padding: 2px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-fill-700);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .calendar-day__blocked-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-ink-soft);
   }
 }
 </style>
