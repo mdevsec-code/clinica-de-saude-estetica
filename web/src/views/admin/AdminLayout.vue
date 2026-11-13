@@ -9,6 +9,7 @@ import { fetchDashboardStats } from '@/services/admin-dashboard.service';
 import type { DashboardStats } from '@/types';
 import AdminCommandPalette from '@/components/admin/AdminCommandPalette.vue';
 import { animateViewTitle, installAdminMotion } from '@/composables/useAdminMotion';
+import NotificationBell from '@/components/admin/NotificationBell.vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -376,14 +377,16 @@ function onLogout() {
     <header class="admin__topbar">
 
       <div class="admin__topbar-row">
-        <RouterLink to="/" class="admin__brand" @mouseenter="shineLogo">
-          <span class="admin__brand-mark">
+        <!-- Só a logo leva ao site: antes o bloco inteiro (com a saudação)
+             era link, e tocar perto do botão de tema voltava para o site. -->
+        <div class="admin__brand">
+          <RouterLink to="/" class="admin__brand-mark" aria-label="Ver o site público" @mouseenter="shineLogo">
             <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" />
             <!-- Brilho dourado recortado no formato exato da logo (mask com
                  o próprio PNG): percorre só os traços do monograma e do
                  nome, nunca o fundo em volta. -->
             <span ref="shine" class="admin__brand-shine" aria-hidden="true" />
-          </span>
+          </RouterLink>
           <span class="admin__brand-divider" aria-hidden="true" />
           <!-- Saudação dinâmica no lugar do rótulo estático "Painel
                Administrativo" — o resto da tela já deixa claro onde a
@@ -399,7 +402,24 @@ function onLogout() {
             </span>
             <span class="admin__brand-date">{{ todayLabel }}</span>
           </span>
-        </RouterLink>
+        </div>
+
+        <!-- Canto de cima à direita: sino de notificações e modo claro/escuro. -->
+        <div class="admin__corner">
+          <NotificationBell />
+          <button
+            type="button"
+            class="admin__corner-btn"
+            :aria-label="theme === 'dark' ? 'Usar modo claro' : 'Usar modo escuro'"
+            :title="theme === 'dark' ? 'Modo claro' : 'Modo escuro'"
+            @click="toggleTheme"
+          >
+            <Transition name="theme-icon" mode="out-in">
+            <svg v-if="theme === 'dark'" key="sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" /></svg>
+            <svg v-else key="moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" /></svg>
+            </Transition>
+          </button>
+        </div>
 
         <div class="admin__account">
           <AdminCommandPalette />
@@ -416,18 +436,6 @@ function onLogout() {
               <span class="admin__avatar-status" aria-hidden="true" />
             </span>
           </span>
-          <button
-            type="button"
-            class="admin__logout admin__theme"
-            :aria-label="theme === 'dark' ? 'Usar modo claro' : 'Usar modo escuro'"
-            :title="theme === 'dark' ? 'Modo claro' : 'Modo escuro'"
-            @click="toggleTheme"
-          >
-            <Transition name="theme-icon" mode="out-in">
-            <svg v-if="theme === 'dark'" key="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" /></svg>
-            <svg v-else key="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" /></svg>
-            </Transition>
-          </button>
           <button type="button" class="admin__logout" @click="onLogout">
             <span>Sair</span>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1027,10 +1035,6 @@ function onLogout() {
   transition: border-color var(--duration-base) var(--ease-premium), background var(--duration-base) var(--ease-premium), transform var(--duration-base) var(--ease-premium);
 }
 
-.admin__theme {
-  padding: 8px 10px;
-}
-
 /* Sol e lua giram ao trocar. */
 .theme-icon-enter-active,
 .theme-icon-leave-active {
@@ -1282,29 +1286,6 @@ function onLogout() {
 
   .admin__brand-divider {
     display: none;
-  }
-
-  /* Botão de tema no alto da barra lateral (pedido da clínica: não lá
-     embaixo, ao lado do Sair). Duas classes: vence o estilo do .admin__logout. */
-  .admin__logout.admin__theme {
-    /* fixed (não absolute): a barra lateral tem rolagem própria e o botão
-       rolava junto, sumindo. Canto de cima da barra, sempre visível. */
-    position: fixed;
-    top: var(--space-4);
-    left: calc(var(--sidebar-w) - 40px - var(--space-4));
-    z-index: 2;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    justify-content: center;
-    border-color: rgba(255, 255, 255, 0.16);
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .admin__logout.admin__theme:hover {
-    border-color: rgba(200, 164, 101, 0.6);
-    background: rgba(255, 255, 255, 0.12);
   }
 
   .admin__brand-title {
@@ -1618,6 +1599,52 @@ function onLogout() {
   from {
     opacity: 0;
     transform: translateY(-8px);
+  }
+}
+
+/* --- Canto de cima à direita: sino + tema --------------------------------- */
+.admin__corner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.admin__corner-btn {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 6px 18px -10px rgba(28, 18, 16, 0.35);
+}
+
+.admin__corner-btn:hover {
+  border-color: var(--color-rose-300);
+}
+
+/* Computador: fixo no canto da área de conteúdo, fora da barra lateral. */
+@media (min-width: 1180px) {
+  /* Espaço para o sino e o tema não encostarem nos botões do topo da página. */
+  .admin__content {
+    padding-top: calc(var(--space-7) + 40px);
+  }
+
+  .admin__corner {
+    position: fixed;
+    top: var(--space-4);
+    right: var(--space-5);
+    z-index: 45;
+    margin: 0;
+  }
+}
+
+@media (max-width: 1179px) {
+  .admin__corner + .admin__account {
+    margin-left: 0;
   }
 }
 </style>

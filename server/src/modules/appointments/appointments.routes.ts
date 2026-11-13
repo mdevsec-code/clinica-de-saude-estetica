@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler';
 import { AppError } from '../../utils/errors';
+import { describeAppointment, notify } from '../notifications/notifications.service';
 import { PAYMENT_METHODS, type PaymentMethod } from '../finance/payment-methods';
 import { bookingRateLimiter } from '../../middleware/rate-limit';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
@@ -106,6 +107,9 @@ appointmentsRouter.post(
     if (!ids.length) throw new AppError('Escolha ao menos um serviço.', 422, 'VALIDATION_ERROR');
     const appointment = await createAppointment({ tenantId: req.tenant.id, serviceIds: ids, ...input });
     res.status(201).json({ appointment });
+    // Sino do painel (depois da resposta: não atrasa quem está agendando).
+    const info = await describeAppointment(req.tenant.id, [appointment.id]);
+    if (info) await notify(req.tenant.id, 'BOOKED', 'Novo agendamento pelo site', info.text);
   }),
 );
 
@@ -124,6 +128,8 @@ appointmentsRouter.post(
     const input = internalSchema.parse(req.body);
     const result = await createInternalAppointments({ tenantId: req.tenant.id, ...input });
     res.status(201).json(result);
+    const info = await describeAppointment(req.tenant.id, result.ids);
+    if (info) await notify(req.tenant.id, 'BOOKED', `Agendado por ${req.user!.name}`, info.text, req.user!.id);
   }),
 );
 
@@ -166,5 +172,9 @@ appointmentsRouter.patch(
     const { status } = statusSchema.parse(req.body);
     const appointment = await updateAppointmentStatus(req.tenant.id, req.params.id, status);
     res.json({ appointment });
+    if (status === 'CANCELLED') {
+      const info = await describeAppointment(req.tenant.id, [appointment.id]);
+      if (info) await notify(req.tenant.id, 'CANCELLED', `Desmarcado por ${req.user!.name}`, info.text, req.user!.id);
+    }
   }),
 );

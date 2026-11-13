@@ -32,6 +32,7 @@ model Tenant {
   appointments      Appointment[]
   settings          TenantSettings?
   siteContent       SiteContent?
+  notifications     Notification[]
   expenses          Expense[]
   inventoryItems    InventoryItem[]
   bankTransactions  BankTransaction[]
@@ -119,6 +120,20 @@ model SiteContent {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   data      Json     @default("{}")
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// Sino do painel (ver modules/notifications).
+model Notification {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  kind        String
+  title       String
+  body        String
+  actorUserId String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
 }
 
 model TenantSettings {

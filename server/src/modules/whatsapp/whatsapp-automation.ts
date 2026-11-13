@@ -5,6 +5,7 @@ import pino from 'pino';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { listMessageTemplates } from '../messages/messages.service';
+import { describeAppointment, notify } from '../notifications/notifications.service';
 import {
   isWhatsappConnected,
   onIncomingWhatsappMessage,
@@ -324,6 +325,8 @@ async function handleIncoming(message: IncomingWhatsappMessage) {
         const visit = await visitOf(appt);
         await prisma.appointment.updateMany({ where: { id: { in: visit.map((a) => a.id) } }, data: { clientConfirmedAt: new Date() } });
         logger.info({ appointmentId: appt.id }, 'Paciente confirmou pelo WhatsApp');
+        const info = await describeAppointment(tenantId, visit.map((a) => a.id));
+        if (info) await notify(tenantId, 'CONFIRMED', 'Cliente confirmou pelo WhatsApp', info.text);
         const thanks = await enabledTemplate(tenantId, 'CONFIRMATION_THANKS');
         if (thanks) {
           await replyWhatsapp(tenantId, replyJid, renderTemplate(thanks, await buildVariables(tenantId, timezone, asVisit(visit))));
@@ -499,6 +502,8 @@ async function acceptReschedule(tenantId: string, timezone: string, offer: Offer
     await syncAppointmentToGoogle(a.id).catch((err) => logger.error({ err, appointmentId: a.id }, 'Falha ao atualizar o Google Agenda'));
   }
   logger.info({ appointmentId: offer.id, newStart: proposed.toISOString() }, 'Paciente aceitou o novo horário — remarcado');
+  const info = await describeAppointment(tenantId, visit.map((a) => a.id));
+  if (info) await notify(tenantId, 'RESCHEDULED', 'Cliente aceitou o novo horário', info.text);
 
   const done = await enabledTemplate(tenantId, 'RESCHEDULE_DONE');
   if (done) {
