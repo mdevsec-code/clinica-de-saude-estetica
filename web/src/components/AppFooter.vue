@@ -112,7 +112,11 @@ const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings
   position: relative;
   display: grid;
   gap: var(--space-7);
-  grid-template-columns: 1fr;
+  /* minmax(0, …): a coluna nunca cresce além da tela por causa de um texto
+     comprido (o e-mail da clínica é uma palavra só) — com a fonte grande do
+     celular o rodapé passava de 460px e cortava o texto. */
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
 }
 
 .footer__brand img {
@@ -239,7 +243,7 @@ a.footer__link:hover {
 
 @media (min-width: 780px) {
   .footer__grid {
-    grid-template-columns: 1.3fr 0.8fr 1fr 1.1fr;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.1fr);
   }
 }
 </style>

@@ -106,7 +106,7 @@ onUnmounted(() => revertSplit());
 @media (min-width: 900px) {
   .page-hero__inner--image {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     align-items: center;
     gap: var(--space-8);
   }

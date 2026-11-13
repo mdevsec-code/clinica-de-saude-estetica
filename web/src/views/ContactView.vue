@@ -1083,7 +1083,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 
 @media (min-width: 780px) {
   .contact-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .contact-map iframe {

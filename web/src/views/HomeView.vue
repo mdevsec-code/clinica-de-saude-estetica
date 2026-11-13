@@ -427,6 +427,7 @@ h2 {
 
 .featured__grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-7);
   align-items: center;
 }
@@ -507,7 +508,9 @@ h2 {
    o número de categorias mudar no painel. */
 .specialties {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* minmax(0, …) em todas as grades da página: coluna "1fr" cresce até o
+     conteúdo e, com a fonte grande do celular, passava da tela. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-flow: dense;
   gap: var(--space-3);
 }
@@ -578,6 +581,11 @@ h2 {
 
 .specialty-card--featured.specialty-card--photo {
   aspect-ratio: 16 / 11;
+  /* Largura presa à coluna: com aspect-ratio, quando o texto pedia mais
+     altura o navegador alargava o cartão (passava da tela em 320px). Assim
+     cresce só a altura. */
+  width: 100%;
+  min-width: 0;
 }
 
 .specialty-card--featured .specialty-card__name {
@@ -659,6 +667,7 @@ h2 {
 
 .instagram-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   align-items: center;
   padding: var(--space-6);
@@ -669,7 +678,7 @@ h2 {
 .instagram-card__grid {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -718,7 +727,7 @@ h2 {
 @media (min-width: 700px) {
   .steps__list,
   .values__list {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-6);
   }
 }
@@ -729,28 +738,28 @@ h2 {
   }
 
   .hero__grid {
-    grid-template-columns: 1.05fr 0.95fr;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
     gap: var(--space-8);
   }
 
   .featured__grid {
-    grid-template-columns: 0.9fr 1.1fr;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: var(--space-9);
   }
 
   .about__grid {
-    grid-template-columns: 0.7fr 1.3fr;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
     align-items: start;
     gap: var(--space-8);
   }
 
   .specialties__heading {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: end;
   }
 
   .specialties {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .specialty-card--featured {
@@ -767,7 +776,7 @@ h2 {
   }
 
   .steps__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .steps__heading {
@@ -785,18 +794,18 @@ h2 {
   /* Título numa linha, os três diferenciais lado a lado abaixo dele, na
      largura toda — ao lado do título eles ficavam espremidos. */
   .values__list {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-7);
   }
 
   .instagram-card {
-    grid-template-columns: 0.9fr 1.1fr;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: var(--space-8);
     padding: var(--space-7);
   }
 
   .cta-final__inner {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
   }
 }

@@ -616,7 +616,7 @@ function goBack() {
 
 .time-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -700,7 +700,7 @@ function goBack() {
 
 @media (min-width: 600px) {
   .time-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 </style>

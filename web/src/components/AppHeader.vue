@@ -550,7 +550,7 @@ onUnmounted(() => {
 
 .mnav__link {
   display: grid;
-  grid-template-columns: 2.4rem 1fr auto;
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto;
   align-items: baseline;
   padding: var(--space-4) 0;
   border-bottom: 1px solid rgba(111, 61, 67, 0.14);
