@@ -10,6 +10,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { catalogRouter } from './modules/catalog/catalog.routes';
 import { availabilityRouter } from './modules/availability/availability.routes';
 import { appointmentsRouter } from './modules/appointments/appointments.routes';
+import { siteContentRouter } from './modules/site-content/site-content.routes';
 import { settingsRouter } from './modules/settings/settings.routes';
 import { financeRouter } from './modules/finance/finance.routes';
 import { inventoryRouter } from './modules/inventory/inventory.routes';
@@ -43,6 +44,7 @@ export function createApp() {
     /^\/finance\/bank\/import$/,
     /^\/patients\/[^/]+\/photos$/,
     /^\/patients\/[^/]+\/fichas(\/[^/]+)?$/,
+    /^\/site-content\/images$/,
   ];
   const jsonLarge = express.json({ limit: '10mb' });
   const jsonDefault = express.json({ limit: '100kb' });
@@ -85,6 +87,7 @@ export function createApp() {
   app.use('/availability', availabilityRouter);
   app.use('/appointments', appointmentsRouter);
   app.use('/settings', settingsRouter);
+  app.use('/site-content', siteContentRouter);
   app.use('/finance', financeRouter);
   app.use('/inventory', inventoryRouter);
   app.use('/dashboard', dashboardRouter);

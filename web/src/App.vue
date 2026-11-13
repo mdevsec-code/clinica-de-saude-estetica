@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSiteContentStore } from '@/stores/siteContent';
 import { setCustomCursor } from '@/composables/useCustomCursor';
 import { computed, nextTick, ref, watch } from 'vue';
 import { installRipple } from '@/composables/useRipple';
@@ -40,7 +41,13 @@ watch(isAdminRoute, (admin) => setSmoothScrollEnabled(!admin), { immediate: true
 // — e só depois a página carregava. isReady() resolve quando a primeira
 // rota (com o código da página) está pronta: tudo aparece de uma vez.
 const ready = ref(false);
-router.isReady().finally(() => (ready.value = true));
+// Os textos editados no painel (Painel → Site) também entram antes de a
+// página aparecer — senão o texto padrão piscava e trocava. No máximo 1,5 s:
+// API lenta não segura o site (fica com os textos padrão).
+const siteContent = useSiteContentStore();
+Promise.all([router.isReady(), Promise.race([siteContent.load(), new Promise((r) => setTimeout(r, 1500))])]).finally(
+  () => (ready.value = true),
+);
 
 // Key da transição de PÁGINA (abaixo): usa o path da rota-mãe casada
 // (route.matched[0].path), não o path resolvido completo. Por que isso

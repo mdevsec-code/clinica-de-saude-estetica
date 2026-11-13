@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useSiteContentStore } from '@/stores/siteContent';
+import { assetUrl } from '@/utils/images';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
@@ -11,6 +13,7 @@ import { prefersReducedMotion } from '@/lib/motion';
 import WhatsAppButton from '@/components/WhatsAppButton.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import PageHeroBand from '@/components/PageHeroBand.vue';
+const site = useSiteContentStore();
 
 const settings = useSettingsStore();
 settings.load();
@@ -190,9 +193,9 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
   <div class="contact-page">
     <PageHeroBand
       eyebrow="Fale com a gente"
-      title="Fale conosco"
-      description="WhatsApp, Instagram, endereço e horários da clínica em Camaçari (BA)."
-      image="/services/massagens-terapias-corporais.jpg"
+      :title="site.get('contact.title')"
+      :description="site.get('contact.description')"
+      :image="assetUrl(site.get('contact.image'))"
       image-alt="Massagem terapêutica nas costas, com toalha branca"
     />
 

@@ -31,6 +31,7 @@ model Tenant {
   blockedTimes      BlockedTime[]
   appointments      Appointment[]
   settings          TenantSettings?
+  siteContent       SiteContent?
   expenses          Expense[]
   inventoryItems    InventoryItem[]
   bankTransactions  BankTransaction[]
@@ -110,6 +111,16 @@ model AuditLog {
 
 // Configurações públicas da clínica (contato, redes sociais, regras de agendamento).
 // Nunca hardcoded no frontend — tudo consultado via API.
+// Textos e fotos do site público editados no painel (Painel → Site): mapa
+// chave → texto; chave ausente = texto padrão do site.
+model SiteContent {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
 model TenantSettings {
   id                 String   @id @default(cuid())
   tenantId           String   @unique

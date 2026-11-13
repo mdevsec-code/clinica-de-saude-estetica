@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useSiteContentStore } from '@/stores/siteContent';
+import { assetUrl } from '@/utils/images';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useBookingStore } from '@/stores/booking';
 import { fetchCategories } from '@/services/catalog.service';
@@ -15,6 +17,7 @@ import BookingSummaryBar from '@/components/BookingSummaryBar.vue';
 import { applyStaggerReveal } from '@/composables/useStaggerReveal';
 import { gsap } from '@/lib/motion';
 import { refreshScroll, scrollToElement } from '@/composables/useSmoothScroll';
+const site = useSiteContentStore();
 
 const booking = useBookingStore();
 
@@ -319,9 +322,9 @@ function goBack() {
 <template>
   <div class="booking-page">
     <PageHeroBand
-      title="Agende seu horário"
-      description="Escolha o procedimento, o dia e o horário. A confirmação chega pelo WhatsApp."
-      image="/services/micropigmentacao.jpg"
+      :title="site.get('booking.title')"
+      :description="site.get('booking.description')"
+      :image="assetUrl(site.get('booking.image'))"
       image-alt="Micropigmentação de sobrancelha em andamento"
     >
       <BookingProgress v-if="step !== 'success'" :current="booking.currentStep" />

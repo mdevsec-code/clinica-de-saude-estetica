@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useSiteContentStore } from '@/stores/siteContent';
+import { assetUrl } from '@/utils/images';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
@@ -111,24 +113,22 @@ const igHref = computed(() => (settings.data?.instagram ? instagramLink(settings
 // em vez de fabricar conteúdo.
 const igPreviewPhotos = computed(() =>
   categories.value
-    .map((c) => c.imageUrl)
+    .map((c) => assetUrl(c.imageUrl))
     .filter((url): url is string => !!url)
     .slice(0, 6),
 );
 
-const differentials = [
-  { title: 'Atendimento individual', text: 'Cada procedimento pensado para a sua pele, o seu tempo e o seu conforto.' },
-  { title: 'Ambiente acolhedor', text: 'Um espaço tranquilo, pensado do início ao fim para o seu bem-estar.' },
-  { title: 'Agendamento simples', text: 'Escolha o serviço, a data e o horário em poucos toques, direto do celular.' },
-];
+// Textos editáveis em Painel → Site (padrões em data/site-content.ts).
+const site = useSiteContentStore();
+const differentials = computed(() =>
+  [1, 2, 3].map((n) => ({ title: site.get(`home.why${n}Title`), text: site.get(`home.why${n}Text`) })),
+);
 
 // Ordem real (é um passo a passo), então lista ordenada de verdade — mas a
 // ordem é dita pela posição e pelas palavras, não por "01 / 02 / 03".
-const steps = [
-  { title: 'Escolha o serviço', text: 'Navegue pelas especialidades e encontre o procedimento ideal para você.' },
-  { title: 'Escolha o dia e o horário', text: 'Veja a agenda real da clínica e selecione o horário que encaixa na sua rotina.' },
-  { title: 'Confirme e pronto', text: 'Informe seus dados e receba a confirmação do horário pelo WhatsApp.' },
-];
+const steps = computed(() =>
+  [1, 2, 3].map((n) => ({ title: site.get(`home.step${n}Title`), text: site.get(`home.step${n}Text`) })),
+);
 </script>
 
 <template>
@@ -138,11 +138,8 @@ const steps = [
     <section class="hero">
       <div class="container hero__grid">
         <div class="hero__text">
-          <h1 class="hero__title">Estética e Micropigmentação</h1>
-          <p class="hero__lead" data-hero-fade>
-            Clínica de Saúde Estética Noely Cerqueira, em Camaçari (BA): cuidado personalizado, com técnica e atenção a cada
-            detalhe.
-          </p>
+          <h1 class="hero__title">{{ site.get('home.heroTitle') }}</h1>
+          <p class="hero__lead" data-hero-fade>{{ site.get('home.heroLead') }}</p>
           <div class="hero__actions" data-hero-fade>
             <RouterLink to="/agendar" class="button button--primary">Agendar atendimento</RouterLink>
             <RouterLink to="/servicos" class="button button--ghost">Ver procedimentos</RouterLink>
@@ -164,9 +161,9 @@ const steps = [
         </div>
         <figure class="hero__photo-wrap">
           <div class="hero__photo" data-parallax>
-            <img src="/brand/noely-cerqueira-foto.jpeg" alt="Noely Cerqueira de jaleco branco, sorrindo" />
+            <img :src="assetUrl(site.get('home.heroPhoto'))" :alt="site.get('home.heroCaption')" />
           </div>
-          <figcaption class="hero__caption">Noely Cerqueira, especialista em estética</figcaption>
+          <figcaption class="hero__caption">{{ site.get('home.heroCaption') }}</figcaption>
         </figure>
       </div>
     </section>
@@ -175,14 +172,11 @@ const steps = [
     <section v-if="featuredCategory" class="featured">
       <div class="container featured__grid" data-reveal>
         <div class="featured__photo">
-          <img v-if="featuredCategory.imageUrl" :src="featuredCategory.imageUrl" :alt="featuredCategory.name" />
+          <img v-if="featuredCategory.imageUrl" :src="assetUrl(featuredCategory.imageUrl)" :alt="featuredCategory.name" loading="lazy" decoding="async" />
         </div>
         <div class="featured__text">
           <h2 class="featured__title" data-split>{{ featuredCategory.name }}</h2>
-          <p class="featured__description">
-            O procedimento mais procurado da clínica: planejamento personalizado e técnica refinada para realçar a
-            sua beleza natural com equilíbrio, do primeiro atendimento ao resultado.
-          </p>
+          <p class="featured__description">{{ site.get('home.featuredText') }}</p>
           <RouterLink to="/agendar" class="button button--primary">Agendar harmonização</RouterLink>
         </div>
       </div>
@@ -192,11 +186,8 @@ const steps = [
          grande à direita. -->
     <section class="about">
       <div class="container about__grid" data-reveal>
-        <h2 data-split>Sobre a clínica</h2>
-        <p class="about__statement">
-          Estética e micropigmentação, da sobrancelha às massagens terapêuticas, com atendimento próximo, técnico e
-          feito para você.
-        </p>
+        <h2 data-split>{{ site.get('home.aboutTitle') }}</h2>
+        <p class="about__statement">{{ site.get('home.aboutText') }}</p>
       </div>
     </section>
 
@@ -204,9 +195,7 @@ const steps = [
       <div class="container">
         <div class="specialties__heading">
           <h2 data-split>Especialidades</h2>
-          <p class="specialties__lead" data-reveal>
-            Um procedimento para cada etapa do seu cuidado, da limpeza de pele à micropigmentação.
-          </p>
+          <p class="specialties__lead" data-reveal>{{ site.get('home.specialtiesLead') }}</p>
         </div>
         <div class="specialties">
           <RouterLink
@@ -217,7 +206,7 @@ const steps = [
             :class="{ 'specialty-card--featured': category.featured, 'specialty-card--photo': category.imageUrl }"
           >
             <span v-if="category.imageUrl" class="specialty-card__media" aria-hidden="true">
-              <span class="specialty-card__photo" :style="{ backgroundImage: `url(${category.imageUrl})` }" />
+              <span class="specialty-card__photo" :style="{ backgroundImage: `url(${assetUrl(category.imageUrl)})` }" />
             </span>
             <span v-if="category.imageUrl" class="specialty-card__scrim" aria-hidden="true" />
             <span class="specialty-card__name">{{ category.name }}</span>
@@ -271,7 +260,7 @@ const steps = [
           </div>
           <div class="instagram-card__text">
             <h2 class="instagram-card__handle">{{ settings.data?.instagram }}</h2>
-            <p>Procedimentos, resultados e bastidores da clínica no Instagram.</p>
+            <p>{{ site.get('home.instagramText') }}</p>
             <span class="button button--light instagram-card__cta">Seguir no Instagram</span>
           </div>
         </a>
@@ -280,7 +269,7 @@ const steps = [
 
     <section class="cta-final" data-reveal>
       <div class="container cta-final__inner">
-        <h2 data-split>Vamos agendar seu horário?</h2>
+        <h2 data-split>{{ site.get('home.ctaTitle') }}</h2>
         <RouterLink to="/agendar" class="button button--light">Agendar atendimento</RouterLink>
       </div>
     </section>

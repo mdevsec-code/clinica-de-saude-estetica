@@ -136,3 +136,19 @@ export function readFichaFile(storageKey: string): Promise<Buffer> {
 export function deleteFichaFile(storageKey: string): Promise<void> {
   return deleteStoredFile(storageKey);
 }
+
+// Fotos do site público (Painel → Site): ficam separadas das fotos de
+// paciente (site/<tenant>/...) e são servidas abertas pela rota
+// /site-content/images. Devolve o caminho público.
+export async function saveSiteImage(tenantId: string, mimeType: string, base64Data: string): Promise<string> {
+  const ext = MIME_EXTENSIONS[mimeType];
+  if (!ext) throw new Error(`Tipo de imagem não suportado: ${mimeType}`);
+  if (!/^[a-z0-9]+$/i.test(tenantId)) throw new Error('Tenant inválido.');
+  const file = `${randomUUID()}.${ext}`;
+  await writeStoredFile(`site/${tenantId}/${file}`, mimeType, Buffer.from(base64Data, 'base64'));
+  return `/site-content/images/${tenantId}/${file}`;
+}
+
+export function readSiteImage(storageKey: string): Promise<Buffer> {
+  return readStoredFile(storageKey);
+}

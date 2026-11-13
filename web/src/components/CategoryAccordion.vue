@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { assetUrl } from '@/utils/images';
 import { ref } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import type { Service, ServiceCategory } from '@/types';
@@ -55,7 +56,7 @@ function onLeave(el: Element, done: () => void) {
       @click="toggle"
     >
       <span class="accordion__thumb" aria-hidden="true">
-        <img v-if="category.imageUrl" :src="category.imageUrl" :alt="category.name" />
+        <img v-if="category.imageUrl" :src="assetUrl(category.imageUrl)" :alt="category.name" loading="lazy" decoding="async" />
         <span v-else class="accordion__thumb-fallback">{{ category.name.charAt(0) }}</span>
       </span>
       <span class="accordion__title">

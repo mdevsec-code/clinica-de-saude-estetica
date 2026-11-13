@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ImageUploadButton from '@/components/admin/ImageUploadButton.vue';
+import { assetUrl } from '@/utils/images';
 import { thumbUrl } from '@/utils/images';
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -222,7 +224,7 @@ async function submitNewService(category: AdminCategory) {
 
 // --- Editar serviço ---
 const editingServiceId = ref<string | null>(null);
-const editServiceForm = reactive({ name: '', durationMinutes: 30, priceInput: '', description: '', returnOffsetsInput: '' });
+const editServiceForm = reactive({ name: '', durationMinutes: 30, priceInput: '', description: '', returnOffsetsInput: '', imageUrl: '' });
 
 function startEditService(service: AdminService) {
   editingServiceId.value = service.id;
@@ -231,6 +233,7 @@ function startEditService(service: AdminService) {
   editServiceForm.priceInput = priceToInputValue(service.priceCents);
   editServiceForm.description = service.description ?? '';
   editServiceForm.returnOffsetsInput = offsetsToInputValue(service.returnOffsetDays);
+  editServiceForm.imageUrl = service.imageUrl ?? '';
 }
 
 function cancelEditService() {
@@ -247,6 +250,7 @@ async function saveEditService(service: AdminService) {
       priceCents: parsePriceToCents(editServiceForm.priceInput),
       description: editServiceForm.description.trim() || null,
       returnOffsetDays: parseOffsetsInput(editServiceForm.returnOffsetsInput),
+      imageUrl: editServiceForm.imageUrl || null,
     });
     Object.assign(service, updated);
     editingServiceId.value = null;
@@ -301,10 +305,13 @@ async function toggleServiceActive(service: AdminService) {
             Nome
             <input v-model="newCategory.name" type="text" placeholder="Ex.: Sobrancelha" required />
           </label>
-          <label class="admin-field">
-            URL da imagem (opcional)
-            <input v-model="newCategory.imageUrl" type="text" placeholder="/services/exemplo.jpg" />
-          </label>
+          <div class="admin-field">
+            Foto (opcional)
+            <span class="admin-catalog__photo-row">
+              <img v-if="newCategory.imageUrl" :src="assetUrl(newCategory.imageUrl)" alt="" class="admin-catalog__photo-preview" />
+              <ImageUploadButton :label="newCategory.imageUrl ? 'Trocar foto' : 'Enviar foto'" @uploaded="(url) => (newCategory.imageUrl = url)" />
+            </span>
+          </div>
           <label class="admin-toggle">
             <input v-model="newCategory.featured" type="checkbox" />
             <span class="admin-toggle__track"><span class="admin-toggle__thumb" /></span>
@@ -323,11 +330,12 @@ async function toggleServiceActive(service: AdminService) {
         <div
           class="admin-category__header"
           :class="{ 'admin-category__header--photo': category.imageUrl && editingCategoryId !== category.id }"
-          :style="category.imageUrl && editingCategoryId !== category.id ? { backgroundImage: `url(${category.imageUrl})` } : undefined"
+          :style="category.imageUrl && editingCategoryId !== category.id ? { backgroundImage: `url(${assetUrl(category.imageUrl)})` } : undefined"
         >
           <div v-if="editingCategoryId === category.id" class="admin-form-row admin-category__edit-row">
             <input v-model="editCategoryForm.name" type="text" class="admin-inline-input" placeholder="Nome" />
-            <input v-model="editCategoryForm.imageUrl" type="text" class="admin-inline-input" placeholder="URL da imagem" />
+            <img v-if="editCategoryForm.imageUrl" :src="assetUrl(editCategoryForm.imageUrl)" alt="" class="admin-catalog__photo-preview" />
+            <ImageUploadButton :label="editCategoryForm.imageUrl ? 'Trocar foto' : 'Enviar foto'" @uploaded="(url) => (editCategoryForm.imageUrl = url)" />
             <button type="button" class="admin-chip-btn admin-chip-btn--primary" @click="saveEditCategory(category)">Salvar</button>
             <button type="button" class="admin-chip-btn" @click="cancelEditCategory">Cancelar</button>
           </div>
@@ -385,6 +393,14 @@ async function toggleServiceActive(service: AdminService) {
                   Retornos automáticos (dias, separados por vírgula)
                   <input v-model="editServiceForm.returnOffsetsInput" type="text" placeholder="Ex.: 15, 122" />
                 </label>
+                <div class="admin-field admin-field--wide">
+                  Foto
+                  <span class="admin-catalog__photo-row">
+                    <img v-if="editServiceForm.imageUrl" :src="assetUrl(editServiceForm.imageUrl)" alt="" class="admin-catalog__photo-preview" />
+                    <ImageUploadButton :label="editServiceForm.imageUrl ? 'Trocar foto' : 'Enviar foto'" @uploaded="(url) => (editServiceForm.imageUrl = url)" />
+                    <button v-if="editServiceForm.imageUrl" type="button" class="admin-chip-btn" @click="editServiceForm.imageUrl = ''">Remover foto</button>
+                  </span>
+                </div>
                 <div class="admin-form-row">
                   <button type="button" class="admin-chip-btn admin-chip-btn--primary" @click="saveEditService(service)">Salvar</button>
                   <button type="button" class="admin-chip-btn" @click="cancelEditService">Cancelar</button>
@@ -480,6 +496,22 @@ async function toggleServiceActive(service: AdminService) {
 </template>
 
 <style scoped>
+.admin-catalog__photo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 400;
+}
+
+.admin-catalog__photo-preview {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
 .admin-catalog__header {
   display: flex;
   flex-wrap: wrap;

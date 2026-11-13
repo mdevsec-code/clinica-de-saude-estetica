@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useSiteContentStore } from '@/stores/siteContent';
+import { assetUrl } from '@/utils/images';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchCategories } from '@/services/catalog.service';
@@ -11,6 +13,7 @@ import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import BookingSummaryBar from '@/components/BookingSummaryBar.vue';
 import PageHeroBand from '@/components/PageHeroBand.vue';
+const site = useSiteContentStore();
 
 const categories = ref<ServiceCategory[]>([]);
 const loading = ref(true);
@@ -56,9 +59,9 @@ const totalServices = computed(() => categories.value.reduce((sum, c) => sum + c
   <div class="services-page">
     <PageHeroBand
       eyebrow="Catálogo"
-      title="Nossos serviços"
-      description="Os procedimentos da clínica, com duração e valor. Escolha um e siga direto para o agendamento."
-      image="/services/limpeza-de-pele.jpg"
+      :title="site.get('services.title')"
+      :description="site.get('services.description')"
+      :image="assetUrl(site.get('services.image'))"
       image-alt="Profissional preparando uma limpeza de pele"
     />
 
