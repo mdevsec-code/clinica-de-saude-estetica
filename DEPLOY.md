@@ -2,9 +2,11 @@
 
 > **Produção atual (desde out/2026): VPS Hostinger KVM 2.** API e banco
 > saíram do Railway/Neon e rodam numa VPS própria — ver
-> [VPS Hostinger](#vps-hostinger-produção-atual) no fim deste guia. O site
-> continua na Netlify. As seções 1–5 abaixo descrevem a stack anterior
-> (Railway + Neon + Supabase), mantidas como alternativa.
+> [VPS Hostinger](#vps-hostinger-produção-atual) no fim deste guia. Desde
+> nov/2026 o site também roda na VPS (a Netlify foi desligada), em
+> `https://noelycerqueira.com.br`. As seções 1–5 abaixo descrevem a stack
+> anterior (Railway + Neon + Supabase + Netlify), mantidas só como histórico —
+> o `web/netlify.toml` citado nelas foi removido.
 
 Stack recomendada (custo-benefício para o tamanho atual, com espaço para
 crescer conforme o volume de pacientes aumenta):
@@ -118,7 +120,6 @@ muda em relação ao `.env` local:
 - `server/prisma/schema.prisma` — `directUrl` para o padrão pooled/direct do Neon.
 - `server/src/lib/file-storage.ts` — usa storage S3-compatível automaticamente quando configurado, disco local como padrão em dev.
 - `server/src/config/env.ts` — variáveis de storage (`S3_*`) validadas e documentadas.
-- `web/netlify.toml` — build settings e roteamento SPA para a Netlify.
 
 ## VPS Hostinger (produção atual)
 
@@ -127,9 +128,11 @@ muda em relação ao `.env` local:
 | Sistema | Ubuntu 26.04, firewall `ufw` liberando só 22/80/443 |
 | Banco | PostgreSQL 18 local, escutando só em `127.0.0.1` — banco `noely_cerqueira`, dono `noely` (restaurado do Neon com `pg_dump`/`pg_restore` 18) |
 | API | `/opt/noely/server`, serviço systemd `noely-api` rodando com usuário sem privilégios `noely-api`; `.env` em `/opt/noely/server/.env` (chmod 600) com `TRUST_PROXY=1` |
-| HTTPS | Nginx (`/etc/nginx/sites-available/noely-api`) na frente da API, certificado Let's Encrypt **do próprio IP** (perfil `shortlived`, 6 dias) emitido e renovado pelo `acme.sh` via webroot `/var/www/html` |
+| Domínio | `noelycerqueira.com.br` (DNS na zona do Registro.br: `@`, `www` e `api` → A `179.236.83.106`) |
+| HTTPS | Nginx + Let's Encrypt via `acme.sh` (webroot `/var/www/html`, renovação automática): `noely-domain` = `api.noelycerqueira.com.br` → API; `noely-site` = site, com `www` redirecionando para o domínio sem www; `noely-api` = o IP puro (legado) |
 | Arquivos | Disco local (`/opt/noely/server/uploads`) — na VPS o disco não é apagado a cada deploy, então o S3 é opcional |
-| Site | Netlify, com `VITE_API_URL` definido em `web/netlify.toml` |
+| Site | Arquivos estáticos em `/var/www/noely-site`, servidos pelo Nginx (rotas do Vue caem no `index.html`) |
+| CORS / links | `.env` da API: `WEB_ORIGIN=https://noelycerqueira.com.br` (também é o link `{LinkAgendamento}` das mensagens) e `WEB_ORIGIN_EXTRA=https://www.noelycerqueira.com.br` |
 
 Atualizar a API (a partir do repositório local, sem git na VPS):
 
@@ -143,9 +146,15 @@ ssh root@<IP> 'tar -xf /tmp/server.tar -C /opt/noely && rm /tmp/server.tar \
   && systemctl restart noely-api'
 ```
 
-Ao trocar o IP por um domínio próprio: emitir o certificado para o domínio
-no `acme.sh`, ajustar `server_name` no Nginx e trocar `VITE_API_URL` no
-`web/netlify.toml`.
+Atualizar o site: o build precisa de `web/.env.production` (fora do git)
+com `VITE_API_URL="https://api.noelycerqueira.com.br"`. A versão anterior
+fica em `/var/www/noely-site.old` para voltar rápido se precisar.
+
+```bash
+cd web && npm run build && tar -czf /tmp/site.tgz -C dist .
+scp /tmp/site.tgz root@<IP>:/tmp/
+ssh root@<IP> 'rm -rf /var/www/noely-site.new && mkdir /var/www/noely-site.new   && tar -xzf /tmp/site.tgz -C /var/www/noely-site.new && chown -R www-data:www-data /var/www/noely-site.new   && rm -rf /var/www/noely-site.old && mv /var/www/noely-site /var/www/noely-site.old   && mv /var/www/noely-site.new /var/www/noely-site'
+```
 
 ## Google Agenda
 
