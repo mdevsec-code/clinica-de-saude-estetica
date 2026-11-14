@@ -168,24 +168,33 @@ const addingServiceId = ref('');
 const busy = ref(false);
 const error = ref<string | null>(null);
 
-watch(addingServiceId, async (serviceId) => {
-  if (!serviceId) return;
+// Conflito com outra cliente (409): avisa e só adiciona se confirmar.
+const overlap = ref<{ serviceId: string; message: string } | null>(null);
+
+watch(addingServiceId, (serviceId) => {
+  if (serviceId) addService(serviceId);
+});
+
+async function addService(serviceId: string, force = false) {
   busy.value = true;
   error.value = null;
+  overlap.value = null;
   try {
     await createInternalAppointment({
       serviceIds: [serviceId],
       startAt: props.visit[props.visit.length - 1].endAt,
       customer: { name: first.value.customer.name, whatsapp: first.value.customer.whatsapp },
+      fitIn: force,
     });
     emit('changed');
   } catch (err) {
-    error.value = err instanceof ApiError ? err.message : 'Não foi possível adicionar o serviço.';
+    if (!force && err instanceof ApiError && err.status === 409) overlap.value = { serviceId, message: err.message };
+    else error.value = err instanceof ApiError ? err.message : 'Não foi possível adicionar o serviço.';
   } finally {
     addingServiceId.value = '';
     busy.value = false;
   }
-});
+}
 
 const confirmingRemove = ref<string | null>(null);
 async function removeService(appt: AdminAppointment) {
@@ -283,6 +292,15 @@ const whatsappHref = computed(() => {
         </ul>
 
         <AdminSelect v-if="!locked" v-model="addingServiceId" :options="serviceGroups" placeholder="+ Adicionar serviço" :disabled="busy" />
+        <div v-if="overlap" class="comanda__overlap" role="alert">
+          <p><strong>Atenção:</strong> {{ overlap.message }} Vai ultrapassar o horário dessa cliente.</p>
+          <div class="comanda__overlap-actions">
+            <button type="button" class="button button--primary" :disabled="busy" @click="addService(overlap.serviceId, true)">
+              {{ busy ? 'Adicionando…' : 'Adicionar mesmo assim' }}
+            </button>
+            <button type="button" class="button button--ghost" @click="overlap = null">Cancelar</button>
+          </div>
+        </div>
       </section>
 
       <section class="comanda__col comanda__col--pay">
@@ -617,6 +635,24 @@ const whatsappHref = computed(() => {
 
 .comanda__finish {
   flex-basis: 100%;
+}
+
+.comanda__overlap {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-gold-100);
+  color: var(--color-ink);
+}
+
+.comanda__overlap p {
+  margin: 0 0 var(--space-3);
+}
+
+.comanda__overlap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .admin-error {
