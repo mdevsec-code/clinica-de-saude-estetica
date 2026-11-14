@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 
 // wide: conteúdo em duas colunas (ex.: comanda), cabe inteiro sem rolar.
-defineProps<{ title: string; wide?: boolean }>();
+const props = defineProps<{ title: string; wide?: boolean; persistent?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const panel = ref<HTMLElement | null>(null);
@@ -57,7 +57,7 @@ function requestClose() {
 
 <template>
   <Teleport to="#overlay-slot">
-    <div ref="backdrop" class="admin-modal__backdrop" @click.self="requestClose">
+    <div ref="backdrop" class="admin-modal__backdrop" @click.self="!props.persistent && requestClose()">
       <div ref="panel" class="admin-modal__panel" :class="{ 'admin-modal__panel--wide': wide }" role="dialog" aria-modal="true" :aria-label="title">
         <header class="admin-modal__header">
           <h2>{{ title }}</h2>

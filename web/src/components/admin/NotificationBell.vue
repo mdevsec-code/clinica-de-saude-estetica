@@ -11,7 +11,8 @@ import { useAuthStore } from '@/stores/auth';
 
 interface AppNotification {
   id: string;
-  kind: 'BOOKED' | 'CANCELLED' | 'CONFIRMED' | 'RESCHEDULED';
+  // TASKS e WHATSAPP são avisos do próprio painel (não vêm do servidor).
+  kind: 'BOOKED' | 'CANCELLED' | 'CONFIRMED' | 'RESCHEDULED' | 'TASKS' | 'WHATSAPP';
   title: string;
   body: string;
   actorUserId: string | null;
@@ -86,6 +87,48 @@ async function poll() {
   }
 }
 
+// Aviso local: toca o sino e mostra a prévia, sem ir para o histórico.
+function localAlert(kind: 'TASKS' | 'WHATSAPP', title: string, body: string, ms: number) {
+  ring();
+  preview.value = { id: `${kind}-${Date.now()}`, kind, title, body, actorUserId: null, createdAt: new Date().toISOString() };
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => (preview.value = null), ms);
+}
+
+// Tarefas do dia: na primeira abertura do painel no dia, se houver tarefa
+// pendente para hoje no quadro, o sino toca e lista.
+const TASKS_KEY = 'noely-tasks-alerted';
+async function alertTodayTasks() {
+  const today = new Date().toLocaleDateString('sv-SE'); // yyyy-MM-dd local
+  try {
+    if (localStorage.getItem(TASKS_KEY) === today) return;
+  } catch {
+    // sem localStorage: avisa nesta visita
+  }
+  try {
+    const { tasks } = await apiRequest<{ tasks: { title: string; done: boolean }[] }>(`/tasks?from=${today}&to=${today}`);
+    const pending = tasks.filter((t) => !t.done);
+    if (!pending.length) return;
+    try {
+      localStorage.setItem(TASKS_KEY, today);
+    } catch {
+      // idem
+    }
+    const list = pending.slice(0, 3).map((t) => t.title).join(' · ');
+    localAlert('TASKS', `${pending.length} tarefa(s) para hoje`, pending.length > 3 ? `${list} · …` : list, 20_000);
+  } catch {
+    // sem rede: tenta na próxima abertura
+  }
+}
+
+// Recepção: a cada 10 min no horário de trabalho, lembra de olhar o WhatsApp Web.
+const WHATSAPP_EVERY_MS = 10 * 60_000;
+function remindWhatsapp() {
+  const hour = new Date().getHours();
+  if (hour < 8 || hour >= 19) return;
+  localAlert('WHATSAPP', 'Hora de olhar o WhatsApp Web', 'Veja se alguma cliente está esperando resposta ou precisa de ajuda.', 15_000);
+}
+
 function toggle() {
   open.value = !open.value;
   preview.value = null;
@@ -105,22 +148,27 @@ function onDocClick(e: MouseEvent) {
 const onVisible = () => document.visibilityState === 'visible' && poll();
 
 let timer: ReturnType<typeof setInterval> | undefined;
+let whatsappTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
   poll();
   timer = setInterval(poll, POLL_MS);
+  // Depois do primeiro toque na página: antes disso o navegador não deixa tocar.
+  document.addEventListener('pointerdown', () => setTimeout(alertTodayTasks, 300), { once: true });
+  if (auth.user?.role === 'RECEPTION') whatsappTimer = setInterval(remindWhatsapp, WHATSAPP_EVERY_MS);
   document.addEventListener('pointerdown', unlockAudio);
   document.addEventListener('click', onDocClick);
   document.addEventListener('visibilitychange', onVisible);
 });
 onUnmounted(() => {
   clearInterval(timer);
+  clearInterval(whatsappTimer);
   clearTimeout(previewTimer);
   document.removeEventListener('pointerdown', unlockAudio);
   document.removeEventListener('click', onDocClick);
   document.removeEventListener('visibilitychange', onVisible);
 });
 
-const ICON: Record<AppNotification['kind'], string> = { BOOKED: '＋', CANCELLED: '✕', CONFIRMED: '✓', RESCHEDULED: '↻' };
+const ICON: Record<AppNotification['kind'], string> = { BOOKED: '＋', CANCELLED: '✕', CONFIRMED: '✓', RESCHEDULED: '↻', TASKS: '☰', WHATSAPP: '✆' };
 function ago(iso: string) {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
   if (min < 1) return 'agora';

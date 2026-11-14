@@ -17,6 +17,7 @@ interface CreateVisitInput {
   customer: { name: string; whatsapp: string; email?: string };
   notes?: string;
   fitIn?: boolean; // só pelo painel
+  createdByName?: string; // quem da equipe marcou (painel)
 }
 
 async function loadServices(tenantId: string, serviceIds: string[]) {
@@ -92,6 +93,7 @@ async function insertVisit(
                   notes: input.notes,
                   source,
                   fitIn: !!input.fitIn,
+                  createdByName: input.createdByName ?? null,
                 },
               }),
             );
@@ -193,6 +195,8 @@ export async function listAppointments({ tenantId, from, to }: ListAppointmentsI
     customerId: appt.customerId,
     customer: appt.customer,
     service: appt.service,
+    source: appt.source,
+    createdByName: appt.createdByName,
     // Sem estes dois, o selo "Paciente confirmou ✓" da agenda nunca aparecia.
     confirmationSentAt: appt.confirmationSentAt,
     clientConfirmedAt: appt.clientConfirmedAt,
@@ -215,6 +219,7 @@ export async function updateAppointmentStatus(
   tenantId: string,
   appointmentId: string,
   status: AppointmentStatus,
+  actorName?: string,
 ) {
   const appointment = await prisma.appointment.findFirst({
     where: { id: appointmentId, tenantId },
@@ -230,6 +235,7 @@ export async function updateAppointmentStatus(
     data: {
       status,
       cancelledAt: status === 'CANCELLED' ? new Date() : null,
+      cancelledByName: status === 'CANCELLED' ? (actorName ?? null) : null,
     },
     include: {
       customer: { select: { name: true, whatsapp: true } },
@@ -378,4 +384,24 @@ export async function checkoutAppointments(tenantId: string, input: CheckoutInpu
     if (appt.status !== 'COMPLETED') await updateAppointmentStatus(tenantId, appt.id, 'COMPLETED');
   }
   return { ids, feeCents: totalFeeCents };
+}
+
+// Histórico de cancelamentos (Agenda → Cancelamentos): os mais recentes primeiro.
+export async function listCancellations(tenantId: string) {
+  const rows = await prisma.appointment.findMany({
+    where: { tenantId, status: 'CANCELLED' },
+    orderBy: [{ cancelledAt: { sort: 'desc', nulls: 'last' } }, { startAt: 'desc' }],
+    take: 100,
+    select: {
+      id: true,
+      startAt: true,
+      cancelledAt: true,
+      cancelledByName: true,
+      source: true,
+      createdByName: true,
+      customer: { select: { name: true, whatsapp: true } },
+      service: { select: { name: true } },
+    },
+  });
+  return rows;
 }

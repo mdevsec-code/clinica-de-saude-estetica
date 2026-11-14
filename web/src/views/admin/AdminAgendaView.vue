@@ -35,6 +35,8 @@ import {
 } from '@/utils/calendar';
 import CalendarGrid from '@/components/admin/CalendarGrid.vue';
 import DayTimeline from '@/components/admin/DayTimeline.vue';
+import YearOverview from '@/components/admin/YearOverview.vue';
+import CancellationsModal from '@/components/admin/CancellationsModal.vue';
 import { fetchSchedule, type Schedule } from '@/services/admin-schedule.service';
 import AdminModal from '@/components/admin/AdminModal.vue';
 import NewAppointmentModal from '@/components/admin/NewAppointmentModal.vue';
@@ -45,7 +47,8 @@ import EmptyState from '@/components/EmptyState.vue';
 
 const router = useRouter();
 
-type ViewMode = 'month' | 'week' | 'day';
+type ViewMode = 'year' | 'month' | 'week' | 'day';
+const showCancellations = ref(false);
 const viewMode = ref<ViewMode>('month');
 const referenceDate = ref(new Date());
 
@@ -85,12 +88,17 @@ const weekDays = computed(() => buildWeekGrid(referenceDate.value));
 const visibleDays = computed<CalendarDay[]>(() => (viewMode.value === 'week' ? weekDays.value : monthDays.value));
 
 const rangeLabel = computed(() => {
+  if (viewMode.value === 'year') return String(referenceDate.value.getFullYear());
   if (viewMode.value === 'month') return monthLabel(referenceDate.value);
   if (viewMode.value === 'week') return weekRangeLabel(weekDays.value);
   return dayLabel(referenceDate.value);
 });
 
 function currentRange(): { from: Date; to: Date } {
+  if (viewMode.value === 'year') {
+    const y = referenceDate.value.getFullYear();
+    return { from: new Date(y, 0, 1), to: endOfDay(new Date(y, 11, 31)) };
+  }
   if (viewMode.value === 'month') {
     const days = monthDays.value;
     return { from: startOfDay(days[0].date), to: endOfDay(days[days.length - 1].date) };
@@ -199,14 +207,16 @@ function goToday() {
 
 function goPrev() {
   navDirection = -1;
-  if (viewMode.value === 'month') referenceDate.value = addMonths(referenceDate.value, -1);
+  if (viewMode.value === 'year') referenceDate.value = addMonths(referenceDate.value, -12);
+  else if (viewMode.value === 'month') referenceDate.value = addMonths(referenceDate.value, -1);
   else if (viewMode.value === 'week') referenceDate.value = addDays(referenceDate.value, -7);
   else referenceDate.value = addDays(referenceDate.value, -1);
 }
 
 function goNext() {
   navDirection = 1;
-  if (viewMode.value === 'month') referenceDate.value = addMonths(referenceDate.value, 1);
+  if (viewMode.value === 'year') referenceDate.value = addMonths(referenceDate.value, 12);
+  else if (viewMode.value === 'month') referenceDate.value = addMonths(referenceDate.value, 1);
   else if (viewMode.value === 'week') referenceDate.value = addDays(referenceDate.value, 7);
   else referenceDate.value = addDays(referenceDate.value, 1);
 }
@@ -325,6 +335,7 @@ function onAppointmentCreated() {
         </div>
       </div>
       <div class="admin-agenda__actions">
+        <button type="button" class="button button--ghost" @click="showCancellations = true">Cancelamentos</button>
         <button type="button" class="button button--ghost" @click="openBlockTime(focusedDateKey)">Bloquear horário</button>
         <button type="button" class="button button--ghost" @click="openNewAppointment(focusedDateKey, undefined, true)">Encaixe</button>
         <button type="button" class="button button--primary" @click="openNewAppointment(focusedDateKey)">+ Novo agendamento</button>
@@ -343,14 +354,14 @@ function onAppointmentCreated() {
 
       <div class="admin-agenda__view-toggle">
         <button
-          v-for="mode in (['month', 'week', 'day'] as ViewMode[])"
+          v-for="mode in (['year', 'month', 'week', 'day'] as ViewMode[])"
           :key="mode"
           type="button"
           class="admin-agenda__view-btn"
           :class="{ 'admin-agenda__view-btn--active': viewMode === mode }"
           @click="viewMode = mode"
         >
-          {{ mode === 'month' ? 'Mês' : mode === 'week' ? 'Semana' : 'Dia' }}
+          {{ mode === 'year' ? 'Ano' : mode === 'month' ? 'Mês' : mode === 'week' ? 'Semana' : 'Dia' }}
         </button>
       </div>
     </div>
@@ -411,6 +422,13 @@ function onAppointmentCreated() {
             @unblocked="load(true)"
             @changed="load(true)"
           />
+          <YearOverview
+            v-else-if="viewMode === 'year'"
+            key="year"
+            :year="referenceDate.getFullYear()"
+            :appointments-by-date="appointmentsByDate"
+            @select-day="(k) => { referenceDate = new Date(`${k}T12:00:00`); viewMode = 'day'; }"
+          />
           <CalendarGrid
             v-else
             :key="viewMode"
@@ -423,6 +441,8 @@ function onAppointmentCreated() {
         </Transition>
       </div>
     </Transition>
+
+    <CancellationsModal v-if="showCancellations" @close="showCancellations = false" />
 
     <AdminModal v-if="dayModalKey" :title="dayModalTitle" wide @close="dayModalKey = null">
       <DayTimeline

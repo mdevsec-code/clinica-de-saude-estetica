@@ -16,6 +16,7 @@ import {
   listBlockedTimes,
   updateAppointmentStatus,
   checkoutAppointments,
+  listCancellations,
 } from './appointments.service';
 
 export const appointmentsRouter = Router();
@@ -36,6 +37,15 @@ appointmentsRouter.get(
     const { from, to } = listQuerySchema.parse(req.query);
     const appointments = await listAppointments({ tenantId: req.tenant.id, from, to });
     res.json({ appointments });
+  }),
+);
+
+appointmentsRouter.get(
+  '/cancellations',
+  requireAuth,
+  requireRole('ADMIN', 'RECEPTION'),
+  asyncHandler(async (req, res) => {
+    res.json({ cancellations: await listCancellations(req.tenant.id) });
   }),
 );
 
@@ -128,7 +138,7 @@ appointmentsRouter.post(
   requireRole('ADMIN', 'RECEPTION'),
   asyncHandler(async (req, res) => {
     const input = internalSchema.parse(req.body);
-    const result = await createInternalAppointments({ tenantId: req.tenant.id, ...input });
+    const result = await createInternalAppointments({ tenantId: req.tenant.id, ...input, createdByName: req.user!.name });
     res.status(201).json(result);
     const info = await describeAppointment(req.tenant.id, result.ids);
     if (info) await notify(req.tenant.id, 'BOOKED', `Agendado por ${req.user!.name}`, info.text, req.user!.id);
@@ -172,7 +182,7 @@ appointmentsRouter.patch(
   requireRole('ADMIN', 'RECEPTION'),
   asyncHandler(async (req, res) => {
     const { status } = statusSchema.parse(req.body);
-    const appointment = await updateAppointmentStatus(req.tenant.id, req.params.id, status);
+    const appointment = await updateAppointmentStatus(req.tenant.id, req.params.id, status, req.user!.name);
     res.json({ appointment });
     if (status === 'CANCELLED') {
       const info = await describeAppointment(req.tenant.id, [appointment.id]);

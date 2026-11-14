@@ -106,6 +106,9 @@ export interface AdminAppointment {
   customerId: string;
   customer: { name: string; whatsapp: string };
   service: { id: string; name: string; durationMinutes: number; priceCents: number | null };
+  // Como foi marcado: pelo site (a cliente) ou pelo painel (createdByName = quem da equipe).
+  source?: 'PUBLIC_SITE' | 'INTERNAL';
+  createdByName?: string | null;
   // WhatsApp automático: confirmação enviada / paciente respondeu "SIM".
   confirmationSentAt?: string | null;
   clientConfirmedAt?: string | null;

@@ -277,7 +277,7 @@ watch(menuAt, async (v) => {
         <template v-if="e.appt">
           <span class="tl-event__time">{{ fmt(e.appt.startAt) }}–{{ fmt(e.appt.endAt) }}</span>
           <span class="tl-event__name">{{ e.appt.customer.name }}</span>
-          <span class="tl-event__service">{{ e.appt.service.name }}</span>
+          <span class="tl-event__service">{{ e.appt.service.name }} · {{ e.appt.source === 'PUBLIC_SITE' ? 'pelo site' : `por ${e.appt.createdByName ?? 'equipe'}` }}</span>
           <span v-if="apptTone(e.appt) === 'pending'" class="tl-event__flag">Proposta de novo horário enviada</span>
           <span v-else-if="e.appt.clientConfirmedAt && e.appt.status === 'CONFIRMED'" class="tl-event__flag">Confirmou ✓</span>
         </template>

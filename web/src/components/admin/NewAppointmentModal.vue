@@ -160,11 +160,15 @@ function formatPhone(digits: string) {
 // --- Envio ---
 const submitting = ref(false);
 const submitError = ref<string | null>(null);
+// Aviso de sobreposição: o servidor recusa (409) e diz com quem conflita; a
+// equipe pode confirmar e marcar por cima mesmo assim.
+const overlapWarning = ref<string | null>(null);
+watch([date, time, selectedServices], () => (overlapWarning.value = null), { deep: true });
 const canSubmit = computed(
   () => selectedServices.value.length > 0 && !!date.value && /^\d{2}:\d{2}$/.test(time.value) && customer.name.trim().length >= 2,
 );
 
-async function onSubmit() {
+async function onSubmit(force = false) {
   if (!canSubmit.value) return;
   submitting.value = true;
   submitError.value = null;
@@ -178,10 +182,14 @@ async function onSubmit() {
         email: customer.email.trim() || undefined,
       },
       notes: notes.value.trim() || undefined,
-      fitIn: !!props.fitIn,
+      fitIn: force,
     });
     emit('created');
   } catch (err) {
+    if (err instanceof ApiError && err.status === 409 && !force) {
+      overlapWarning.value = err.message;
+      return;
+    }
     submitError.value = err instanceof ApiError ? err.message : 'Não foi possível criar o agendamento.';
   } finally {
     submitting.value = false;
@@ -190,13 +198,13 @@ async function onSubmit() {
 </script>
 
 <template>
-  <AdminModal :title="fitIn ? 'Encaixe' : 'Novo agendamento'" @close="emit('close')">
+  <AdminModal :title="fitIn ? 'Encaixe' : 'Novo agendamento'" persistent @close="emit('close')">
     <div v-if="!loadingCategories && !hasAnyService" class="new-appt__empty">
       <p>Nenhum serviço cadastrado ainda. Cadastre ao menos um serviço para poder agendar um atendimento.</p>
       <RouterLink to="/admin/servicos" class="button button--primary" @click="emit('close')">Ir para Serviços</RouterLink>
     </div>
 
-    <form v-else class="new-appt" @submit.prevent="onSubmit">
+    <form v-else class="new-appt" @submit.prevent="onSubmit()">
       <section class="new-appt__block">
         <div class="new-appt__block-head">
           <span class="new-appt__label">Serviços</span>
@@ -339,7 +347,16 @@ async function onSubmit() {
       </label>
 
       <p v-if="submitError" class="admin-error">{{ submitError }}</p>
-      <button type="submit" class="button button--primary" :disabled="submitting || !canSubmit">
+      <div v-if="overlapWarning" class="new-appt__overlap" role="alert">
+        <p><strong>Atenção:</strong> {{ overlapWarning }} Vai ultrapassar o horário dessa cliente.</p>
+        <div class="new-appt__overlap-actions">
+          <button type="button" class="button button--primary" :disabled="submitting" @click="onSubmit(true)">
+            {{ submitting ? 'Agendando…' : 'Marcar mesmo assim' }}
+          </button>
+          <button type="button" class="button button--ghost" @click="overlapWarning = null">Escolher outro horário</button>
+        </div>
+      </div>
+      <button v-else type="submit" class="button button--primary" :disabled="submitting || !canSubmit">
         {{ submitting ? 'Agendando…' : 'Confirmar agendamento' }}
       </button>
     </form>
@@ -615,5 +632,22 @@ async function onSubmit() {
 .admin-error {
   color: var(--color-danger);
   font-size: 0.85rem;
+}
+
+.new-appt__overlap {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-gold-100);
+  color: var(--color-ink);
+}
+
+.new-appt__overlap p {
+  margin: 0 0 var(--space-3);
+}
+
+.new-appt__overlap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 </style>

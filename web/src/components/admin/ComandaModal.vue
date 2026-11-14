@@ -252,6 +252,9 @@ const whatsappHref = computed(() => {
               <span class="comanda__day">{{ dayLabel }}</span> · {{ formatTime(first.startAt) }}–{{ formatTime(visit[visit.length - 1].endAt) }} ·
               {{ totalMinutes }} min
             </p>
+            <p class="comanda__origin">
+              {{ first.source === 'PUBLIC_SITE' ? 'Marcado pela cliente no site' : `Marcado por ${first.createdByName ?? 'alguém da equipe'}` }}
+            </p>
           </div>
         </div>
 
@@ -627,6 +630,12 @@ const whatsappHref = computed(() => {
 }
 
 .comanda__status-btn--ok:not(.is-done) {
+  color: var(--color-ink-muted);
+}
+
+.comanda__origin {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
   color: var(--color-ink-muted);
 }
 </style>
