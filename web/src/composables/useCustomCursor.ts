@@ -1,9 +1,9 @@
 import { gsap, prefersReducedMotion, supportsFinePointer } from '@/lib/motion';
 
-// Cursor próprio do programa inteiro — site e painel (só computador com mouse): um ponto que acompanha o
-// ponteiro sem atraso e um anel que vem logo atrás. Em cima de link/botão o
-// anel cresce e ganha um véu rosé; em campo de texto e em mapas/iframes o
-// cursor próprio some e o do sistema volta.
+// Cursor próprio do programa inteiro — site e painel (só computador com mouse):
+// uma seta vinho com contorno branco (a ponta é o ponto exato do clique) e,
+// em cima de link/botão, um círculo rosé que surge atrás dela. Em campo de
+// texto e em mapas/iframes o cursor próprio some e o do sistema volta.
 //
 // Por que está escrito assim (versão anterior parecia "travada"):
 // - o ponto é posicionado direto a cada movimento (quickSetter), sem tween;
@@ -31,7 +31,9 @@ function build() {
   }
   const d = dot;
   const r = ring;
-  gsap.set([d, r], { xPercent: -50, yPercent: -50, opacity: 0 });
+  // A seta é posicionada pela ponta (canto); o círculo, pelo centro.
+  gsap.set(d, { opacity: 0, transformOrigin: '4px 3px' });
+  gsap.set(r, { xPercent: -50, yPercent: -50, opacity: 0, scale: 0 });
 
   const setDotX = gsap.quickSetter(d, 'x', 'px') as (v: number) => void;
   const setDotY = gsap.quickSetter(d, 'y', 'px') as (v: number) => void;
@@ -50,8 +52,8 @@ function build() {
     gsap.to([d, r], { opacity: value ? 1 : 0, duration: 0.2, overwrite: 'auto' });
   };
   const applyScale = () => {
-    gsap.to(r, { scale: (hovering ? 1.6 : 1) * (pressing ? 0.82 : 1), duration: 0.3, ease: 'power3.out', overwrite: 'auto' });
-    gsap.to(d, { scale: hovering ? 0.55 : 1, duration: 0.2, overwrite: 'auto' });
+    gsap.to(r, { scale: hovering ? (pressing ? 0.8 : 1) : 0, duration: 0.3, ease: 'power3.out', overwrite: 'auto' });
+    gsap.to(d, { scale: pressing ? 0.86 : hovering ? 1.08 : 1, duration: 0.18, overwrite: 'auto' });
   };
   const update = (target: Element | null) => {
     if (!target || target.closest(TYPING) || target.tagName === 'IFRAME') {
@@ -62,7 +64,6 @@ function build() {
     const interactive = !!target.closest(INTERACTIVE);
     if (interactive !== hovering) {
       hovering = interactive;
-      r.classList.toggle('cursor-ring--active', interactive);
       applyScale();
     }
   };

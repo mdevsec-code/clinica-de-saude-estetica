@@ -544,8 +544,8 @@ button, a.button, .tap-target {
   isolation: isolate;
 }
 
-/* Cursor próprio do programa inteiro (useCustomCursor.ts). Contorno branco nos
-   dois elementos: aparece no fundo claro e nas faixas escuras (rodapé). */
+/* Cursor próprio do programa inteiro (useCustomCursor.ts): seta vinho com
+   contorno branco grosso e sombra — aparece no fundo claro e no escuro. */
 /* Esconde o ponteiro do sistema em tudo (inclusive cartões e linhas
    clicáveis com cursor: pointer próprio) — senão apareciam dois cursores.
    Campos de texto mantêm o cursor de digitação do sistema. */
@@ -561,28 +561,28 @@ html.has-custom-cursor *:not(input):not(textarea):not(select):not([contenteditab
   left: 0;
   z-index: 9999;
   pointer-events: none;
-  border-radius: 50%;
   will-change: transform;
 }
 
+/* Ponta da seta em (4,3) do desenho: a margem negativa põe a ponta
+   exatamente onde o mouse está. */
 .cursor-dot {
-  width: 9px;
-  height: 9px;
-  background: var(--color-rose-700);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 1px 6px rgba(28, 18, 16, 0.35);
+  z-index: 10000;
+  width: 28px;
+  height: 28px;
+  margin: -3px 0 0 -4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M4 3v19.5l5.6-5.3 3.9 8.3 3.6-1.6-3.8-8.1H21z' fill='%236f3d43' stroke='%23fff' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  filter: drop-shadow(0 2px 4px rgba(28, 18, 16, 0.45));
 }
 
+/* Círculo rosé que surge atrás da seta em cima de link/botão. */
 .cursor-ring {
-  width: 40px;
-  height: 40px;
-  border: 2px solid rgba(111, 61, 67, 0.75);
-  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
-  transition: background-color 0.25s ease, border-color 0.25s ease;
-}
-
-.cursor-ring--active {
-  background: rgba(220, 171, 168, 0.3);
-  border-color: rgba(200, 164, 101, 0.95);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(201, 139, 143, 0.32);
+  border: 2px solid rgba(201, 139, 143, 0.85);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {

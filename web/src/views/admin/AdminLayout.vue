@@ -366,9 +366,12 @@ function toggleTheme(event: MouseEvent) {
   });
 }
 
-function onLogout() {
+// Sai da tela primeiro e só depois limpa a sessão: limpar antes fazia o
+// painel se redesenhar sem usuário no meio da animação de saída, o que
+// quebrava a troca de página (tela vazia até apertar F5).
+async function onLogout() {
+  await router.push({ name: 'admin-login' });
   auth.logout();
-  router.push({ name: 'admin-login' });
 }
 </script>
 
