@@ -6,8 +6,10 @@
 // QUALQUER seção, incluindo as que não têm pílula de atalho nenhuma
 // (Serviços, Usuários, Auditoria).
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, type RouteLocationRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { fetchPatients } from '@/services/admin-patients.service';
+import { fetchCategories } from '@/services/catalog.service';
 
 interface CommandItem {
   label: string;
@@ -28,6 +30,7 @@ const ICON_FINANCE = '<rect x="2.5" y="6" width="19" height="13" rx="2" /><path 
 const ICON_INVENTORY = '<path d="M3 9.5 12 4l9 5.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" /><path d="M8 21v-7h8v7" />';
 const ICON_USERS = '<circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 5.5a3.2 3.2 0 0 1 0 6.4M21.5 20a6 6 0 0 0-5-6.2" />';
 const ICON_AUDIT = '<path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />';
+const ICON_PERSON = '<circle cx="12" cy="8" r="3.6" /><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />';
 const ICON_WHATSAPP = '<path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3l-4.5 1.5Z" />';
 
 const auth = useAuthStore();
@@ -51,21 +54,91 @@ const activeIndex = ref(0);
 const inputEl = ref<HTMLInputElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 
+interface Result {
+  key: string;
+  label: string;
+  hint: string;
+  iconInner: string;
+  to: RouteLocationRaw;
+}
+
+const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const availableCommands = computed(() => ALL_COMMANDS.filter((c) => !c.adminOnly || auth.user?.role === 'ADMIN'));
-const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return availableCommands.value;
-  return availableCommands.value.filter((c) => c.label.toLowerCase().includes(q) || c.hint.toLowerCase().includes(q));
+
+// Serviços: carregados uma vez na primeira abertura e filtrados aqui mesmo.
+const services = ref<{ id: string; name: string; category: string; minutes: number }[]>([]);
+let servicesLoaded = false;
+async function loadServices() {
+  if (servicesLoaded) return;
+  servicesLoaded = true;
+  try {
+    services.value = (await fetchCategories()).categories.flatMap((c) =>
+      c.services.map((sv) => ({ id: sv.id, name: sv.name, category: c.name, minutes: sv.durationMinutes })),
+    );
+  } catch {
+    servicesLoaded = false;
+  }
+}
+
+// Clientes: busca no banco enquanto digita (pausa curta + descarta resposta velha).
+const patients = ref<Result[]>([]);
+const searching = ref(false);
+let patientTimer: ReturnType<typeof setTimeout> | undefined;
+let patientSeq = 0;
+watch(query, (value) => {
+  activeIndex.value = 0;
+  clearTimeout(patientTimer);
+  const q = value.trim();
+  const seq = ++patientSeq;
+  if (q.length < 2) {
+    patients.value = [];
+    searching.value = false;
+    return;
+  }
+  searching.value = true;
+  patientTimer = setTimeout(async () => {
+    try {
+      const { patients: found } = await fetchPatients(q);
+      if (seq !== patientSeq) return;
+      patients.value = found.slice(0, 6).map((pt) => ({
+        key: `p-${pt.id}`,
+        label: pt.name,
+        hint: `Cliente · ${pt.whatsapp}`,
+        iconInner: ICON_PERSON,
+        to: { name: 'admin-patient-detail', params: { id: pt.id } },
+      }));
+    } catch {
+      if (seq === patientSeq) patients.value = [];
+    } finally {
+      if (seq === patientSeq) searching.value = false;
+    }
+  }, 120);
 });
 
-watch(query, () => {
-  activeIndex.value = 0;
+const filtered = computed<Result[]>(() => {
+  const q = normalize(query.value.trim());
+  const tabs = availableCommands.value
+    .filter((c) => !q || normalize(`${c.label} ${c.hint}`).includes(q))
+    .map((c) => ({ key: c.name, label: c.label, hint: c.hint, iconInner: c.iconInner, to: { name: c.name } }));
+  if (!q) return tabs;
+  const matchedServices = services.value
+    .filter((sv) => normalize(`${sv.name} ${sv.category}`).includes(q))
+    .slice(0, 6)
+    .map((sv) => ({
+      key: `s-${sv.id}`,
+      label: sv.name,
+      hint: `Serviço · ${sv.category} · ${sv.minutes} min`,
+      iconInner: ICON_CATALOG,
+      to: { name: 'admin-catalog' },
+    }));
+  return [...patients.value, ...matchedServices, ...tabs];
 });
 
 async function openPalette() {
   open.value = true;
   query.value = '';
   activeIndex.value = 0;
+  loadServices();
   await nextTick();
   inputEl.value?.focus();
 }
@@ -74,8 +147,8 @@ function closePalette() {
   open.value = false;
 }
 
-function selectCommand(cmd: CommandItem) {
-  router.push({ name: cmd.name });
+function selectCommand(cmd: Result) {
+  router.push(cmd.to);
   closePalette();
 }
 
@@ -124,14 +197,14 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydownGlobal));
         <div ref="panel" class="admin-cmdk-panel" role="dialog" aria-modal="true" aria-label="Busca rápida" @keydown="onKeydownPanel">
           <div class="admin-cmdk-search">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-            <input ref="inputEl" v-model="query" type="text" placeholder="Ir para uma aba do painel…" autocomplete="off" />
+            <input ref="inputEl" v-model="query" type="text" placeholder="Buscar cliente, serviço ou aba…" autocomplete="off" />
             <kbd>Esc</kbd>
           </div>
 
           <ul v-if="filtered.length" class="admin-cmdk-list">
             <li
               v-for="(cmd, i) in filtered"
-              :key="cmd.name"
+              :key="cmd.key"
               class="admin-cmdk-item"
               :class="{ 'admin-cmdk-item--active': i === activeIndex }"
               @click="selectCommand(cmd)"
@@ -144,7 +217,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydownGlobal));
               </span>
             </li>
           </ul>
-          <p v-else class="admin-cmdk-empty">Nenhuma aba encontrada para "{{ query }}".</p>
+          <p v-else class="admin-cmdk-empty">{{ searching ? 'Buscando…' : `Nada encontrado para "${query}".` }}</p>
         </div>
       </div>
     </Transition>

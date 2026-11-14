@@ -46,7 +46,7 @@ const patientTiles = computed(() => [
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 watch(search, () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(load, 350);
+  searchTimer = setTimeout(load, 150);
 });
 
 function formatDate(iso: string | null) {

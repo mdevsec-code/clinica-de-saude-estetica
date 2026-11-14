@@ -291,7 +291,7 @@ const whatsappHref = computed(() => {
           </li>
         </ul>
 
-        <AdminSelect v-if="!locked" v-model="addingServiceId" :options="serviceGroups" placeholder="+ Adicionar serviço" :disabled="busy" />
+        <AdminSelect v-if="!locked" v-model="addingServiceId" :options="serviceGroups" placeholder="+ Adicionar serviço" :disabled="busy" searchable />
         <div v-if="overlap" class="comanda__overlap" role="alert">
           <p><strong>Atenção:</strong> {{ overlap.message }} Vai ultrapassar o horário dessa cliente.</p>
           <div class="comanda__overlap-actions">

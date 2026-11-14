@@ -30,8 +30,10 @@ const props = withDefaults(
     options: (AdminSelectOption<T> | AdminSelectGroup<T>)[];
     placeholder?: string;
     disabled?: boolean;
+    // Mostra um campo de pesquisa no topo da lista (listas longas).
+    searchable?: boolean;
   }>(),
-  { placeholder: 'Selecionar', disabled: false },
+  { placeholder: 'Selecionar', disabled: false, searchable: false },
 );
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
 
@@ -45,6 +47,24 @@ function isGroup(item: AdminSelectOption<T> | AdminSelectGroup<T>): item is Admi
 const flatOptions = computed<AdminSelectOption<T>[]>(() =>
   props.options.flatMap((item) => (isGroup(item) ? item.options : [item])),
 );
+
+const query = ref('');
+const searchInput = ref<HTMLInputElement | null>(null);
+const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// Filtra pelo nome da opção ou do grupo; grupo sem nenhuma opção some.
+const visibleOptions = computed<(AdminSelectOption<T> | AdminSelectGroup<T>)[]>(() => {
+  const q = normalize(query.value.trim());
+  if (!q) return props.options;
+  return props.options.flatMap((item): (AdminSelectOption<T> | AdminSelectGroup<T>)[] => {
+    if (!isGroup(item)) return normalize(item.label).includes(q) ? [item] : [];
+    const options = item.options.filter((o) => normalize(`${o.label} ${item.label}`).includes(q));
+    return options.length ? [{ ...item, options }] : [];
+  });
+});
+function selectFirstMatch() {
+  const first = visibleOptions.value.flatMap((item) => (isGroup(item) ? item.options : [item])).find((o) => !o.disabled);
+  if (first) selectOption(first);
+}
 
 const selectedLabel = computed(() => flatOptions.value.find((o) => o.value === props.modelValue)?.label ?? props.placeholder);
 
@@ -85,8 +105,10 @@ async function toggle() {
     return;
   }
   open.value = true;
+  query.value = '';
   await nextTick();
   positionPanel();
+  searchInput.value?.focus();
 }
 
 function selectOption(option: AdminSelectOption<T>) {
@@ -152,7 +174,19 @@ onUnmounted(() => {
           role="listbox"
           :style="{ top: `${panelPos.top}px`, left: `${panelPos.left}px`, minWidth: `${panelPos.width}px` }"
         >
-          <template v-for="(item, i) in options" :key="i">
+          <li v-if="searchable" class="admin-select__search">
+            <input
+              ref="searchInput"
+              v-model="query"
+              type="search"
+              placeholder="Pesquisar…"
+              aria-label="Pesquisar na lista"
+              autocomplete="off"
+              @keydown.enter.prevent="selectFirstMatch"
+            />
+          </li>
+          <li v-if="searchable && !visibleOptions.length" class="admin-select__empty">Nada encontrado.</li>
+          <template v-for="(item, i) in visibleOptions" :key="i">
             <li v-if="isGroup(item)" class="admin-select__group-label">{{ item.label }}</li>
             <li
               v-for="option in isGroup(item) ? item.options : [item]"
@@ -242,6 +276,32 @@ onUnmounted(() => {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-float);
   padding: 6px;
+}
+
+.admin-select__search {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  margin: -6px -6px 4px;
+  padding: 6px;
+  background: var(--color-surface);
+}
+
+.admin-select__search input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-ink);
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.admin-select__empty {
+  padding: 10px;
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
 }
 
 .admin-select__group-label {
