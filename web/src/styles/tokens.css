@@ -142,6 +142,12 @@
   --fill-gold: linear-gradient(140deg, #e8cd96 0%, #c39d5c 100%);
   --fill-sage: linear-gradient(140deg, #7aa386 0%, #46694f 100%);
   --sidebar-bg: linear-gradient(180deg, #4d2229 0%, #2f1418 100%);
+  --chart-cat-1: #8d4c55;
+  --chart-cat-2: #c39d5c;
+  --chart-cat-3: #4a7356;
+  --chart-cat-4: #c98b8f;
+  --chart-cat-5: #6b4a7a;
+  --chart-cat-6: #a8636b;
 }
 
 /* Modo escuro do painel administrativo (data-theme="dark" no <html>, ligado

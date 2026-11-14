@@ -61,7 +61,7 @@ const segments = computed(() => {
 
 <template>
   <div ref="root" class="donut" :style="{ width: `${size}px`, height: `${size}px` }">
-    <svg viewBox="0 0 36 36" class="donut__svg">
+    <svg viewBox="-1 -1 38 38" class="donut__svg">
       <circle
         v-if="!total"
         cx="18"

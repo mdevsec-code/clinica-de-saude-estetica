@@ -510,7 +510,7 @@ function formatUpcoming(iso: string) {
           <ul v-if="stats.lowStockItems.length" class="low-stock-list">
             <li v-for="item in stats.lowStockItems" :key="item.id" class="low-stock-list__row">
               <span>{{ item.name }}</span>
-              <span class="low-stock-list__qty">{{ item.quantity }}{{ item.unit }} / mín. {{ item.minQuantity }}{{ item.unit }}</span>
+              <span class="low-stock-list__qty">{{ item.quantity }} {{ item.unit }} / mín. {{ item.minQuantity }} {{ item.unit }}</span>
             </li>
           </ul>
           <!-- Ícone de check em vez do "caixa vazia" genérico: aqui a ausência
@@ -1646,6 +1646,95 @@ a.kpi-card {
 .admin-card--feature h2,
 .admin-card h2 {
   color: var(--color-ink);
+}
+
+/* --- Cartões de lista do Painel: título numa faixa colorida (como o
+   cabeçalho de tabela da referência), um tom por cartão. --- */
+.admin-dashboard__grid {
+  align-items: start;
+}
+
+.admin-card--list {
+  padding: 0 0 var(--space-4);
+  overflow: hidden;
+}
+
+.admin-card--list > h2 {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  font-size: 0.95rem;
+  color: #fff;
+  background: var(--fill-wine);
+}
+
+.admin-card--list:nth-child(4n + 2 of .admin-card--list) > h2 { background: var(--fill-rose); }
+.admin-card--list:nth-child(4n + 3 of .admin-card--list) > h2 { background: var(--fill-gold); color: #3a2a17; }
+.admin-card--list:nth-child(4n + 4 of .admin-card--list) > h2 { background: var(--fill-sage); }
+
+.admin-card--list > :not(h2) {
+  margin-inline: var(--space-5);
+}
+
+/* Horário/data como etiqueta. */
+.upcoming-list__when {
+  align-self: center;
+  min-width: 96px;
+  text-align: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-rose-100);
+  color: var(--color-rose-900);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.upcoming-list__row {
+  align-items: center;
+}
+
+.upcoming-list__row--clickable {
+  border-radius: 0;
+}
+
+/* Posição no ranking em círculo colorido; barra no rosé da marca. */
+.top-services-list__rank {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--fill-wine);
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.top-services-list__row:nth-child(2) .top-services-list__rank { background: var(--fill-rose); }
+.top-services-list__row:nth-child(3) .top-services-list__rank { background: var(--fill-gold); color: #3a2a17; }
+.top-services-list__row:nth-child(n + 4) .top-services-list__rank { background: var(--color-surface-muted); color: var(--color-ink-muted); }
+
+.top-services-list__row {
+  grid-template-columns: 26px 1fr auto;
+}
+
+.top-services-list__fill {
+  background: var(--fill-rose);
+}
+
+.rev-exp__fill--revenue {
+  background: var(--fill-sage);
+}
+
+.rev-exp__fill--expenses {
+  background: var(--fill-wine);
+}
+
+/* Estoque baixo: quantidade numa etiqueta vermelha. */
+.low-stock-list__qty {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-ink);
+  font-size: 0.78rem;
 }
 
 /* Celular: dois blocos por linha (um embaixo do outro rolava demais). */
