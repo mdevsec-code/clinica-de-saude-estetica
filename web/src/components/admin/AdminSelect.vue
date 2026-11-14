@@ -110,8 +110,9 @@ function onKeydown(e: KeyboardEvent) {
 // Mesma escolha do AdminDatePicker: fecha em vez de "seguir" o gatilho
 // durante o scroll — mais simples e previsível do que recalcular a posição
 // a cada frame.
-function onScroll() {
-  if (open.value) open.value = false;
+function onScroll(e: Event) {
+  // Rolar a própria lista não conta (só a página/janela por trás).
+  if (open.value && !panel.value?.contains(e.target as Node)) open.value = false;
 }
 
 onMounted(() => {
