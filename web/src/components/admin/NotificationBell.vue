@@ -11,8 +11,8 @@ import { useAuthStore } from '@/stores/auth';
 
 interface AppNotification {
   id: string;
-  // TASKS e WHATSAPP são avisos do próprio painel (não vêm do servidor).
-  kind: 'BOOKED' | 'CANCELLED' | 'CONFIRMED' | 'RESCHEDULED' | 'TASKS' | 'WHATSAPP';
+  // TASKS é aviso do próprio painel (não vem do servidor).
+  kind: 'BOOKED' | 'CANCELLED' | 'CONFIRMED' | 'RESCHEDULED' | 'TASKS';
   title: string;
   body: string;
   actorUserId: string | null;
@@ -88,7 +88,7 @@ async function poll() {
 }
 
 // Aviso local: toca o sino e mostra a prévia, sem ir para o histórico.
-function localAlert(kind: 'TASKS' | 'WHATSAPP', title: string, body: string, ms: number) {
+function localAlert(kind: 'TASKS', title: string, body: string, ms: number) {
   ring();
   preview.value = { id: `${kind}-${Date.now()}`, kind, title, body, actorUserId: null, createdAt: new Date().toISOString() };
   clearTimeout(previewTimer);
@@ -121,12 +121,41 @@ async function alertTodayTasks() {
   }
 }
 
-// Recepção: a cada 10 min no horário de trabalho, lembra de olhar o WhatsApp Web.
-const WHATSAPP_EVERY_MS = 10 * 60_000;
-function remindWhatsapp() {
-  const hour = new Date().getHours();
-  if (hour < 8 || hour >= 19) return;
-  localAlert('WHATSAPP', 'Hora de olhar o WhatsApp Web', 'Veja se alguma cliente está esperando resposta ou precisa de ajuda.', 15_000);
+// Recepção: contagem regressiva de 10 min para olhar o WhatsApp Web. Ao zerar,
+// o sino toca a cada 5 s até a pessoa clicar em "Vou olhar". O prazo fica no
+// navegador, então recarregar a página (ou outra aba) não zera a contagem.
+const isReception = computed(() => auth.user?.role === 'RECEPTION');
+const WA_EVERY_MS = 10 * 60_000;
+const WA_KEY = 'noely-whatsapp-deadline';
+const now = ref(Date.now());
+const waDeadline = ref(0);
+function readWaDeadline() {
+  try {
+    const saved = Number(localStorage.getItem(WA_KEY));
+    if (saved) waDeadline.value = saved;
+  } catch {
+    // sem localStorage: vale só nesta aba
+  }
+}
+function resetWhatsapp() {
+  waDeadline.value = Date.now() + WA_EVERY_MS;
+  now.value = Date.now();
+  try {
+    localStorage.setItem(WA_KEY, String(waDeadline.value));
+  } catch {
+    // idem
+  }
+}
+const waLeftMs = computed(() => Math.max(0, waDeadline.value - now.value));
+const waDue = computed(() => isReception.value && waDeadline.value > 0 && waLeftMs.value === 0);
+const waLabel = computed(() => {
+  const sec = Math.ceil(waLeftMs.value / 1000);
+  return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+});
+function tickWhatsapp() {
+  readWaDeadline();
+  now.value = Date.now();
+  if (waDue.value && Math.floor(now.value / 1000) % 5 === 0) ring();
 }
 
 function toggle() {
@@ -154,7 +183,11 @@ onMounted(() => {
   timer = setInterval(poll, POLL_MS);
   // Depois do primeiro toque na página: antes disso o navegador não deixa tocar.
   document.addEventListener('pointerdown', () => setTimeout(alertTodayTasks, 300), { once: true });
-  if (auth.user?.role === 'RECEPTION') whatsappTimer = setInterval(remindWhatsapp, WHATSAPP_EVERY_MS);
+  if (isReception.value) {
+    readWaDeadline();
+    if (!waDeadline.value) resetWhatsapp();
+    whatsappTimer = setInterval(tickWhatsapp, 1000);
+  }
   document.addEventListener('pointerdown', unlockAudio);
   document.addEventListener('click', onDocClick);
   document.addEventListener('visibilitychange', onVisible);
@@ -168,7 +201,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisible);
 });
 
-const ICON: Record<AppNotification['kind'], string> = { BOOKED: '＋', CANCELLED: '✕', CONFIRMED: '✓', RESCHEDULED: '↻', TASKS: '☰', WHATSAPP: '✆' };
+const ICON: Record<AppNotification['kind'], string> = { BOOKED: '＋', CANCELLED: '✕', CONFIRMED: '✓', RESCHEDULED: '↻', TASKS: '☰' };
 function ago(iso: string) {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
   if (min < 1) return 'agora';
@@ -181,6 +214,13 @@ function ago(iso: string) {
 
 <template>
   <div class="bell">
+    <div v-if="isReception" class="bell__wa" :class="{ 'bell__wa--due': waDue }" role="timer" aria-live="polite">
+      <template v-if="waDue">
+        <span class="bell__wa-long">Olhe o WhatsApp Web</span>
+        <button type="button" class="bell__wa-ok" @click="resetWhatsapp">Vou olhar<span class="bell__wa-short"> o WhatsApp</span></button>
+      </template>
+      <span v-else :aria-label="`WhatsApp em ${waLabel}`"><span class="bell__wa-long">WhatsApp em </span><span class="bell__wa-short" aria-hidden="true">✆ </span><strong>{{ waLabel }}</strong></span>
+    </div>
     <button
       type="button"
       class="bell__btn"
@@ -224,6 +264,83 @@ function ago(iso: string) {
 <style scoped>
 .bell {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bell__wa {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.bell__wa strong {
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.bell__wa--due {
+  padding-right: 5px;
+  border-color: transparent;
+  background: var(--color-fill-700);
+  color: #fff;
+  font-weight: 700;
+  animation: bell-wa-pulse 1.2s ease-in-out infinite;
+}
+
+.bell__wa-ok {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--color-fill-900);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bell__wa-short {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  /* Na linha do topo não cabe (empurra o Sair para fora): fica logo abaixo do sino. */
+  .bell__wa {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 66px);
+    right: 12px;
+    z-index: 44;
+    height: 36px;
+    padding: 0 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  .bell__wa--due {
+    padding: 0 5px;
+  }
+  .bell__wa-long {
+    display: none;
+  }
+  .bell__wa-short {
+    display: inline;
+  }
+}
+
+@keyframes bell-wa-pulse {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-fill-700) 30%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bell__wa--due { animation: none; }
 }
 
 .bell__btn {
