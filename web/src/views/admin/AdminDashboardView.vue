@@ -493,6 +493,9 @@ function formatUpcoming(iso: string) {
           </div>
         </div>
 
+        <!-- Listas em colunas que se encaixam (como mural): na grade, cada linha
+             tinha a altura do cartão mais alto e sobravam buracos. -->
+        <div class="admin-dashboard__lists">
         <div v-if="canSeeMoney" class="admin-card admin-card--list">
           <h2>
             Gastos por categoria (mês)
@@ -581,6 +584,7 @@ function formatUpcoming(iso: string) {
           <div v-else class="admin-card__empty">
             <p>Nenhum agendamento cadastrado este mês.</p>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -1673,6 +1677,17 @@ a.kpi-card {
 
 .admin-card--list > :not(h2) {
   margin-inline: var(--space-5);
+}
+
+.admin-dashboard__lists {
+  grid-column: 1 / -1;
+  columns: 3 280px;
+  column-gap: var(--space-5);
+}
+
+.admin-dashboard__lists > .admin-card {
+  break-inside: avoid;
+  margin-bottom: var(--space-5);
 }
 
 /* Horário/data como etiqueta. */
