@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { gsap } from '@/lib/motion';
 import { useChartEntrance } from '@/composables/useChartEntrance';
 
 const props = withDefaults(
-  defineProps<{ data: { label: string; value: number; color: string }[]; centerLabel?: string; size?: number }>(),
-  { size: 132 },
+  defineProps<{
+    data: { label: string; value: number; color: string }[];
+    centerLabel?: string;
+    size?: number;
+    // Fatia destacada de fora (ex.: mouse na legenda); o centro mostra ela.
+    highlight?: string | null;
+  }>(),
+  { size: 132, highlight: null },
 );
+const emit = defineEmits<{ hover: [label: string | null] }>();
+const hovered = ref<string | null>(null);
+const activeLabel = computed(() => hovered.value ?? props.highlight);
+function setHover(label: string | null) {
+  hovered.value = label;
+  emit('hover', label);
+}
 
 // Anel construído com stroke-dasharray/offset por segmento (SVG puro, sem
 // lib de gráfico) — cada fatia é um <circle> cheio com um traço tracejado do
@@ -15,6 +28,10 @@ const props = withDefaults(
 // então cada dasharray pode ser lido direto como porcentagem.
 const RADIUS = 15.9155;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const STROKE = 5;
+// Ponta arredondada avança STROKE/2 de cada lado: desconta isso e mais um
+// respiro para as fatias não se encostarem.
+const GAP = STROKE + 1.4;
 
 const total = computed(() => props.data.reduce((sum, d) => sum + d.value, 0));
 
@@ -51,26 +68,22 @@ const segments = computed(() => {
     .filter((d) => d.value > 0)
     .map((d) => {
       const fraction = total.value > 0 ? d.value / total.value : 0;
-      const length = fraction * CIRCUMFERENCE;
-      const seg = { ...d, length, offset: -offset, fraction };
-      offset += length;
+      const full = fraction * CIRCUMFERENCE;
+      const single = props.data.filter((x) => x.value > 0).length === 1;
+      // Fatia única: anel inteiro, sem ponta. Fatia mínima vira um ponto.
+      const length = single ? full : Math.max(0.01, full - GAP);
+      const seg = { ...d, length, offset: -(offset + (single ? 0 : GAP / 2)), fraction, single };
+      offset += full;
       return seg;
     });
 });
+const active = computed(() => segments.value.find((s) => s.label === activeLabel.value) ?? null);
 </script>
 
 <template>
   <div ref="root" class="donut" :style="{ width: `${size}px`, height: `${size}px` }">
     <svg viewBox="-1 -1 38 38" class="donut__svg">
-      <circle
-        v-if="!total"
-        cx="18"
-        cy="18"
-        r="15.9155"
-        fill="none"
-        stroke="var(--color-surface-muted)"
-        stroke-width="6"
-      />
+      <circle cx="18" cy="18" r="15.9155" fill="none" class="donut__track" :stroke-width="STROKE" />
       <circle
         v-for="seg in segments"
         :key="seg.label"
@@ -79,19 +92,29 @@ const segments = computed(() => {
         r="15.9155"
         fill="none"
         :stroke="seg.color"
-        stroke-width="6"
-        stroke-linecap="butt"
+        :stroke-width="STROKE"
+        :stroke-linecap="seg.single ? 'butt' : 'round'"
         :stroke-dasharray="`${seg.length} ${CIRCUMFERENCE - seg.length}`"
         :stroke-dashoffset="seg.offset"
         transform="rotate(-90 18 18)"
         class="donut__seg"
+        :class="{ 'is-dim': active && active.label !== seg.label, 'is-active': active?.label === seg.label }"
+        @mouseenter="setHover(seg.label)"
+        @mouseleave="setHover(null)"
+        @touchstart.passive="setHover(seg.label)"
       >
         <title>{{ seg.label }}: {{ seg.value }} ({{ Math.round(seg.fraction * 100) }}%)</title>
       </circle>
     </svg>
     <div class="donut__center">
-      <span class="donut__total">{{ total }}</span>
-      <span v-if="centerLabel" class="donut__label">{{ centerLabel }}</span>
+      <template v-if="active">
+        <span class="donut__pct" :style="{ color: active.color }">{{ Math.round(active.fraction * 100) }}%</span>
+        <span class="donut__label">{{ active.value }} · {{ active.label.toLowerCase() }}</span>
+      </template>
+      <template v-else>
+        <span class="donut__total">{{ total }}</span>
+        <span v-if="centerLabel" class="donut__label">{{ centerLabel }}</span>
+      </template>
     </div>
   </div>
 </template>
@@ -108,16 +131,21 @@ const segments = computed(() => {
   height: 100%;
 }
 
+.donut__track {
+  stroke: var(--color-surface-muted);
+}
+
 .donut__seg {
-  transition: opacity var(--duration-fast) var(--ease-standard);
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease-standard), stroke-width var(--duration-fast) var(--ease-standard);
 }
 
-.donut:hover .donut__seg {
-  opacity: 0.55;
+.donut__seg.is-dim {
+  opacity: 0.3;
 }
 
-.donut__seg:hover {
-  opacity: 1 !important;
+.donut__seg.is-active {
+  stroke-width: 6.4;
 }
 
 .donut__center {
@@ -137,8 +165,17 @@ const segments = computed(() => {
   line-height: 1;
 }
 
+.donut__pct {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 11cqw, 2rem);
+  font-weight: 600;
+  line-height: 1;
+}
+
 .donut__label {
-  font-size: 0.68rem;
+  max-width: 70%;
+  text-align: center;
+  font-size: 0.72rem;
   color: var(--color-ink-soft);
   text-transform: none;
   letter-spacing: 0;

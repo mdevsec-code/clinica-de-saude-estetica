@@ -257,6 +257,10 @@ const STATUS_META: Record<AppointmentStatus, { label: string; color: string }> =
 };
 const STATUS_ORDER: AppointmentStatus[] = ['CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'];
 
+const statusHover = ref<string | null>(null);
+// Referência estável: um array novo a cada render refazia a animação de entrada da rosca.
+const statusDonutData = computed(() => statusRows.value.map((r) => ({ label: r.label, value: r.count, color: r.color })));
+const statusTotal = computed(() => statusRows.value.reduce((n, r) => n + r.count, 0));
 const statusRows = computed(() => {
   if (!stats.value) return [];
   const byStatus = new Map(stats.value.appointmentStatusBreakdown.map((s) => [s.status, s.count]));
@@ -429,12 +433,26 @@ function formatUpcoming(iso: string) {
             Status dos agendamentos (mês)
           </h2>
           <div class="status-donut">
-            <DonutChart :data="statusRows.map((r) => ({ label: r.label, value: r.count, color: r.color }))" center-label="total" :size="140" />
-            <ul class="status-list">
-              <li v-for="row in statusRows" :key="row.status" class="status-list__row">
+            <DonutChart
+              :data="statusDonutData"
+              center-label="agendamentos"
+              :size="176"
+              :highlight="statusHover"
+              @hover="statusHover = $event"
+            />
+            <ul class="status-list" @mouseleave="statusHover = null">
+              <li
+                v-for="row in statusRows"
+                :key="row.status"
+                class="status-list__row"
+                :class="{ 'is-dim': statusHover && statusHover !== row.label }"
+                @mouseenter="statusHover = row.label"
+              >
                 <span class="status-list__dot" :style="{ background: row.color }" />
                 <span class="status-list__label">{{ row.label }}</span>
+                <span class="status-list__pct">{{ statusTotal ? Math.round((row.count / statusTotal) * 100) : 0 }}%</span>
                 <span class="status-list__count">{{ row.count }}</span>
+                <span class="status-list__bar"><span :style="{ width: `${statusTotal ? (row.count / statusTotal) * 100 : 0}%`, background: row.color }" /></span>
               </li>
             </ul>
           </div>
@@ -1108,10 +1126,39 @@ a.kpi-card {
 }
 
 .status-list__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 8px;
+  column-gap: 10px;
+  row-gap: 6px;
   min-width: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.status-list__row.is-dim {
+  opacity: 0.4;
+}
+
+.status-list__pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-list__bar {
+  grid-column: 2 / -1;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.status-list__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.6s var(--ease-premium);
 }
 
 .status-list__dot {
