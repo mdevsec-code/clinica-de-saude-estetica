@@ -17,7 +17,7 @@ import LoadingState from '@/components/LoadingState.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import AdminDatePicker from '@/components/admin/AdminDatePicker.vue';
 import AdminSelect, { type AdminSelectOption } from '@/components/admin/AdminSelect.vue';
-import BarChart from '@/components/admin/BarChart.vue';
+import AreaChart from '@/components/admin/AreaChart.vue';
 import AdminBankReconciliation from '@/components/admin/AdminBankReconciliation.vue';
 import { toLocalDateKey } from '@/utils/calendar';
 import { fetchCardFees, saveCardFees } from '@/services/admin-appointments.service';
@@ -422,10 +422,10 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
           </div>
         </div>
         <LoadingState v-if="revenueLoading" label="Carregando histórico…" />
-        <BarChart
+        <AreaChart
           v-else-if="revenueHistory"
           :data="revenueChartData"
-          color="var(--color-rose-300)"
+          color="var(--color-success)"
           :value-formatter="(v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })"
         />
       </div>
@@ -678,24 +678,53 @@ const maxDreCategoryCents = computed(() => Math.max(1, ...(dre.value?.expensesBy
   color: #fff;
 }
 
-/* Indicadores numa faixa só, divididos por linhas finas (mesmo desenho do
-   Painel): o número é o conteúdo, sem ícone nem cartão por valor. */
+/* Indicadores em blocos coloridos (mesmo desenho do Painel): vinho, rosé,
+   dourado e sálvia, nessa ordem — a recepção vê menos blocos, então a cor
+   vai pela posição. */
 .admin-finance__stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1px;
-  background: var(--color-border);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  gap: var(--space-4);
   margin-bottom: var(--space-5);
 }
 
 .admin-finance__stat {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
-  background: var(--color-surface);
+  min-height: 110px;
   padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  color: #fff;
+  background: var(--fill-wine);
+}
+
+.admin-finance__stat::after {
+  content: '';
+  position: absolute;
+  right: -36px;
+  top: -36px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.admin-finance__stat:nth-child(4n + 2) { background: var(--fill-rose); }
+.admin-finance__stat:nth-child(4n + 3) { background: var(--fill-gold); color: #3a2a17; }
+.admin-finance__stat:nth-child(4n + 4) { background: var(--fill-sage); }
+
+.admin-finance__stat .admin-finance__stat-label {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.admin-finance__stat .admin-finance__stat-value {
+  color: inherit;
+  font-weight: 600;
 }
 
 .admin-finance__stat-label {

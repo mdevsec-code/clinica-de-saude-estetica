@@ -1245,10 +1245,7 @@ function onLogout() {
     border-bottom: none;
     border-right: 1px solid rgba(255, 255, 255, 0.06);
     color: #fff;
-    background:
-      radial-gradient(140% 50% at 0% 0%, rgba(185, 124, 127, 0.28) 0%, transparent 60%),
-      radial-gradient(120% 40% at 100% 100%, rgba(200, 164, 101, 0.16) 0%, transparent 60%),
-      linear-gradient(180deg, var(--color-dusk-800) 0%, var(--color-dusk-900) 100%);
+    background: var(--sidebar-bg);
   }
 
   .admin__topbar::-webkit-scrollbar {
@@ -1347,7 +1344,7 @@ function onLogout() {
     font-weight: 800;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: rgba(200, 164, 101, 0.7);
+    color: rgba(242, 198, 194, 0.6);
   }
 
   .admin__nav-group:first-child {
@@ -1374,7 +1371,7 @@ function onLogout() {
 
   .admin__nav a.router-link-exact-active,
   .admin__nav a.router-link-exact-active:hover {
-    color: var(--color-dusk-900);
+    color: #fff;
     font-weight: 700;
   }
 
@@ -1383,11 +1380,11 @@ function onLogout() {
     border-radius: 12px;
   }
 
-  /* Aba ativa: champagne com um brilho por baixo — a joia da coluna. */
+  /* Aba ativa: bloco rosé cheio sobre o vinho da coluna. */
   .admin__nav-indicator {
     border-radius: 12px;
-    background: linear-gradient(135deg, #fbf3e3 0%, var(--color-gold-100) 55%, #e9d3a8 100%);
-    box-shadow: 0 10px 28px -10px rgba(200, 164, 101, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, #c98b8f 0%, #9c5b60 100%);
+    box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
   .admin__quickstats {

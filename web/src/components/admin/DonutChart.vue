@@ -69,7 +69,7 @@ const segments = computed(() => {
         r="15.9155"
         fill="none"
         stroke="var(--color-surface-muted)"
-        stroke-width="4"
+        stroke-width="6"
       />
       <circle
         v-for="seg in segments"
@@ -79,7 +79,7 @@ const segments = computed(() => {
         r="15.9155"
         fill="none"
         :stroke="seg.color"
-        stroke-width="4"
+        stroke-width="6"
         stroke-linecap="butt"
         :stroke-dasharray="`${seg.length} ${CIRCUMFERENCE - seg.length}`"
         :stroke-dashoffset="seg.offset"

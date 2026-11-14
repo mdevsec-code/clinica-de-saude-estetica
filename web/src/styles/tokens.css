@@ -131,6 +131,19 @@
   --chart-cat-6: #008300;
 }
 
+/* Painel administrativo (data-theme só existe com ele aberto): cartões com
+   sombra suave e os quatro preenchimentos dos indicadores, nas cores da
+   marca — vinho, rosé, dourado e sálvia. */
+:root[data-theme] {
+  --shadow-sm: 0 1px 2px rgba(58, 38, 34, 0.05), 0 12px 32px -18px rgba(58, 38, 34, 0.3);
+  --shadow-md: 0 2px 4px rgba(58, 38, 34, 0.06), 0 20px 44px -18px rgba(58, 38, 34, 0.38);
+  --fill-wine: linear-gradient(140deg, #8d4c55 0%, #5c2b32 100%);
+  --fill-rose: linear-gradient(140deg, #d29a9b 0%, #a8636b 100%);
+  --fill-gold: linear-gradient(140deg, #e8cd96 0%, #c39d5c 100%);
+  --fill-sage: linear-gradient(140deg, #7aa386 0%, #46694f 100%);
+  --sidebar-bg: linear-gradient(180deg, #4d2229 0%, #2f1418 100%);
+}
+
 /* Modo escuro do painel administrativo (data-theme="dark" no <html>, ligado
    pelo AdminLayout só enquanto o painel está aberto — o site público fica
    sempre claro). Mesma família de cor da marca: fundo marrom-noite quente
@@ -177,5 +190,8 @@
   --color-dusk-700: #1d1412;
 
   --shadow-float: 0 1px 3px rgba(0, 0, 0, 0.5), 0 24px 60px -16px rgba(0, 0, 0, 0.75);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 34px -18px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.45), 0 22px 46px -18px rgba(0, 0, 0, 0.85);
+  --sidebar-bg: linear-gradient(180deg, #2c1216 0%, #170a0c 100%);
   --shadow-glow: 0 0 0 1px rgba(242, 198, 194, 0.08), 0 24px 64px -16px rgba(0, 0, 0, 0.7);
 }

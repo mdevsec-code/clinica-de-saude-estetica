@@ -10,7 +10,7 @@ import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { refreshScroll } from '@/composables/useSmoothScroll';
 import { dayLabel, endOfDay, startOfDay, toLocalDateKey } from '@/utils/calendar';
 import type { AdminAppointment, AppointmentStatus, DashboardStats } from '@/types';
-import BarChart from '@/components/admin/BarChart.vue';
+import AreaChart from '@/components/admin/AreaChart.vue';
 import CategoryBarList from '@/components/admin/CategoryBarList.vue';
 import DonutChart from '@/components/admin/DonutChart.vue';
 import RadialProgress from '@/components/admin/RadialProgress.vue';
@@ -244,7 +244,7 @@ function animateCountUps() {
 const chartData = computed(() => {
   if (!stats.value) return [];
   return stats.value.appointmentsPerDay.map((d) => ({
-    label: String(Number(d.date.slice(8, 10))),
+    label: `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}`,
     value: d.count,
   }));
 });
@@ -331,12 +331,12 @@ function formatUpcoming(iso: string) {
 
     <div v-else-if="stats" key="content">
       <div class="admin-dashboard__kpis">
-        <div class="kpi-card" data-reveal>
+        <div class="kpi-card kpi-card--fill kpi-card--wine" data-reveal>
           <span class="kpi-card__label">Este mês</span>
           <span class="kpi-card__value" :data-count="stats.appointmentsThisMonth">{{ stats.appointmentsThisMonth }}</span>
           <span class="kpi-card__hint">agendamentos no total</span>
         </div>
-        <div v-if="canSeeMoney" class="kpi-card kpi-card--accent" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card kpi-card--fill kpi-card--rose" data-reveal>
           <span class="kpi-card__label">Receita do mês</span>
           <span class="kpi-card__value" :data-count="stats.revenueThisMonthCents" data-count-currency>{{ formatCurrency(stats.revenueThisMonthCents) }}</span>
           <span v-if="revenueTrend" class="kpi-trend kpi-trend--on-accent">
@@ -345,7 +345,7 @@ function formatUpcoming(iso: string) {
           </span>
           <span v-else class="kpi-card__hint">atendimentos concluídos</span>
         </div>
-        <div v-if="canSeeMoney" class="kpi-card" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card kpi-card--fill kpi-card--gold-fill" data-reveal>
           <span class="kpi-card__label">Gastos do mês</span>
           <span class="kpi-card__value" :data-count="stats.expensesThisMonthCents" data-count-currency>{{ formatCurrency(stats.expensesThisMonthCents) }}</span>
           <span v-if="expensesTrend" class="kpi-trend" :class="expensesTrend.good ? 'kpi-trend--good' : 'kpi-trend--bad'">
@@ -354,7 +354,7 @@ function formatUpcoming(iso: string) {
           </span>
           <span v-else class="kpi-card__hint">gastos cadastrados</span>
         </div>
-        <div v-if="canSeeMoney" class="kpi-card" :class="{ 'kpi-card--negative': stats.balanceThisMonthCents < 0 }" data-reveal>
+        <div v-if="canSeeMoney" class="kpi-card kpi-card--fill kpi-card--sage" :class="{ 'kpi-card--negative': stats.balanceThisMonthCents < 0 }" data-reveal>
           <span class="kpi-card__label">Saldo do mês</span>
           <span class="kpi-card__value" :data-count="stats.balanceThisMonthCents" data-count-currency>{{ formatCurrency(stats.balanceThisMonthCents) }}</span>
           <span class="kpi-card__hint">receita − gastos</span>
@@ -369,7 +369,7 @@ function formatUpcoming(iso: string) {
           <span class="kpi-card__hint">por atendimento concluído</span>
         </div>
         <div class="kpi-card kpi-card--ring" data-reveal>
-          <RadialProgress :value="stats.completionRatePct" :size="60" />
+          <RadialProgress :value="stats.completionRatePct" :size="72" />
           <div class="kpi-card--ring__text">
             <span class="kpi-card__label">Taxa de conclusão</span>
             <span class="kpi-card__hint">
@@ -417,7 +417,7 @@ function formatUpcoming(iso: string) {
               </button>
             </div>
           </div>
-          <BarChart
+          <AreaChart
             :data="chartData"
             :class="{ 'is-loading': chartLoading }"
             :value-formatter="(v) => `${v} agendamento${v === 1 ? '' : 's'}`"
@@ -1014,7 +1014,7 @@ a.kpi-card {
   opacity: 0.55;
 }
 
-/* BarChart durante a troca de período (ver chartLoading em selectChartRange):
+/* Gráfico durante a troca de período (ver chartLoading em selectChartRange):
    o resto do painel continua 100% interativo, só o próprio gráfico esmaece
    até o novo período chegar — nada de derrubar a tela inteira pro spinner
    de carregamento por causa de um clique num filtro. */
@@ -1500,17 +1500,10 @@ a.kpi-card {
 
 .admin-dashboard__kpis {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  padding: 0;
-  background: var(--color-border);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  gap: var(--space-4);
 }
 
-/* 7 indicadores em 4 colunas: o último ocupa duas, sem célula vazia (a
-   taxa de conclusão ocupava duas colunas no layout antigo e empurrava o
-   estoque para uma terceira linha). */
+/* 7 indicadores em 4 colunas: o último ocupa duas, sem célula vazia. */
 .admin-dashboard__kpis > .kpi-card--ring {
   grid-column: auto;
 }
@@ -1519,16 +1512,17 @@ a.kpi-card {
   grid-column: span 2;
 }
 
+/* Cartões brancos com sombra suave; os quatro números do mês vêm em blocos
+   coloridos (vinho, rosé, dourado, sálvia), como num dashboard. */
 .kpi-card,
-.kpi-card--accent,
 .kpi-card--gold,
 .kpi-card--warning,
 .kpi-card--negative {
   background: var(--color-surface);
   color: var(--color-ink);
   border: none;
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   padding: var(--space-5);
   min-height: 0;
 }
@@ -1539,28 +1533,22 @@ a.kpi-card {
 }
 
 .kpi-card:hover {
-  transform: none;
-  background: color-mix(in srgb, var(--color-rose-100) 45%, var(--color-surface));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
-.kpi-card__label,
-.kpi-card--accent .kpi-card__label,
-.kpi-card--gold .kpi-card__label {
+.kpi-card__label {
   color: var(--color-ink-muted);
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
-.kpi-card__value,
-.kpi-card--accent .kpi-card__value,
-.kpi-card--gold .kpi-card__value {
+.kpi-card__value {
   color: var(--color-ink);
   font-size: 1.9rem;
-  font-weight: 500;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .kpi-card--negative .kpi-card__value,
@@ -1568,20 +1556,70 @@ a.kpi-card {
   color: var(--color-danger);
 }
 
-.kpi-card__hint,
-.kpi-card--accent .kpi-card__hint,
-.kpi-card--gold .kpi-card__hint {
+.kpi-card__hint {
   color: var(--color-ink-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
-.kpi-trend--on-accent {
-  color: var(--color-ink-muted);
+.kpi-card--fill {
+  overflow: hidden;
+  color: #fff;
+  min-height: 140px;
+}
+
+/* Brilho redondo no canto, como os cartões coloridos da referência. */
+.kpi-card--fill::after {
+  content: '';
+  display: block;
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.kpi-card--wine { background: var(--fill-wine); }
+.kpi-card--rose { background: var(--fill-rose); }
+.kpi-card--gold-fill { background: var(--fill-gold); }
+.kpi-card--sage { background: var(--fill-sage); }
+
+.kpi-card--fill .kpi-card__label,
+.kpi-card--fill .kpi-card__hint,
+.kpi-card--fill .kpi-trend {
+  color: rgba(255, 255, 255, 0.85);
   background: none;
 }
 
-/* Cartões de gráfico: sem a faixa colorida no topo nem sombra; borda de
-   1px e um degrau de tom bastam num painel. */
+.kpi-card--fill .kpi-card__value,
+.kpi-card--fill.kpi-card--negative .kpi-card__value {
+  color: #fff;
+  font-size: 2.1rem;
+}
+
+/* Dourado é claro: texto escuro para ler bem. */
+.kpi-card--gold-fill,
+.kpi-card--gold-fill .kpi-card__value {
+  color: #3a2a17;
+}
+
+.kpi-card--gold-fill .kpi-card__label,
+.kpi-card--gold-fill .kpi-card__hint,
+.kpi-card--gold-fill .kpi-trend {
+  color: rgba(58, 42, 23, 0.78);
+}
+
+.kpi-card--gold-fill .kpi-card__value {
+  color: #3a2a17;
+}
+
+.kpi-card--gold .kpi-card__value {
+  color: var(--color-gold-700);
+}
+
+/* Cartões de gráfico e listas: brancos, sem borda, sombra suave. */
 .admin-card::before {
   display: none;
 }
@@ -1590,18 +1628,48 @@ a.kpi-card {
 .admin-card--feature,
 .admin-card--chart {
   background: var(--color-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme='dark'] .admin-card,
+:root[data-theme='dark'] .kpi-card:not(.kpi-card--fill) {
   border: 1px solid var(--color-border);
-  box-shadow: none;
 }
 
 .admin-card:hover {
   transform: none;
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .admin-card--feature h2,
 .admin-card h2 {
   color: var(--color-ink);
+}
+
+/* Celular: dois blocos por linha (um embaixo do outro rolava demais). */
+@media (max-width: 640px) {
+  .admin-dashboard__kpis {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .kpi-card,
+  .kpi-card--fill {
+    min-height: 0;
+    padding: var(--space-4);
+  }
+
+  .kpi-card__value,
+  .kpi-card--fill .kpi-card__value {
+    font-size: 1.35rem;
+  }
+  /* Anel em cima do texto: lado a lado a "Taxa de conclusão" quebrava letra a letra. */
+  .kpi-card--ring {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 900px) {
