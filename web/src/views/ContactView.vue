@@ -939,7 +939,7 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
 
 .open-status--closed {
   background: var(--color-surface-muted);
-  color: var(--color-ink-muted);
+  color: var(--color-ink);
 }
 
 .open-status--closed .open-status__dot {
@@ -1019,11 +1019,11 @@ const mapLinkHref = computed(() => GOOGLE_MAPS_PLACE_URL);
    atendimento, pra ficar claro que é uma informação secundária ("também
    respondo isso, mas não é o foco da lista") sem sumir por completo. */
 .contact-card__hours-row--closed {
-  color: var(--color-ink-soft);
+  color: var(--color-ink-muted);
 }
 
 .contact-card__hours-row--closed .contact-card__day {
-  color: var(--color-ink-soft);
+  color: var(--color-ink-muted);
   font-weight: 600;
 }
 

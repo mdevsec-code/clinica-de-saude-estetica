@@ -83,6 +83,9 @@ onMounted(() => {
 
   tl.fromTo(mark.value, { opacity: 0, scale: 0.86, y: 8 }, { opacity: 1, scale: 1, y: 0, duration: 0.32 })
     .to(mark.value, { opacity: 0, scale: 1.04, duration: 0.22, ease: 'premium-in-out' }, '+=0.12')
+    // O hero começa a entrar junto com a cortina subindo (antes esperava ela
+    // sair de vez): o título fica legível uns 0,5 s antes.
+    .call(markAppIntroReady)
     // Sai recolhendo para cima com a borda de baixo CURVA (elipse bem mais
     // larga que a tela, ancorada no topo) em vez de uma régua reta — ecoa as
     // formas orgânicas da foto do hero logo atrás, no mesmo tempo de antes.

@@ -94,8 +94,10 @@ export function splitHeroTitle(el: HTMLElement): () => void {
         rotateX: -60,
         rotate: 3,
         transformOrigin: '50% 100%',
-        duration: 1.4,
-        stagger: 0.09,
+        // Mais curto que antes (1.4s): o título é o que diz o que é a clínica,
+        // precisa estar legível logo que a cortina sai.
+        duration: 0.9,
+        stagger: 0.06,
         ease: 'premium-out',
       });
     },

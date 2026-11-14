@@ -175,6 +175,12 @@ nav.footer__col a:hover {
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
+.footer__link span {
+  /* Sem isto o e-mail longo não encolhe dentro do flex e sai cortado no celular. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .footer__link svg {
   flex-shrink: 0;
   margin-top: 2px;

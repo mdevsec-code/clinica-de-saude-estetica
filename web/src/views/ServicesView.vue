@@ -142,7 +142,7 @@ const totalServices = computed(() => categories.value.reduce((sum, c) => sum + c
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--color-rose-700);
+  color: var(--color-rose-900);
   background: var(--color-rose-100);
   border: 1px solid transparent;
   border-radius: var(--radius-pill);

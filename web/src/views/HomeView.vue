@@ -296,14 +296,17 @@ const steps = computed(() =>
 }
 
 .hero__title {
-  font-size: clamp(2.8rem, 8.4vw + 0.4rem, 6.6rem);
+  /* Cabe "Micropigmentação" inteira numa linha em qualquer largura (antes
+     quebrava no meio da palavra no computador). */
+  font-size: clamp(2.5rem, 3.4vw + 1.1rem, 4.7rem);
   font-weight: 350;
   font-variation-settings: 'SOFT' 80, 'opsz' 144;
   letter-spacing: -0.03em;
   /* splitHeroTitle (useSplitReveal.ts) usa mask:'lines' — o line-height
      precisa deixar caber o acento do "É" e o pé do "ç"/"g". */
   line-height: 1.04;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  hyphens: manual;
   margin-bottom: var(--space-5);
   perspective: 700px;
   /* Nasce oculto: splitHeroTitle volta a mostrar no instante do split,
@@ -334,9 +337,10 @@ const steps = computed(() =>
 /* Fatos: o número/nome em serifada grande, a explicação logo abaixo —
    separados por espaço, sem fio entre eles. */
 .hero__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5) var(--space-7);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  justify-content: start;
+  gap: var(--space-4) var(--space-7);
   margin: var(--space-7) 0 0;
 }
 
@@ -350,7 +354,7 @@ const steps = computed(() =>
 
 .hero__facts dd {
   margin: 6px 0 0;
-  font-size: 1.18rem;
+  font-size: 1.05rem;
   color: var(--color-ink-muted);
 }
 
@@ -394,6 +398,19 @@ const steps = computed(() =>
   object-fit: cover;
   object-position: 50% 20%;
   display: block;
+  /* Respiração lenta da foto: o topo tem vida mesmo com a página parada. */
+  animation: hero-breathe 14s ease-in-out infinite alternate;
+}
+
+@keyframes hero-breathe {
+  from { transform: scale(1); }
+  to { transform: scale(1.06) translateY(-1.5%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__photo img {
+    animation: none;
+  }
 }
 
 .hero__caption {
@@ -473,9 +490,9 @@ h2 {
 
 .about__statement {
   color: rgba(255, 255, 255, 0.88);
-  max-width: 30ch;
+  max-width: 44ch;
   font-family: var(--font-serif);
-  font-size: clamp(1.7rem, 1.6vw + 1rem, 2.6rem);
+  font-size: clamp(1.35rem, 0.9vw + 1rem, 2.1rem);
   font-weight: 300;
   font-variation-settings: 'SOFT' 100;
   line-height: 1.35;
@@ -724,6 +741,37 @@ h2 {
   max-width: 14ch;
 }
 
+@media (max-width: 520px) {
+  /* Celular: título grande, "Micropigmentação" ocupando a largura. */
+  .hero__title {
+    font-size: min(10.6vw, 3rem);
+  }
+
+  .hero__facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .hero__facts dt {
+    font-size: 1.5rem;
+  }
+
+  .hero__facts dd {
+    font-size: 0.9rem;
+  }
+}
+
+/* Celulares bem estreitos (320px): "Camaçari" não cabia na terceira coluna. */
+@media (max-width: 380px) {
+  .hero__facts dt {
+    font-size: 1.2rem;
+  }
+
+  .hero__facts dd {
+    font-size: 0.82rem;
+  }
+}
+
 @media (min-width: 700px) {
   .steps__list,
   .values__list {
@@ -738,8 +786,8 @@ h2 {
   }
 
   .hero__grid {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: var(--space-8);
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    gap: var(--space-7);
   }
 
   .featured__grid {

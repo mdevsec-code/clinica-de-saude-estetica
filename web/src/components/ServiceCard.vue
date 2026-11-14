@@ -138,7 +138,7 @@ function formatPrice(price: number | null) {
   gap: 4px;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--color-ink-muted);
+  color: var(--color-ink);
   background: var(--color-surface-muted);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
