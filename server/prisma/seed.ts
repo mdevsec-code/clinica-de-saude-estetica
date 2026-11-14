@@ -160,7 +160,7 @@ async function main() {
       whatsapp: '5571992894874',
       instagram: '@noelycerqueira',
       email: 'noelydesouzacerqueiradossantos@gmail.com',
-      address: 'Rua Vênus, 38, Camaçari, Bahia, 42847',
+      address: 'Rua Vênus, 38, Camaçari, Bahia, 42803-700',
       minAdvanceMinutes: 120,
       slotGranularityMin: 15,
       maxAdvanceDays: 60,
