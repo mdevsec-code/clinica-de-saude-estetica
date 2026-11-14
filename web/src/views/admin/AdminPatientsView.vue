@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';
+import StatTiles from '@/components/admin/StatTiles.vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import { createPatient, fetchPatients } from '@/services/admin-patients.service';
@@ -31,6 +32,14 @@ async function load() {
 }
 
 onMounted(load);
+
+const thisMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+const patientTiles = computed(() => [
+  { label: 'Pacientes', value: patients.value.length, hint: 'cadastradas' },
+  { label: 'Aniversariantes', value: patients.value.filter((p) => p.birthDate?.slice(5, 7) === thisMonth).length, hint: 'neste mês' },
+  { label: 'Atendimentos', value: patients.value.reduce((n, p) => n + p.appointmentCount, 0), hint: 'no histórico' },
+  { label: 'Procedimentos', value: patients.value.reduce((n, p) => n + p.procedureCount, 0), hint: 'registrados nas fichas' },
+]);
 
 // Debounced: sem isso, cada tecla digitada na busca dispararia uma
 // requisição nova, cancelando/ignorando a anterior de forma imprevisível.
@@ -88,6 +97,9 @@ async function onCreate() {
         {{ showForm ? 'Cancelar' : '+ Novo paciente' }}
       </button>
     </div>
+
+    <!-- Com busca, os números seriam só do resultado: some enquanto busca. -->
+    <StatTiles v-if="!search && patients.length" :tiles="patientTiles" />
 
     <form v-if="showForm" class="admin-card admin-patients__form" @submit.prevent="onCreate">
       <h2>Cadastrar paciente</h2>

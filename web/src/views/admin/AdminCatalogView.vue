@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import StatTiles from '@/components/admin/StatTiles.vue';
 import ImageUploadButton from '@/components/admin/ImageUploadButton.vue';
 import { assetUrl } from '@/utils/images';
 import { thumbUrl } from '@/utils/images';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import {
@@ -45,6 +46,15 @@ async function load() {
 // falhar, a tela de catálogo continua funcionando normalmente sem o selo, por
 // isso roda em paralelo ao load() principal e nunca bloqueia nem propaga erro.
 const topServiceIds = ref<string[]>([]);
+const catalogTiles = computed(() => {
+  const services = categories.value.flatMap((c) => c.services);
+  return [
+    { label: 'Categorias', value: categories.value.length, hint: `${categories.value.filter((c) => c.featured).length} em destaque na home` },
+    { label: 'Serviços ativos', value: services.filter((s) => s.active).length, hint: `de ${services.length} cadastrados` },
+    { label: 'Com preço no site', value: services.filter((s) => s.priceCents != null).length },
+    { label: 'Sob avaliação', value: services.filter((s) => s.priceCents == null).length, hint: 'aparecem como "Consulte"' },
+  ];
+});
 
 async function loadTopServices() {
   try {
@@ -279,17 +289,9 @@ async function toggleServiceActive(service: AdminService) {
           <p>Cadastre aqui o que aparece no site público e no agendamento.</p>
         </div>
       </div>
-      <div v-if="categories.length" class="admin-catalog__stats">
-        <div class="admin-catalog__stat">
-          <strong>{{ categories.length }}</strong>
-          <span>categorias</span>
-        </div>
-        <div class="admin-catalog__stat">
-          <strong>{{ categories.reduce((sum, c) => sum + c.services.length, 0) }}</strong>
-          <span>serviços</span>
-        </div>
-      </div>
     </div>
+
+    <StatTiles v-if="categories.length" :tiles="catalogTiles" />
 
     <Transition name="fade-swap">
     <LoadingState v-if="loading" key="loading" label="Carregando catálogo…" />
@@ -529,31 +531,6 @@ async function toggleServiceActive(service: AdminService) {
 
 .admin-catalog__header p {
   color: var(--color-ink-muted);
-}
-
-.admin-catalog__stats {
-  display: flex;
-  gap: var(--space-5);
-}
-
-.admin-catalog__stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.2;
-}
-
-.admin-catalog__stat strong {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  color: var(--color-rose-900);
-}
-
-.admin-catalog__stat span {
-  font-size: 0.72rem;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--color-ink-soft);
 }
 
 .admin-card {

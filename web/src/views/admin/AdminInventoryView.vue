@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
+import StatTiles from '@/components/admin/StatTiles.vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
@@ -51,6 +52,17 @@ function formatCurrency(cents: number | null) {
 }
 
 // --- Novo item ---
+const inventoryTiles = computed(() => {
+  const active = items.value.filter((i) => i.active);
+  const value = active.reduce((n, i) => n + i.quantity * (i.costCents ?? 0), 0);
+  return [
+    { label: 'Itens ativos', value: active.length, hint: 'no estoque' },
+    { label: 'Estoque baixo', value: active.filter((i) => i.quantity <= i.minQuantity).length, hint: 'no mínimo ou abaixo' },
+    { label: 'Valor em estoque', value: (value / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), hint: 'quantidade × custo' },
+    { label: 'Sem custo', value: active.filter((i) => i.costCents == null).length, hint: 'itens sem custo cadastrado' },
+  ];
+});
+
 const form = reactive({ name: '', unit: 'un', quantity: 0, minQuantity: 0, costInput: '' });
 const creating = ref(false);
 const createError = ref<string | null>(null);
@@ -135,6 +147,8 @@ async function toggleActive(item: InventoryItem) {
         <p>Controle de produtos e materiais da clínica.</p>
       </div>
     </div>
+
+    <StatTiles v-if="items.length" :tiles="inventoryTiles" />
 
     <form class="admin-card admin-inventory__form" @submit.prevent="onCreate">
       <h2>Novo item</h2>

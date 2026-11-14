@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import StatTiles from '@/components/admin/StatTiles.vue';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
 import { useRouter } from 'vue-router';
@@ -210,6 +211,18 @@ function goNext() {
   else referenceDate.value = addDays(referenceDate.value, 1);
 }
 
+// Números do período que está na tela (mês, semana ou dia).
+const agendaTiles = computed(() => {
+  const active = appointments.value.filter((a) => a.status !== 'CANCELLED');
+  const today = toLocalDateKey(new Date());
+  return [
+    { label: 'Hoje', value: active.filter((a) => toLocalDateKey(new Date(a.startAt)) === today).length, hint: 'atendimentos' },
+    { label: 'No período', value: active.length, hint: rangeLabel.value },
+    { label: 'Cliente confirmou', value: active.filter((a) => a.status === 'CONFIRMED' && a.clientConfirmedAt).length, hint: 'presença confirmada' },
+    { label: 'Concluídos', value: active.filter((a) => a.status === 'COMPLETED').length, hint: 'no período' },
+  ];
+});
+
 const filteredAppointments = computed(() =>
   appointments.value.filter(
     (a) =>
@@ -317,6 +330,8 @@ function onAppointmentCreated() {
         <button type="button" class="button button--primary" @click="openNewAppointment(focusedDateKey)">+ Novo agendamento</button>
       </div>
     </div>
+
+    <StatTiles :tiles="agendaTiles" />
 
     <div class="admin-agenda__toolbar">
       <div class="admin-agenda__nav">

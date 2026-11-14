@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import StatTiles from '@/components/admin/StatTiles.vue';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { apiRequest, ApiError } from '@/services/api';
 import { toLocalDateKey } from '@/utils/calendar';
@@ -148,6 +149,12 @@ onUnmounted(() => {
 });
 
 const doneCount = computed(() => tasks.value.filter((t) => t.done).length);
+const taskTiles = computed(() => [
+  { label: 'Tarefas', value: tasks.value.length, hint: 'nesta semana' },
+  { label: 'Concluídas', value: doneCount.value },
+  { label: 'Pendentes', value: tasks.value.length - doneCount.value },
+  { label: 'Progresso', value: `${tasks.value.length ? Math.round((doneCount.value / tasks.value.length) * 100) : 0}%`, hint: 'da semana' },
+]);
 </script>
 
 <template>
@@ -164,7 +171,7 @@ const doneCount = computed(() => tasks.value.filter((t) => t.done).length);
         <button v-if="!isThisWeek" type="button" class="button button--ghost tasks__today" @click="weekStart = mondayOf(new Date())">Esta semana</button>
       </div>
     </div>
-    <p v-if="tasks.length" class="tasks__progress">{{ doneCount }} de {{ tasks.length }} concluídas nesta semana</p>
+    <StatTiles :tiles="taskTiles" />
     <p v-if="error" class="admin-error">{{ error }}</p>
 
     <div class="tasks__board" :class="{ 'tasks__board--loading': loading }">
@@ -270,11 +277,6 @@ const doneCount = computed(() => tasks.value.filter((t) => t.done).length);
   font-size: 0.85rem;
 }
 
-.tasks__progress {
-  margin: 0 0 var(--space-4);
-  font-size: 0.85rem;
-  color: var(--color-ink-muted);
-}
 
 .tasks__board {
   display: grid;
@@ -315,6 +317,29 @@ const doneCount = computed(() => tasks.value.filter((t) => t.done).length);
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
+  flex-wrap: wrap;
+  row-gap: 0;
+  margin-bottom: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--fill-wine);
+  color: #fff;
+}
+
+/* Um tom por dia (vinho, rosé, dourado, sálvia...), como colunas de quadro. */
+.tasks__col:nth-child(4n + 2) .tasks__col-head { background: var(--fill-rose); }
+.tasks__col:nth-child(4n + 3) .tasks__col-head { background: var(--fill-gold); color: #3a2a17; }
+.tasks__col:nth-child(4n + 4) .tasks__col-head { background: var(--fill-sage); }
+
+.tasks__col-head .tasks__day,
+.tasks__col-head .tasks__date,
+.tasks__col-head .tasks__count {
+  color: inherit;
+}
+
+.tasks__col-head .tasks__date,
+.tasks__col-head .tasks__count {
+  opacity: 0.85;
 }
 
 .tasks__day {
