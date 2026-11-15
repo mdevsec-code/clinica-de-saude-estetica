@@ -4,6 +4,7 @@ import { assetUrl } from '@/utils/images';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { gsap, prefersReducedMotion } from '@/lib/motion';
+import { applyTiltHover } from '@/composables/useTiltHover';
 import { applyScrollReveal } from '@/composables/useScrollReveal';
 import { applyPhotoReveal } from '@/composables/useStaggerReveal';
 import { useHeroIntro } from '@/composables/useHeroIntro';
@@ -98,8 +99,8 @@ onMounted(async () => {
     animateLists();
     applyPhotoParallax();
   });
-  cleanupHovers = [
-  ];
+  // Só nos cartões de Especialidades (o resto do site não tem efeito de mouse).
+  cleanupHovers = [applyTiltHover('.specialties', '.specialty-card', 4)];
   refreshScroll();
 });
 
