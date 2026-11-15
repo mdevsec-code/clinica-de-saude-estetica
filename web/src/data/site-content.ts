@@ -98,7 +98,7 @@ export const SITE_SECTIONS: SiteSection[] = [
         kind: 'textarea',
         default: 'Os procedimentos da clínica, com duração e valor. Escolha um e siga direto para o agendamento.',
       },
-      { key: 'services.image', label: 'Foto do topo', kind: 'image', default: '/services/limpeza-de-pele.jpg' },
+      { key: 'services.image', label: 'Foto do topo', kind: 'image', default: '/brand/noely-servicos.jpg' },
     ],
   },
   {
@@ -116,7 +116,7 @@ export const SITE_SECTIONS: SiteSection[] = [
     fields: [
       { key: 'contact.title', label: 'Título', kind: 'text', default: 'Fale conosco' },
       { key: 'contact.description', label: 'Texto', kind: 'textarea', default: 'WhatsApp, Instagram, endereço e horários da clínica em Camaçari (BA).' },
-      { key: 'contact.image', label: 'Foto do topo', kind: 'image', default: '/brand/noely-limpeza.jpg' },
+      { key: 'contact.image', label: 'Foto do topo', kind: 'image', default: '/brand/noely-contato.jpg' },
     ],
   },
 ];
