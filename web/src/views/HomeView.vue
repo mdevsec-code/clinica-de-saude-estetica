@@ -120,6 +120,15 @@ const igPreviewPhotos = computed(() =>
 
 // Textos editáveis em Painel → Site (padrões em data/site-content.ts).
 const site = useSiteContentStore();
+// Resultados reais da clínica (fotos e vídeos autorizados pelas clientes).
+const results = [
+  { src: '/results/preenchimento-labial-1.jpg', label: 'Preenchimento labial', note: 'Antes e depois' },
+  { src: '/results/toxina-botulinica.jpg', label: 'Toxina botulínica (botox)', note: 'Antes e depois' },
+  { src: '/results/harmonizacao-facial.mp4', label: 'Harmonização facial', note: 'Vídeo do procedimento', video: true, poster: 7 },
+  { src: '/results/preenchimento-labial-2.jpg', label: 'Preenchimento labial', note: 'Antes e depois' },
+  { src: '/results/harmonizacao-corporal.mp4', label: 'Harmonização corporal', note: 'Vídeo do procedimento', video: true, poster: 3 },
+] as { src: string; label: string; note: string; video?: boolean; poster?: number }[];
+
 const differentials = computed(() =>
   [1, 2, 3].map((n) => ({ title: site.get(`home.why${n}Title`), text: site.get(`home.why${n}Text`) })),
 );
@@ -186,8 +195,13 @@ const steps = computed(() =>
          grande à direita. -->
     <section class="about">
       <div class="container about__grid" data-reveal>
-        <h2 data-split>{{ site.get('home.aboutTitle') }}</h2>
-        <p class="about__statement">{{ site.get('home.aboutText') }}</p>
+        <figure class="about__photo">
+          <img src="/brand/noely-consultorio.jpg" alt="Noely Cerqueira no consultório, com os certificados ao fundo" loading="lazy" decoding="async" />
+        </figure>
+        <div class="about__text">
+          <h2 data-split>{{ site.get('home.aboutTitle') }}</h2>
+          <p class="about__statement">{{ site.get('home.aboutText') }}</p>
+        </div>
       </div>
     </section>
 
@@ -212,6 +226,22 @@ const steps = computed(() =>
             <span class="specialty-card__name">{{ category.name }}</span>
           </RouterLink>
         </div>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="container">
+        <div class="specialties__heading">
+          <h2 data-split>Resultados</h2>
+          <p class="specialties__lead" data-reveal>Clientes reais da clínica, antes e depois e durante o procedimento.</p>
+        </div>
+        <ul class="results__grid">
+          <li v-for="item in results" :key="item.src" class="results__item">
+            <video v-if="item.video" :src="`${item.src}#t=${item.poster ?? 0.5}`" controls muted playsinline preload="metadata" :aria-label="item.label" />
+            <img v-else :src="item.src" :alt="`${item.label}: ${item.note.toLowerCase()}`" loading="lazy" decoding="async" />
+            <p class="results__caption"><strong>{{ item.label }}</strong> {{ item.note }}</p>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -486,6 +516,75 @@ h2 {
 
 .about h2 {
   color: #fff;
+}
+
+.about__photo {
+  margin: 0;
+  aspect-ratio: 4 / 5;
+  max-width: 420px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-dusk-800);
+}
+
+.about__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+  display: block;
+}
+
+.about__text {
+  display: grid;
+  gap: var(--space-5);
+  align-content: center;
+}
+
+/* --- Resultados --- */
+.results {
+  position: relative;
+  padding-block: var(--space-9);
+}
+
+.results__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
+}
+
+@media (min-width: 900px) {
+  .results__grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.results__item {
+  margin: 0;
+}
+
+.results__item img,
+.results__item video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--color-rose-100);
+}
+
+.results__caption {
+  margin: var(--space-2) 0 0;
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}
+
+.results__caption strong {
+  display: block;
+  color: var(--color-ink);
 }
 
 .about__statement {
@@ -796,8 +895,8 @@ h2 {
   }
 
   .about__grid {
-    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    align-items: center;
     gap: var(--space-8);
   }
 

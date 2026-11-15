@@ -107,7 +107,7 @@ export const SITE_SECTIONS: SiteSection[] = [
     fields: [
       { key: 'booking.title', label: 'Título', kind: 'text', default: 'Agende seu horário' },
       { key: 'booking.description', label: 'Texto', kind: 'textarea', default: 'Escolha o procedimento, o dia e o horário. A confirmação chega pelo WhatsApp.' },
-      { key: 'booking.image', label: 'Foto do topo', kind: 'image', default: '/services/micropigmentacao.jpg' },
+      { key: 'booking.image', label: 'Foto do topo', kind: 'image', default: '/brand/noely-agendar.jpg' },
     ],
   },
   {
@@ -116,7 +116,7 @@ export const SITE_SECTIONS: SiteSection[] = [
     fields: [
       { key: 'contact.title', label: 'Título', kind: 'text', default: 'Fale conosco' },
       { key: 'contact.description', label: 'Texto', kind: 'textarea', default: 'WhatsApp, Instagram, endereço e horários da clínica em Camaçari (BA).' },
-      { key: 'contact.image', label: 'Foto do topo', kind: 'image', default: '/services/massagens-terapias-corporais.jpg' },
+      { key: 'contact.image', label: 'Foto do topo', kind: 'image', default: '/brand/noely-limpeza.jpg' },
     ],
   },
 ];
