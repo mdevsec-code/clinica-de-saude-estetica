@@ -4,12 +4,14 @@ import ImageUploadButton from '@/components/admin/ImageUploadButton.vue';
 import { assetUrl } from '@/utils/images';
 import { thumbUrl } from '@/utils/images';
 import { computed, onMounted, reactive, ref } from 'vue';
+import Sortable from 'sortablejs';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/services/api';
 import {
   createCategory,
   createService,
   fetchAdminCategories,
+  reorderCatalog,
   updateCategory,
   updateService,
 } from '@/services/admin-catalog.service';
@@ -38,6 +40,70 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+
+// Arrastar para ordenar (pela alça ⠿). O SortableJS move o elemento na tela;
+// aqui desfazemos esse movimento e mudamos a lista, para o Vue continuar dono
+// da ordem — depois a nova ordem vai para o servidor.
+const reorderError = ref<string | null>(null);
+function undoDomMove(e: Sortable.SortableEvent) {
+  e.to.removeChild(e.item);
+  e.from.insertBefore(e.item, e.from.children[e.oldIndex!] ?? null);
+}
+async function saveOrder(calls: Parameters<typeof reorderCatalog>[0][]) {
+  reorderError.value = null;
+  try {
+    for (const payload of calls) await reorderCatalog(payload);
+  } catch {
+    reorderError.value = 'Não foi possível salvar a nova ordem. A lista foi recarregada.';
+    load();
+  }
+}
+const sortableDefaults = { animation: 180, ghostClass: 'admin-drag-ghost', chosenClass: 'admin-drag-chosen', delay: 120, delayOnTouchOnly: true };
+const sortables = new WeakMap<HTMLElement, Sortable>();
+
+function bindCategoryList(el: unknown) {
+  if (!(el instanceof HTMLElement) || sortables.has(el)) return;
+  sortables.set(el, Sortable.create(el, {
+    ...sortableDefaults,
+    handle: '.admin-category__drag',
+    draggable: '.admin-category',
+    onEnd(e) {
+      undoDomMove(e);
+      if (e.oldIndex == null || e.newIndex == null || e.oldIndex === e.newIndex) return;
+      const [moved] = categories.value.splice(e.oldIndex, 1);
+      categories.value.splice(e.newIndex, 0, moved);
+      saveOrder([{ kind: 'categories', ids: categories.value.map((c) => c.id) }]);
+    },
+  }));
+}
+
+function bindServiceList(el: unknown) {
+  if (!(el instanceof HTMLElement) || sortables.has(el)) return;
+  sortables.set(el, Sortable.create(el, {
+    ...sortableDefaults,
+    group: 'services',
+    handle: '.admin-service__drag',
+    draggable: '.admin-service',
+    onEnd(e) {
+      undoDomMove(e);
+      if (e.oldIndex == null || e.newIndex == null || (e.from === e.to && e.oldIndex === e.newIndex)) return;
+      const from = categories.value.find((c) => c.id === e.from.dataset.categoryId);
+      const to = categories.value.find((c) => c.id === e.to.dataset.categoryId);
+      if (!from || !to) return;
+      const [moved] = from.services.splice(e.oldIndex, 1);
+      to.services.splice(e.newIndex, 0, moved);
+      const calls: Parameters<typeof reorderCatalog>[0][] = [];
+      if (from !== to) {
+        moved.categoryId = to.id;
+        calls.push({ kind: 'services', ids: to.services.map((s) => s.id), categoryId: to.id });
+        if (from.services.length) calls.push({ kind: 'services', ids: from.services.map((s) => s.id) });
+      } else {
+        calls.push({ kind: 'services', ids: to.services.map((s) => s.id) });
+      }
+      saveOrder(calls);
+    },
+  }));
 }
 
 // IDs dos 3 serviços mais agendados no mês, na ordem — reaproveita o mesmo
@@ -286,7 +352,7 @@ async function toggleServiceActive(service: AdminService) {
       <div class="admin-catalog__title">
         <div>
           <h1>Serviços e categorias</h1>
-          <p>Cadastre aqui o que aparece no site público e no agendamento.</p>
+          <p>Cadastre aqui o que aparece no site público e no agendamento. Arraste pela alça ⠿ para mudar a ordem no site.</p>
         </div>
       </div>
     </div>
@@ -327,7 +393,9 @@ async function toggleServiceActive(service: AdminService) {
       </form>
 
       <EmptyState v-if="!categories.length" title="Nenhuma categoria cadastrada ainda." />
+      <p v-if="reorderError" class="admin-error">{{ reorderError }}</p>
 
+      <div :ref="bindCategoryList" class="admin-catalog__categories">
       <div v-for="category in categories" :key="category.id" class="admin-card admin-category" :class="{ 'admin-category--inactive': !category.active }">
         <div
           class="admin-category__header"
@@ -342,6 +410,7 @@ async function toggleServiceActive(service: AdminService) {
             <button type="button" class="admin-chip-btn" @click="cancelEditCategory">Cancelar</button>
           </div>
           <div v-else class="admin-category__title">
+            <button type="button" class="admin-drag-handle admin-category__drag" aria-label="Arrastar categoria para mudar a ordem" title="Arrastar para mudar a ordem"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg></button>
             <span v-if="!category.imageUrl" class="admin-category__thumb">
               <span class="admin-category__thumb-fallback">{{ category.name.charAt(0) }}</span>
             </span>
@@ -371,7 +440,7 @@ async function toggleServiceActive(service: AdminService) {
           </div>
         </div>
 
-        <ul v-if="category.services.length" class="admin-service-grid">
+        <ul :ref="bindServiceList" class="admin-service-grid" :class="{ 'admin-service-grid--empty': !category.services.length }" :data-category-id="category.id">
           <li v-for="service in category.services" :key="service.id" class="admin-service" :class="{ 'admin-service--inactive': !service.active }">
             <template v-if="editingServiceId === service.id">
               <div class="admin-service__edit">
@@ -410,6 +479,7 @@ async function toggleServiceActive(service: AdminService) {
               </div>
             </template>
             <template v-else>
+              <button type="button" class="admin-drag-handle admin-service__drag" aria-label="Arrastar serviço para mudar a ordem" title="Arrastar para mudar a ordem"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg></button>
               <div class="admin-service__icon" :class="{ 'admin-service__icon--photo': service.imageUrl }">
                 <img v-if="service.imageUrl" :src="thumbUrl(service.imageUrl)" alt="" loading="lazy" decoding="async" />
                 <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7l9 5 9-5-9-5Z" /><path d="M3 12l9 5 9-5" /></svg>
@@ -454,7 +524,7 @@ async function toggleServiceActive(service: AdminService) {
             </template>
           </li>
         </ul>
-        <p v-else class="admin-empty-hint">Nenhum serviço nesta categoria ainda.</p>
+        <p v-if="!category.services.length" class="admin-empty-hint">Nenhum serviço nesta categoria ainda. Arraste um serviço para cá ou crie um novo.</p>
 
         <form v-if="openNewServiceFor === category.id" class="admin-new-service-form" @submit.prevent="submitNewService(category)">
           <div class="admin-form-row">
@@ -491,6 +561,7 @@ async function toggleServiceActive(service: AdminService) {
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Novo serviço
         </button>
+      </div>
       </div>
     </div>
     </Transition>
@@ -693,6 +764,57 @@ async function toggleServiceActive(service: AdminService) {
 
 .admin-category--inactive {
   opacity: 0.65;
+}
+
+.admin-catalog__categories {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.admin-drag-handle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 36px;
+  margin: 0 -4px 0 -8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-soft);
+  cursor: grab;
+  touch-action: none;
+}
+
+.admin-drag-handle:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+
+.admin-category__header--photo .admin-drag-handle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-category__header--photo .admin-drag-handle:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.admin-drag-ghost {
+  opacity: 0.35;
+}
+
+.admin-drag-chosen {
+  box-shadow: var(--shadow-float);
+}
+
+.admin-service-grid--empty {
+  min-height: 56px;
+  margin: 0;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .admin-category__header {
@@ -933,6 +1055,18 @@ async function toggleServiceActive(service: AdminService) {
 }
 
 @media (max-width: 640px) {
+  /* Celular: editar/desativar descem para uma linha própria, deixando o nome
+     do serviço com a largura toda (a alça de arrastar já ocupa a esquerda). */
+  .admin-service {
+    flex-wrap: wrap;
+  }
+
+  .admin-service__actions {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   /* Mesmo risco do grid de KPIs do dashboard (ver comentário lá): auto-fill
      pode encaixar uma 2ª coluna bem abaixo do mínimo pedido em telas
      estreitas, espremendo o conteúdo do card. display:flex em vez de só

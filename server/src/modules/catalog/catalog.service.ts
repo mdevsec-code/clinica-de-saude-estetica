@@ -234,3 +234,25 @@ export async function updateService(tenantId: string, id: string, input: Partial
     },
   });
 }
+
+// Nova ordem vinda do arrastar no painel: a posição na lista vira o sortOrder.
+// Serviços com categoryId também mudam de categoria (arrastados para outra).
+export async function reorderCatalog(
+  tenantId: string,
+  input: { kind: 'categories' | 'services'; ids: string[]; categoryId?: string },
+) {
+  if (input.kind === 'services' && input.categoryId) {
+    const category = await prisma.serviceCategory.findFirst({ where: { id: input.categoryId, tenantId } });
+    if (!category) throw new NotFoundError('Categoria não encontrada.');
+  }
+  await prisma.$transaction(
+    input.ids.map((id, sortOrder) =>
+      input.kind === 'categories'
+        ? prisma.serviceCategory.updateMany({ where: { id, tenantId }, data: { sortOrder } })
+        : prisma.service.updateMany({
+            where: { id, tenantId },
+            data: { sortOrder, ...(input.categoryId ? { categoryId: input.categoryId } : {}) },
+          }),
+    ),
+  );
+}

@@ -9,6 +9,7 @@ import {
   listCategoriesWithServices,
   updateCategory,
   updateService,
+  reorderCatalog,
 } from './catalog.service';
 
 export const catalogRouter = Router();
@@ -109,6 +110,20 @@ adminRouter.post(
     const input = serviceInputSchema.parse(req.body);
     const service = await createService(req.tenant.id, req.params.categoryId, input);
     res.status(201).json({ service });
+  }),
+);
+
+const reorderSchema = z.object({
+  kind: z.enum(['categories', 'services']),
+  ids: z.array(z.string().min(1)).min(1).max(500),
+  categoryId: z.string().min(1).optional(),
+});
+
+adminRouter.post(
+  '/reorder',
+  asyncHandler(async (req, res) => {
+    await reorderCatalog(req.tenant.id, reorderSchema.parse(req.body));
+    res.status(204).end();
   }),
 );
 

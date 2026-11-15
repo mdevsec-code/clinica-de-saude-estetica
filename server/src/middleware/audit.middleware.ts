@@ -67,6 +67,11 @@ const AUDIT_RULES: Record<string, AuditRule> = {
   'POST /catalog/admin/categories': { entityType: 'category', action: 'CREATE', label: (body) => str(body.name) },
   'PATCH /catalog/admin/categories/:id': { entityType: 'category', action: 'UPDATE', label: (body) => str(body.name) },
   'POST /catalog/admin/categories/:categoryId/services': { entityType: 'service', action: 'CREATE', label: (body) => str(body.name) },
+  'POST /catalog/admin/reorder': {
+    entityType: 'category',
+    action: 'UPDATE',
+    label: (body) => (body.kind === 'categories' ? 'Ordem das categorias' : 'Ordem dos serviços'),
+  },
   'PATCH /catalog/admin/services/:id': { entityType: 'service', action: 'UPDATE', label: (body) => str(body.name) },
   'POST /finance/expenses': { entityType: 'expense', action: 'CREATE', label: (body) => str(body.description) },
   'PATCH /finance/expenses/:id': { entityType: 'expense', action: 'UPDATE', label: (body) => str(body.description) },

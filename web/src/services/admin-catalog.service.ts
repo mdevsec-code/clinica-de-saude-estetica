@@ -44,6 +44,11 @@ export function createService(categoryId: string, payload: ServicePayload) {
   });
 }
 
+// Nova ordem depois de arrastar (categoryId: o serviço foi para essa categoria).
+export function reorderCatalog(payload: { kind: 'categories' | 'services'; ids: string[]; categoryId?: string }) {
+  return apiRequest<void>('/catalog/admin/reorder', { method: 'POST', body: JSON.stringify(payload) });
+}
+
 export function updateService(
   id: string,
   payload: Partial<ServicePayload> & { categoryId?: string; active?: boolean },
