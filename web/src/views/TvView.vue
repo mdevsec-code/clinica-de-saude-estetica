@@ -46,16 +46,13 @@ const musicOn = ref(false);
 const startMusic = () => (musicOn.value = true);
 const index = ref(0);
 
-// Avaliação (repetida em toda categoria) e retornos não são procedimentos
-// para divulgar: a avaliação vira o slide final, de chamada para agendar.
-const skip = (name: string) => /^(avalia|retorno)/i.test(name.trim());
 const priceLabel = (price: number | null) =>
   price == null ? 'Mediante avaliação' : price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const slides = computed<Slide[]>(() => {
   const list: Slide[] = [];
   for (const c of categories.value) {
-    const services = c.services.filter((s) => !skip(s.name));
+    const services = c.services; // todos os procedimentos ativos, na ordem do painel
     if (!services.length) continue;
     list.push({ key: `c-${c.id}`, kind: 'category', title: c.name, image: assetUrl(c.imageUrl), count: services.length, ms: CATEGORY_MS });
     for (const s of services) {
@@ -144,57 +141,65 @@ onUnmounted(() => {
 <template>
   <div class="tv">
     <Transition name="tv-fade">
-      <section v-if="current" :key="current.key" class="tv__slide" :class="`tv__slide--${current.kind}`">
+      <section v-if="current" :key="current.key" class="tv__slide">
+        <!-- Foto inteira (sem corte) sobre um fundo desfocado dela mesma. -->
         <div class="tv__photo">
-          <img v-if="current.image" :src="current.image" alt="" />
+          <template v-if="current.image">
+            <img :src="current.image" alt="" class="tv__photo-bg" />
+            <img :src="current.image" alt="" class="tv__photo-img" />
+          </template>
         </div>
 
-        <div v-if="current.kind === 'category'" class="tv__category">
-          <p class="tv__eyebrow">Especialidade</p>
-          <h1>{{ current.title }}</h1>
-          <p class="tv__count">{{ current.count }} {{ current.count === 1 ? 'procedimento' : 'procedimentos' }}</p>
-        </div>
+        <div class="tv__panel">
+          <div class="tv__content">
+            <template v-if="current.kind === 'category'">
+              <p class="tv__eyebrow">Especialidade</p>
+              <h1 class="tv__title tv__title--big">{{ current.title }}</h1>
+              <p class="tv__lead">{{ current.count }} {{ current.count === 1 ? 'procedimento' : 'procedimentos' }}</p>
+            </template>
 
-        <div v-else-if="current.kind === 'service'" class="tv__panel">
-          <p class="tv__eyebrow">{{ current.category }}</p>
-          <h1>{{ current.title }}</h1>
-          <p v-if="current.description" class="tv__description">{{ current.description }}</p>
-          <dl class="tv__facts">
-            <div>
-              <dt>Duração</dt>
-              <dd>{{ current.duration }} min</dd>
-            </div>
-            <div>
-              <dt>Valor</dt>
-              <dd>{{ current.price }}</dd>
-            </div>
-          </dl>
-        </div>
+            <template v-else-if="current.kind === 'service'">
+              <p class="tv__eyebrow">{{ current.category }}</p>
+              <h1 class="tv__title">{{ current.title }}</h1>
+              <p v-if="current.description" class="tv__lead">{{ current.description }}</p>
+              <dl class="tv__facts">
+                <div>
+                  <dt>Duração</dt>
+                  <dd>{{ current.duration }} min</dd>
+                </div>
+                <div>
+                  <dt>Valor</dt>
+                  <dd>{{ current.price }}</dd>
+                </div>
+              </dl>
+            </template>
 
-        <div v-else class="tv__panel tv__panel--cta">
-          <h1>{{ current.title }}</h1>
-          <p class="tv__description">Aponte a câmera do celular para o código e escolha o dia e o horário.</p>
-          <div class="tv__cta-row">
-            <img src="/brand/qr-agendar.svg" alt="" class="tv__qr tv__qr--big" />
-            <div class="tv__contacts">
-              <p>noelycerqueira.com.br</p>
-              <p v-if="phone">WhatsApp {{ phone }}</p>
-              <p v-if="settings.data?.instagram">{{ settings.data.instagram }}</p>
-            </div>
+            <template v-else>
+              <h1 class="tv__title tv__title--big">{{ current.title }}</h1>
+              <ul class="tv__contacts">
+                <li v-if="phone">WhatsApp {{ phone }}</li>
+                <li v-if="settings.data?.instagram">Instagram {{ settings.data.instagram }}</li>
+              </ul>
+            </template>
           </div>
         </div>
       </section>
     </Transition>
 
-    <footer v-if="current && current.kind !== 'cta'" class="tv__footer">
-      <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" class="tv__logo" />
-      <div class="tv__book">
-        <span>Agende pelo site<strong>noelycerqueira.com.br</strong></span>
-        <img src="/brand/qr-agendar.svg" alt="" class="tv__qr" />
-      </div>
-    </footer>
+    <!-- Fixos, iguais em todos os slides: logo no alto da foto, player no pé
+         da foto e QR no pé do painel — nunca um por cima do outro. -->
+    <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" class="tv__logo" />
 
-    <div v-if="playlistId && current" class="tv__music" :class="`tv__music--${current.kind}`">
+    <div class="tv__book">
+      <img src="/brand/qr-agendar.svg" alt="" class="tv__qr" />
+      <p>
+        <strong>Agende pelo celular</strong>
+        Aponte a câmera para o código
+        <span>noelycerqueira.com.br</span>
+      </p>
+    </div>
+
+    <div v-if="playlistId" class="tv__music">
       <iframe
         v-if="musicOn"
         :src="`https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&loop=1&playsinline=1&rel=0`"
@@ -212,12 +217,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Cores fixas (não seguem o modo escuro do site): a TV é sempre igual. */
+/* Cores fixas (não seguem o modo escuro do site): a TV é sempre igual.
+   Medidas em vw (desenho em 1920×1080), margens largas porque TVs cortam
+   as bordas. */
 .tv {
   --wine: #6f3d43;
   --deep: #1c1210;
   --rose: #f3ddd6;
   --gold: #c8a465;
+  --edge: 3vw;
+  --photo-w: 58vw;
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -230,106 +239,88 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 56% 44%;
+  grid-template-columns: var(--photo-w) 1fr;
 }
 
 .tv__photo {
   position: relative;
   overflow: hidden;
-  background: var(--wine);
+  background: var(--deep);
 }
 
-.tv__photo img {
+.tv__photo-bg {
+  position: absolute;
+  inset: -5%;
+  width: 110%;
+  height: 110%;
+  object-fit: cover;
+  filter: blur(40px) brightness(0.55) saturate(1.2);
+}
+
+.tv__photo-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  animation: tv-zoom 12s ease-out both;
+  object-fit: contain;
+  animation: tv-zoom 10s ease-out both;
 }
 
 @keyframes tv-zoom {
-  from { transform: scale(1.12); }
+  from { transform: scale(1.05); }
   to { transform: scale(1); }
 }
 
-/* Especialidade: foto na tela toda, nome grande por cima. */
-.tv__slide--category {
-  grid-template-columns: 1fr;
-}
-
-.tv__slide--category .tv__photo {
-  grid-area: 1 / 1;
-}
-
-.tv__slide--category .tv__photo::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(28, 18, 16, 0.85) 0%, rgba(28, 18, 16, 0.35) 60%, rgba(28, 18, 16, 0.1) 100%);
-}
-
-.tv__category {
-  grid-area: 1 / 1;
-  z-index: 1;
-  align-self: center;
-  padding: 0 6vw;
-  max-width: 60vw;
-}
-
-.tv__category h1 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 7.2vw;
-  font-weight: 400;
-  line-height: 1;
-  color: #fff;
-}
-
-.tv__count {
-  margin: 2vw 0 0;
-  font-size: 2vw;
-  color: var(--rose);
-}
-
-/* Procedimento: foto à esquerda, ficha à direita em campo vinho. */
 .tv__panel {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 5vw 5vw 9vw 4.5vw;
+  /* Embaixo fica o QR (fixo, fora do slide): reserva a altura dele. */
+  padding: 4.5vw 3.5vw calc(var(--edge) + 14vw) 3.5vw;
   background: var(--wine);
 }
 
+.tv__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
 .tv__eyebrow {
-  margin: 0 0 1.2vw;
+  margin: 0 0 1vw;
   font-size: 1.5vw;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--gold);
 }
 
-.tv__panel h1 {
+.tv__title {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: 4.6vw;
+  font-size: 4vw;
   font-weight: 400;
   line-height: 1.05;
   color: #fff;
   text-wrap: balance;
 }
 
-.tv__description {
-  margin: 1.8vw 0 0;
-  font-size: 1.6vw;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.85);
-  max-width: 32ch;
+.tv__title--big {
+  font-size: 5vw;
+}
+
+.tv__lead {
+  margin: 1.6vw 0 0;
+  font-size: 1.7vw;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .tv__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.4vw 3.5vw;
-  margin: 3vw 0 0;
+  gap: 1.2vw 3vw;
+  margin: 2.4vw 0 0;
 }
 
 .tv__facts dt {
@@ -339,83 +330,108 @@ onUnmounted(() => {
 
 .tv__facts dd {
   margin: 0.3vw 0 0;
-  font-size: 2.2vw;
+  font-size: 2.1vw;
   font-weight: 600;
   color: #fff;
 }
 
-/* Chamada final. */
-.tv__panel--cta {
-  padding-bottom: 5vw;
-}
-
-.tv__cta-row {
-  display: flex;
-  align-items: center;
-  gap: 2.5vw;
-  margin-top: 3vw;
-}
-
-.tv__contacts p {
-  margin: 0 0 0.8vw;
+.tv__contacts {
+  list-style: none;
+  margin: 2vw 0 0;
+  padding: 0;
+  font-size: 1.8vw;
+  line-height: 1.8;
   white-space: nowrap;
-  font-size: 1.7vw;
-  color: #fff;
-}
-
-/* Rodapé fixo: marca e QR para agendar. */
-.tv__footer {
-  position: absolute;
-  left: 4.5vw;
-  right: 4.5vw;
-  bottom: 3.5vw;
-  z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  pointer-events: none;
 }
 
 .tv__logo {
-  width: 13vw;
-  padding: 0.8vw 1.2vw;
+  position: absolute;
+  top: var(--edge);
+  left: var(--edge);
+  z-index: 3;
+  width: 11vw;
+  padding: 0.7vw 1vw;
   border-radius: 0.8vw;
-  background: rgba(255, 253, 251, 0.92);
+  background: rgba(255, 253, 251, 0.94);
 }
 
 .tv__book {
+  position: absolute;
+  left: calc(var(--photo-w) + 3.5vw);
+  right: var(--edge);
+  bottom: var(--edge);
+  z-index: 3;
   display: flex;
   align-items: center;
-  gap: 1.2vw;
-  font-size: 1.1vw;
+  gap: 1.6vw;
+}
+
+.tv__qr {
+  flex: none;
+  width: 13vw;
+  height: 13vw;
+  padding: 0.6vw;
+  border-radius: 0.8vw;
+  background: #fff;
+}
+
+.tv__book p {
+  margin: 0;
+  font-size: 1.3vw;
+  line-height: 1.4;
   color: var(--rose);
-  text-align: right;
 }
 
 .tv__book strong {
   display: block;
-  font-size: 1.4vw;
+  margin-bottom: 0.3vw;
+  font-size: 1.9vw;
   color: #fff;
 }
 
-.tv__qr {
-  width: 6.5vw;
-  height: 6.5vw;
-  padding: 0.4vw;
-  border-radius: 0.6vw;
-  background: #fff;
+.tv__book span {
+  display: block;
+  margin-top: 0.5vw;
+  font-size: 1.3vw;
+  font-weight: 600;
+  color: #fff;
 }
 
-.tv__qr--big {
-  width: 13vw;
-  height: 13vw;
+/* Player do YouTube: sempre no pé da foto, à esquerda (mínimo 356×200 pelas
+   regras do YouTube). */
+.tv__music {
+  position: absolute;
+  left: var(--edge);
+  bottom: var(--edge);
+  z-index: 4;
+  width: max(356px, 22vw);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: flex-end;
+}
+
+.tv__music iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0.6vw;
+  box-shadow: 0 0.6vw 2vw rgba(0, 0, 0, 0.45);
+}
+
+.tv__music-hint {
+  margin: 0;
+  padding: 0.7vw 1.2vw;
+  border-radius: 999px;
+  background: rgba(28, 18, 16, 0.8);
+  font-size: 1.1vw;
+  color: #fff;
 }
 
 .tv__progress {
   position: absolute;
   left: 0;
   bottom: 0;
-  z-index: 3;
+  z-index: 5;
   height: 0.35vw;
   width: 100%;
   background: var(--gold);
@@ -426,48 +442,6 @@ onUnmounted(() => {
 @keyframes tv-progress {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
-}
-
-.tv__music {
-  position: absolute;
-  z-index: 4;
-  top: 3vw;
-  width: max(356px, 22vw);
-  aspect-ratio: 16 / 9;
-  transition: left 0.8s ease, right 0.8s ease, top 0.8s ease;
-}
-
-/* Sempre sobre a foto, longe dos textos: no procedimento a foto fica à
-   esquerda; na especialidade o texto fica à esquerda; no final, embaixo. */
-.tv__music--service {
-  left: 3vw;
-}
-
-.tv__music--category {
-  left: calc(100vw - 3vw - max(356px, 22vw));
-}
-
-.tv__music--cta {
-  left: 3vw;
-  top: calc(100vh - 3vw - max(356px, 22vw) * 9 / 16);
-}
-
-.tv__music iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  border-radius: 0.6vw;
-  box-shadow: 0 0.6vw 2vw rgba(0, 0, 0, 0.4);
-}
-
-.tv__music-hint {
-  display: inline-block;
-  margin: 0;
-  padding: 0.7vw 1.2vw;
-  border-radius: 999px;
-  background: rgba(28, 18, 16, 0.75);
-  font-size: 1.1vw;
-  color: #fff;
 }
 
 .tv__preload {
