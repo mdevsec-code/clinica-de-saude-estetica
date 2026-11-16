@@ -143,7 +143,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="tv">
+  <div class="tv" :class="{ 'tv--music': musicSrc }">
     <Transition name="tv-fade">
       <section v-if="current" :key="current.key" class="tv__slide">
         <!-- Foto inteira (sem corte) sobre um fundo desfocado dela mesma. -->
@@ -190,9 +190,20 @@ onUnmounted(() => {
       </section>
     </Transition>
 
-    <!-- Fixos, iguais em todos os slides: logo no alto da foto, player no pé
-         da foto e QR no pé do painel — nunca um por cima do outro. -->
-    <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" class="tv__logo" />
+    <!-- Fixos, iguais em todos os slides: faixa escura embaixo da foto (logo e
+         player) e QR no pé do painel. Nada fica por cima das fotos. -->
+    <div class="tv__strip">
+      <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" class="tv__logo" />
+      <div v-if="musicSrc" class="tv__music">
+        <iframe
+          v-if="musicOn"
+          :src="musicSrc"
+          title="Música da clínica"
+          allow="autoplay; encrypted-media"
+        />
+        <p v-else class="tv__music-hint">♪ Aperte OK no controle para tocar a música</p>
+      </div>
+    </div>
 
     <div class="tv__book">
       <img src="/brand/qr-agendar.svg" alt="" class="tv__qr" />
@@ -201,16 +212,6 @@ onUnmounted(() => {
         Aponte a câmera para o código
         <span>noelycerqueira.com.br</span>
       </p>
-    </div>
-
-    <div v-if="musicSrc" class="tv__music">
-      <iframe
-        v-if="musicOn"
-        :src="musicSrc"
-        title="Música da clínica"
-        allow="autoplay; encrypted-media"
-      />
-      <p v-else class="tv__music-hint">♪ Aperte OK no controle para tocar a música</p>
     </div>
 
     <div v-if="current" :key="`bar-${current.key}`" class="tv__progress" :style="{ animationDuration: `${current.ms}ms` }" />
@@ -231,10 +232,15 @@ onUnmounted(() => {
   --gold: #c8a465;
   --edge: 3vw;
   --photo-w: 58vw;
+  --player-w: max(356px, 22vw);
+  --player-h: calc(var(--player-w) * 9 / 16);
+  /* Altura da faixa de baixo da foto: só a logo, ou a logo e o player. */
+  --strip-h: calc(7vw + var(--edge));
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: var(--deep);
+  /* Fundo igual aos dois lados do slide: na troca não pisca. */
+  background: linear-gradient(90deg, var(--deep) var(--photo-w), var(--wine) var(--photo-w));
   color: #fff;
   cursor: none;
 }
@@ -246,8 +252,13 @@ onUnmounted(() => {
   grid-template-columns: var(--photo-w) 1fr;
 }
 
+.tv--music {
+  --strip-h: calc(var(--player-h) + 2 * var(--edge));
+}
+
 .tv__photo {
   position: relative;
+  height: calc(100% - var(--strip-h));
   overflow: hidden;
   background: var(--deep);
 }
@@ -348,11 +359,23 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.tv__logo {
+/* Faixa embaixo da foto: logo à esquerda, player à direita. */
+.tv__strip {
   position: absolute;
-  top: var(--edge);
-  left: var(--edge);
+  left: 0;
+  bottom: 0;
   z-index: 3;
+  width: var(--photo-w);
+  height: var(--strip-h);
+  padding: 0 var(--edge);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--edge);
+  background: var(--deep);
+}
+
+.tv__logo {
   width: 11vw;
   padding: 0.7vw 1vw;
   border-radius: 0.8vw;
@@ -401,17 +424,14 @@ onUnmounted(() => {
   color: #fff;
 }
 
-/* Player do YouTube: sempre no pé da foto, à esquerda (mínimo 356×200 pelas
-   regras do YouTube). */
+/* Player do YouTube (mínimo 356×200 pelas regras do YouTube). */
 .tv__music {
-  position: absolute;
-  left: var(--edge);
-  bottom: var(--edge);
-  z-index: 4;
-  width: max(356px, 22vw);
-  aspect-ratio: 16 / 9;
+  flex: none;
+  width: var(--player-w);
+  height: var(--player-h);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .tv__music iframe {
@@ -456,9 +476,13 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.tv-fade-enter-active,
+/* O slide que sai some antes do novo entrar: textos nunca se sobrepõem. */
 .tv-fade-leave-active {
-  transition: opacity 1s ease;
+  transition: opacity 0.45s ease;
+}
+
+.tv-fade-enter-active {
+  transition: opacity 0.8s ease 0.45s;
 }
 
 .tv-fade-enter-from,
