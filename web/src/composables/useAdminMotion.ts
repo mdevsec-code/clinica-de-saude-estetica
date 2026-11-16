@@ -43,7 +43,9 @@ export function installAdminMotion(root: HTMLElement) {
     gsap.fromTo(
       items,
       { opacity: 0, y: 26, scale: 0.985 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.75, ease: 'premium-out', stagger: 0.06, clearProps: 'opacity,transform' },
+      // Só limpa o transform: limpar a opacidade devolvia [data-reveal] (ex.:
+      // KPIs do Painel) ao opacity:0 do CSS global e o cartão sumia de vez.
+      { opacity: 1, y: 0, scale: 1, duration: 0.75, ease: 'premium-out', stagger: 0.06, clearProps: 'transform' },
     );
   };
   const queue = (el: HTMLElement) => {

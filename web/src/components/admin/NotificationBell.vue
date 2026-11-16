@@ -121,11 +121,11 @@ async function alertTodayTasks() {
   }
 }
 
-// Recepção: contagem regressiva de 10 min para olhar o WhatsApp Web. Ao zerar,
+// Recepção: contagem regressiva de 15 min para olhar o WhatsApp Web. Ao zerar,
 // o sino toca a cada 5 s até a pessoa clicar em "Vou olhar". O prazo fica no
 // navegador, então recarregar a página (ou outra aba) não zera a contagem.
 const isReception = computed(() => auth.user?.role === 'RECEPTION');
-const WA_EVERY_MS = 10 * 60_000;
+const WA_EVERY_MS = 15 * 60_000;
 const WA_KEY = 'noely-whatsapp-deadline';
 const now = ref(Date.now());
 const waDeadline = ref(0);
@@ -219,7 +219,7 @@ function ago(iso: string) {
         <span class="bell__wa-long">Olhe o WhatsApp Web</span>
         <button type="button" class="bell__wa-ok" @click="resetWhatsapp">Vou olhar<span class="bell__wa-short"> o WhatsApp</span></button>
       </template>
-      <span v-else :aria-label="`WhatsApp em ${waLabel}`"><span class="bell__wa-long">WhatsApp em </span><span class="bell__wa-short" aria-hidden="true">✆ </span><strong>{{ waLabel }}</strong></span>
+      <span v-else :aria-label="`WhatsApp em ${waLabel}`"><span class="bell__wa-long">WhatsApp em </span><svg class="bell__wa-short bell__wa-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3l-4.5 1.5Z" /></svg><strong>{{ waLabel }}</strong></span>
     </div>
     <button
       type="button"
@@ -311,6 +311,12 @@ function ago(iso: string) {
 
 .bell__wa-short {
   display: none;
+}
+
+.bell__wa-icon {
+  flex: none;
+  margin-right: 4px;
+  vertical-align: -2px;
 }
 
 @media (max-width: 600px) {
