@@ -212,7 +212,7 @@ export const SITE_SECTIONS: SiteSection[] = [
         label: 'Música da TV (link do YouTube)',
         kind: 'text',
         default: '',
-        hint: 'Cole o link de uma playlist ou de um vídeo (público ou não listado). O vídeo repete sem parar. Em branco: TV sem música.',
+        hint: 'Cole o link de uma playlist (toca a playlist inteira) ou de uma música (toca uma rádio do YouTube a partir dela, passando para músicas parecidas). Em branco: TV sem música.',
       },
     ],
   },

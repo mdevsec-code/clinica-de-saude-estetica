@@ -37,14 +37,15 @@ const site = useSiteContentStore();
 // Música: playlist do YouTube escolhida em Painel → Site. O navegador só deixa
 // tocar som depois de um toque, então espera o OK do controle remoto. O player
 // fica visível num canto (as regras do YouTube não permitem escondê-lo).
-// Aceita link de playlist (toca em sequência) ou de um vídeo só (repete).
+// Aceita link de playlist (toca em sequência) ou de um vídeo: aí toca a
+// rádio (mix) do YouTube a partir dele, passando para outras músicas.
 const musicSrc = computed(() => {
   const raw = site.get('tv.playlist').trim();
   const params = 'autoplay=1&loop=1&playsinline=1&rel=0';
   const list = raw.match(/[?&]list=([\w-]{10,64})/)?.[1] ?? (/^(PL|OL|RD)[\w-]{8,62}$/.test(raw) ? raw : null);
   if (list) return `https://www.youtube.com/embed/videoseries?list=${list}&${params}`;
   const video = raw.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([\w-]{11})/)?.[1] ?? (/^[\w-]{11}$/.test(raw) ? raw : null);
-  return video ? `https://www.youtube.com/embed/${video}?${params}&playlist=${video}` : null;
+  return video ? `https://www.youtube.com/embed/${video}?list=RD${video}&autoplay=1&playsinline=1&rel=0` : null;
 });
 const musicOn = ref(false);
 const startMusic = () => (musicOn.value = true);
@@ -190,28 +191,29 @@ onUnmounted(() => {
       </section>
     </Transition>
 
-    <!-- Fixos, iguais em todos os slides: faixa escura embaixo da foto (logo e
-         player) e QR no pé do painel. Nada fica por cima das fotos. -->
-    <div class="tv__strip">
-      <img src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" class="tv__logo" />
-      <div v-if="musicSrc" class="tv__music">
-        <iframe
-          v-if="musicOn"
-          :src="musicSrc"
-          title="Música da clínica"
-          allow="autoplay; encrypted-media"
-        />
-        <p v-else class="tv__music-hint">♪ Aperte OK no controle para tocar a música</p>
-      </div>
-    </div>
+    <!-- Fixos, no painel vinho (nada por cima das fotos): logo no alto e, no
+         pé, o QR para agendar — com música, o player fica ao lado do QR. -->
+    <img v-if="!musicSrc" src="/brand/logo-noely-cerqueira.png" alt="Noely Cerqueira" class="tv__logo" />
 
     <div class="tv__book">
-      <img src="/brand/qr-agendar.svg" alt="" class="tv__qr" />
-      <p>
-        <strong>Agende pelo celular</strong>
-        Aponte a câmera para o código
-        <span>noelycerqueira.com.br</span>
-      </p>
+      <p v-if="musicSrc" class="tv__book-caption"><strong>Agende pelo celular:</strong> aponte a câmera para o código</p>
+      <div class="tv__book-row">
+        <img src="/brand/qr-agendar.svg" alt="" class="tv__qr" />
+        <div v-if="musicSrc" class="tv__music">
+          <iframe
+            v-if="musicOn"
+            :src="musicSrc"
+            title="Música da clínica"
+            allow="autoplay; encrypted-media"
+          />
+          <p v-else class="tv__music-hint">♪ Aperte OK no controle para tocar a música</p>
+        </div>
+        <p v-else>
+          <strong>Agende pelo celular</strong>
+          Aponte a câmera para o código
+          <span>noelycerqueira.com.br</span>
+        </p>
+      </div>
     </div>
 
     <div v-if="current" :key="`bar-${current.key}`" class="tv__progress" :style="{ animationDuration: `${current.ms}ms` }" />
@@ -232,10 +234,12 @@ onUnmounted(() => {
   --gold: #c8a465;
   --edge: 3vw;
   --photo-w: 58vw;
-  --player-w: max(356px, 22vw);
+  --pad: 3.2vw; /* margem interna do painel */
+  --player-w: max(356px, 22vw); /* mínimo do YouTube: 356×200 */
   --player-h: calc(var(--player-w) * 9 / 16);
-  /* Altura da faixa de baixo da foto: só a logo, ou a logo e o player. */
-  --strip-h: calc(7vw + var(--edge));
+  --qr: 13vw;
+  --top-h: 7vw; /* espaço da logo no alto do painel */
+  --book-h: var(--qr); /* altura do bloco do QR no pé do painel */
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -253,12 +257,17 @@ onUnmounted(() => {
 }
 
 .tv--music {
-  --strip-h: calc(var(--player-h) + 2 * var(--edge));
+  /* Com música o painel alarga o necessário para QR + player lado a lado
+     (a foto continua com a altura toda); sem logo, para sobrar espaço. */
+  --photo-w: min(58vw, calc(100vw - 2 * var(--pad) - var(--qr) - 1.4vw - var(--player-w)));
+  --qr: 10vw;
+  --top-h: 0vw;
+  --book-h: calc(2.6vw + max(var(--qr), var(--player-h)));
 }
 
 .tv__photo {
   position: relative;
-  height: calc(100% - var(--strip-h));
+  height: 100%;
   overflow: hidden;
   background: var(--deep);
 }
@@ -289,8 +298,8 @@ onUnmounted(() => {
 .tv__panel {
   display: flex;
   flex-direction: column;
-  /* Embaixo fica o QR (fixo, fora do slide): reserva a altura dele. */
-  padding: 4.5vw 3.5vw calc(var(--edge) + 14vw) 3.5vw;
+  /* Logo no alto e QR no pé ficam fixos, fora do slide: reserva o espaço. */
+  padding: calc(var(--edge) + var(--top-h)) var(--pad) calc(var(--edge) + var(--book-h) + 1.5vw) var(--pad);
   background: var(--wine);
 }
 
@@ -313,7 +322,7 @@ onUnmounted(() => {
 .tv__title {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: 4vw;
+  font-size: min(4vw, 6vh);
   font-weight: 400;
   line-height: 1.05;
   color: #fff;
@@ -321,7 +330,7 @@ onUnmounted(() => {
 }
 
 .tv__title--big {
-  font-size: 5vw;
+  font-size: min(5vw, 9vh);
 }
 
 .tv__lead {
@@ -335,7 +344,7 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 1.2vw 3vw;
-  margin: 2.4vw 0 0;
+  margin: min(2.4vw, 3vh) 0 0;
 }
 
 .tv__facts dt {
@@ -345,7 +354,7 @@ onUnmounted(() => {
 
 .tv__facts dd {
   margin: 0.3vw 0 0;
-  font-size: 2.1vw;
+  font-size: min(2.1vw, 4vh);
   font-weight: 600;
   color: #fff;
 }
@@ -359,24 +368,12 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-/* Faixa embaixo da foto: logo à esquerda, player à direita. */
-.tv__strip {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  z-index: 3;
-  width: var(--photo-w);
-  height: var(--strip-h);
-  padding: 0 var(--edge);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--edge);
-  background: var(--deep);
-}
-
 .tv__logo {
-  width: 11vw;
+  position: absolute;
+  top: var(--edge);
+  left: calc(var(--photo-w) + var(--pad));
+  z-index: 3;
+  width: 9vw;
   padding: 0.7vw 1vw;
   border-radius: 0.8vw;
   background: rgba(255, 253, 251, 0.94);
@@ -384,19 +381,35 @@ onUnmounted(() => {
 
 .tv__book {
   position: absolute;
-  left: calc(var(--photo-w) + 3.5vw);
-  right: var(--edge);
+  left: calc(var(--photo-w) + var(--pad));
+  right: var(--pad);
   bottom: var(--edge);
   z-index: 3;
+}
+
+.tv__book-row {
   display: flex;
   align-items: center;
-  gap: 1.6vw;
+  gap: 1.4vw;
+}
+
+.tv__book-caption {
+  margin: 0 0 0.9vw;
+  font-size: 1.3vw;
+  white-space: nowrap;
+  color: var(--rose);
+}
+
+.tv__book-caption strong {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
 }
 
 .tv__qr {
   flex: none;
-  width: 13vw;
-  height: 13vw;
+  width: var(--qr);
+  height: var(--qr);
   padding: 0.6vw;
   border-radius: 0.8vw;
   background: #fff;
