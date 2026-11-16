@@ -29,6 +29,13 @@ export const router = createRouter({
       name: 'contact',
       component: () => import('@/views/ContactView.vue'),
     },
+    // Apresentação para a TV da clínica (Fire TV): tela cheia, sem o site em volta.
+    {
+      path: '/tv',
+      name: 'tv',
+      component: () => import('@/views/TvView.vue'),
+      meta: { bare: true },
+    },
     {
       path: '/admin/login',
       name: 'admin-login',

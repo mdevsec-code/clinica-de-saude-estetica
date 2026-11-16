@@ -21,7 +21,8 @@ const route = useRoute();
 // público (com o menu Início/Serviços/Contato/Agendar e o rodapé completo de
 // contato) ficava renderizado por cima E embaixo do painel em TODA rota
 // /admin/*, duplicando marca e navegação numa ferramenta de trabalho interna.
-const isAdminRoute = computed(() => route.path.startsWith('/admin'));
+const isAdminRoute = computed(() => route.path.startsWith('/admin') || route.meta.bare === true);
+// (meta.bare: páginas de tela cheia sem o site em volta, ex.: /tv da recepção.)
 
 // Onda de toque nos botões (site e painel). Os
 // outros efeitos que seguiam o mouse saíram a pedido da clínica (nov/2026).
