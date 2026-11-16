@@ -7,6 +7,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { fetchCategories } from '@/services/catalog.service';
 import { useSettingsStore } from '@/stores/settings';
+import { useSiteContentStore } from '@/stores/siteContent';
 import { assetUrl } from '@/utils/images';
 import type { ServiceCategory } from '@/types';
 
@@ -31,6 +32,18 @@ const RELOAD_MS = 6 * 60 * 60_000; // recarrega a página (versão nova do site,
 
 const categories = ref<ServiceCategory[]>([]);
 const settings = useSettingsStore();
+const site = useSiteContentStore();
+
+// Música: playlist do YouTube escolhida em Painel → Site. O navegador só deixa
+// tocar som depois de um toque, então espera o OK do controle remoto. O player
+// fica visível num canto (as regras do YouTube não permitem escondê-lo).
+const playlistId = computed(() => {
+  const raw = site.get('tv.playlist').trim();
+  const id = raw.match(/[?&]list=([\w-]+)/)?.[1] ?? raw;
+  return /^[\w-]{10,64}$/.test(id) ? id : null;
+});
+const musicOn = ref(false);
+const startMusic = () => (musicOn.value = true);
 const index = ref(0);
 
 // Avaliação (repetida em toda categoria) e retornos não são procedimentos
@@ -81,6 +94,7 @@ function schedule() {
 }
 
 async function loadCatalog() {
+  site.load(true);
   try {
     const { categories: data } = await fetchCategories();
     if (data.length) categories.value = data;
@@ -110,6 +124,8 @@ onMounted(async () => {
   schedule();
   keepAwake();
   document.addEventListener('visibilitychange', keepAwake);
+  document.addEventListener('keydown', startMusic, { once: true });
+  document.addEventListener('pointerdown', startMusic, { once: true });
   refreshTimer = setInterval(loadCatalog, REFRESH_MS);
   reloadTimer = setTimeout(() => location.reload(), RELOAD_MS);
 });
@@ -119,6 +135,8 @@ onUnmounted(() => {
   clearInterval(refreshTimer);
   clearTimeout(reloadTimer);
   document.removeEventListener('visibilitychange', keepAwake);
+  document.removeEventListener('keydown', startMusic);
+  document.removeEventListener('pointerdown', startMusic);
   wakeLock?.release().catch(() => {});
 });
 </script>
@@ -175,6 +193,16 @@ onUnmounted(() => {
         <img src="/brand/qr-agendar.svg" alt="" class="tv__qr" />
       </div>
     </footer>
+
+    <div v-if="playlistId && current" class="tv__music" :class="`tv__music--${current.kind}`">
+      <iframe
+        v-if="musicOn"
+        :src="`https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&loop=1&playsinline=1&rel=0`"
+        title="Música da clínica"
+        allow="autoplay; encrypted-media"
+      />
+      <p v-else class="tv__music-hint">♪ Aperte OK no controle para tocar a música</p>
+    </div>
 
     <div v-if="current" :key="`bar-${current.key}`" class="tv__progress" :style="{ animationDuration: `${current.ms}ms` }" />
 
@@ -398,6 +426,48 @@ onUnmounted(() => {
 @keyframes tv-progress {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
+}
+
+.tv__music {
+  position: absolute;
+  z-index: 4;
+  top: 3vw;
+  width: max(356px, 22vw);
+  aspect-ratio: 16 / 9;
+  transition: left 0.8s ease, right 0.8s ease, top 0.8s ease;
+}
+
+/* Sempre sobre a foto, longe dos textos: no procedimento a foto fica à
+   esquerda; na especialidade o texto fica à esquerda; no final, embaixo. */
+.tv__music--service {
+  left: 3vw;
+}
+
+.tv__music--category {
+  left: calc(100vw - 3vw - max(356px, 22vw));
+}
+
+.tv__music--cta {
+  left: 3vw;
+  top: calc(100vh - 3vw - max(356px, 22vw) * 9 / 16);
+}
+
+.tv__music iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0.6vw;
+  box-shadow: 0 0.6vw 2vw rgba(0, 0, 0, 0.4);
+}
+
+.tv__music-hint {
+  display: inline-block;
+  margin: 0;
+  padding: 0.7vw 1.2vw;
+  border-radius: 999px;
+  background: rgba(28, 18, 16, 0.75);
+  font-size: 1.1vw;
+  color: #fff;
 }
 
 .tv__preload {

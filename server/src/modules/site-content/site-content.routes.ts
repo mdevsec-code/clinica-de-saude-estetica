@@ -17,6 +17,7 @@ const TEXT_KEYS = [
   'home.step3Text', 'home.why1Title', 'home.why1Text', 'home.why2Title', 'home.why2Text', 'home.why3Title', 'home.why3Text',
   'home.instagramText', 'home.ctaTitle',
   'services.title', 'services.description', 'booking.title', 'booking.description', 'contact.title', 'contact.description',
+  'tv.playlist',
 ] as const;
 const IMAGE_KEYS = ['home.heroPhoto', 'services.image', 'booking.image', 'contact.image'] as const;
 

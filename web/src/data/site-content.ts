@@ -121,6 +121,20 @@ export const SITE_SECTIONS: SiteSection[] = [
   },
 ];
 
+SITE_SECTIONS.push({
+  title: 'TV da recepção',
+  page: '/tv',
+  fields: [
+    {
+      key: 'tv.playlist',
+      label: 'Playlist do YouTube (música da TV)',
+      kind: 'text',
+      default: '',
+      hint: 'Cole o link da playlist (pública ou não listada). Em branco: TV sem música.',
+    },
+  ],
+});
+
 export const SITE_DEFAULTS: Record<string, string> = Object.fromEntries(
   SITE_SECTIONS.flatMap((s) => s.fields.map((f) => [f.key, f.default])),
 );
