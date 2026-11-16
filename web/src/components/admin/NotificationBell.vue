@@ -126,7 +126,8 @@ async function alertTodayTasks() {
 // navegador, então recarregar a página (ou outra aba) não zera a contagem.
 const isReception = computed(() => auth.user?.role === 'RECEPTION');
 const WA_EVERY_MS = 15 * 60_000;
-const WA_KEY = 'noely-whatsapp-deadline';
+// Chave nova ao mudar o intervalo: descarta prazos salvos com o intervalo antigo.
+const WA_KEY = 'noely-whatsapp-deadline-15';
 const now = ref(Date.now());
 const waDeadline = ref(0);
 function readWaDeadline() {
