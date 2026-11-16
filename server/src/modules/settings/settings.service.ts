@@ -65,6 +65,15 @@ export async function saveSchedule(tenantId: string, input: ScheduleInput) {
   return getSchedule(tenantId);
 }
 
+// Contato que aparece no site (Painel → Site → Contato e endereço).
+export async function saveContact(
+  tenantId: string,
+  input: { whatsapp: string; instagram: string; email: string; address: string; addressMapUrl: string | null },
+) {
+  await prisma.tenantSettings.update({ where: { tenantId }, data: input });
+  return getPublicSettings(tenantId);
+}
+
 export async function getPublicSettings(tenantId: string) {
   const [settings, businessHours] = await Promise.all([
     prisma.tenantSettings.findUnique({ where: { tenantId } }),

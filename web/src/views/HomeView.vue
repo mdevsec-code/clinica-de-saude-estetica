@@ -130,6 +130,14 @@ const results = [
   { src: '/results/harmonizacao-corporal.mp4', label: 'Harmonização corporal', note: 'Vídeo do procedimento', video: true, poster: 3 },
 ] as { src: string; label: string; note: string; video?: boolean; poster?: number }[];
 
+const marqueeItems = computed(() =>
+  site
+    .get('home.marquee')
+    .split('\n')
+    .map((w) => w.trim())
+    .filter(Boolean),
+);
+
 const differentials = computed(() =>
   [1, 2, 3].map((n) => ({ title: site.get(`home.why${n}Title`), text: site.get(`home.why${n}Text`) })),
 );
@@ -151,8 +159,8 @@ const steps = computed(() =>
           <h1 class="hero__title">{{ site.get('home.heroTitle') }}</h1>
           <p class="hero__lead" data-hero-fade>{{ site.get('home.heroLead') }}</p>
           <div class="hero__actions" data-hero-fade>
-            <RouterLink to="/agendar" class="button button--primary">Agendar atendimento</RouterLink>
-            <RouterLink to="/servicos" class="button button--ghost">Ver procedimentos</RouterLink>
+            <RouterLink to="/agendar" class="button button--primary">{{ site.get('home.primaryCta') }}</RouterLink>
+            <RouterLink to="/servicos" class="button button--ghost">{{ site.get('home.secondaryCta') }}</RouterLink>
           </div>
           <dl class="hero__facts" data-hero-fade>
             <div v-if="categories.length">
@@ -160,12 +168,12 @@ const steps = computed(() =>
               <dd>especialidades</dd>
             </div>
             <div>
-              <dt>Online</dt>
-              <dd>agendamento a qualquer hora</dd>
+              <dt>{{ site.get('home.fact2Title') }}</dt>
+              <dd>{{ site.get('home.fact2Text') }}</dd>
             </div>
             <div>
-              <dt>Camaçari</dt>
-              <dd>Bahia</dd>
+              <dt>{{ site.get('home.fact3Title') }}</dt>
+              <dd>{{ site.get('home.fact3Text') }}</dd>
             </div>
           </dl>
         </div>
@@ -187,7 +195,7 @@ const steps = computed(() =>
         <div class="featured__text">
           <h2 class="featured__title" data-split>{{ featuredCategory.name }}</h2>
           <p class="featured__description">{{ site.get('home.featuredText') }}</p>
-          <RouterLink to="/agendar" class="button button--primary">Agendar harmonização</RouterLink>
+          <RouterLink to="/agendar" class="button button--primary">{{ site.get('home.featuredCta') }}</RouterLink>
         </div>
       </div>
     </section>
@@ -197,7 +205,7 @@ const steps = computed(() =>
     <section class="about">
       <div class="container about__grid" data-reveal>
         <figure class="about__photo">
-          <img src="/brand/noely-consultorio.jpg" alt="Noely Cerqueira no consultório, com os certificados ao fundo" loading="lazy" decoding="async" />
+          <img :src="assetUrl(site.get('home.aboutPhoto'))" alt="Noely Cerqueira no consultório" loading="lazy" decoding="async" />
         </figure>
         <div class="about__text">
           <h2 data-split>{{ site.get('home.aboutTitle') }}</h2>
@@ -230,11 +238,11 @@ const steps = computed(() =>
       </div>
     </section>
 
-    <section class="results">
+    <section v-if="site.get('home.showResults') !== 'não'" class="results">
       <div class="container">
         <div class="specialties__heading">
-          <h2 data-split>Resultados</h2>
-          <p class="specialties__lead" data-reveal>Clientes reais da clínica, antes e depois e durante o procedimento.</p>
+          <h2 data-split>{{ site.get('home.resultsTitle') }}</h2>
+          <p class="specialties__lead" data-reveal>{{ site.get('home.resultsLead') }}</p>
         </div>
         <ul class="results__grid">
           <li v-for="item in results" :key="item.src" class="results__item">
@@ -246,9 +254,9 @@ const steps = computed(() =>
       </div>
     </section>
 
-    <MarqueeRibbon />
+    <MarqueeRibbon :key="marqueeItems.join('|')" :items="marqueeItems" />
 
-    <section class="steps">
+    <section v-if="site.get('home.showSteps') !== 'não'" class="steps">
       <div class="container steps__grid">
         <div class="steps__heading">
           <h2 data-split>Como funciona o agendamento</h2>
@@ -263,7 +271,7 @@ const steps = computed(() =>
       </div>
     </section>
 
-    <section class="values">
+    <section v-if="site.get('home.showValues') !== 'não'" class="values">
       <div class="container values__grid">
         <h2 data-split>Por que a Noely</h2>
         <ul class="values__list" data-list-reveal>
@@ -275,7 +283,7 @@ const steps = computed(() =>
       </div>
     </section>
 
-    <section v-if="igHref" class="instagram">
+    <section v-if="igHref && site.get('home.showInstagram') !== 'não'" class="instagram">
       <div class="container">
         <!-- Sem data-reveal: as configurações (o @ do Instagram) chegam da API
              depois que as entradas da página já foram preparadas — um card

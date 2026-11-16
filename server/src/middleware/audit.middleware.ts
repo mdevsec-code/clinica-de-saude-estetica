@@ -43,6 +43,7 @@ const AUDIT_RULES: Record<string, AuditRule> = {
   'POST /tasks': { entityType: 'task', action: 'CREATE', label: (body) => str(body.title) },
   'DELETE /tasks/:id': { entityType: 'task', action: 'DELETE', label: () => 'Tarefa removida' },
   'PUT /site-content': { entityType: 'site_content', action: 'UPDATE', label: () => 'Textos/fotos do site' },
+  'PUT /settings/contact': { entityType: 'site_content', action: 'UPDATE', label: () => 'Contato e endereço do site' },
   'POST /site-content/images': { entityType: 'site_content', action: 'CREATE', label: () => 'Foto enviada para o site' },
   'POST /appointments/internal': { entityType: 'appointment', action: 'CREATE', label: () => 'Agendamento pelo painel' },
   'POST /appointments/blocked-times': { entityType: 'blocked_time', action: 'CREATE', label: (body) => str(body.reason) ?? 'Horário bloqueado' },

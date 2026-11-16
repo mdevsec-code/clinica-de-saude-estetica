@@ -12,6 +12,7 @@ import WhatsAppButton from '@/components/WhatsAppButton.vue';
 import ScrollProgress from '@/components/ScrollProgress.vue';
 import AppIntroLoader from '@/components/AppIntroLoader.vue';
 import { refreshScroll, resetScrollTop, setSmoothScrollEnabled } from '@/composables/useSmoothScroll';
+import { installSitePreview, isSitePreview } from '@/utils/sitePreview';
 
 const router = useRouter();
 const route = useRoute();
@@ -34,7 +35,10 @@ setCustomCursor(true);
 // Rolagem suave só no site público (ver setSmoothScrollEnabled). flush 'sync':
 // troca no instante da mudança de rota, antes da página nova montar as
 // animações dela.
-watch(isAdminRoute, (admin) => setSmoothScrollEnabled(!admin), { immediate: true, flush: 'sync' });
+// Na pré-visualização do Painel → Site a rolagem é a normal (o painel rola
+// até a parte editada) e não há cortina de abertura.
+watch(isAdminRoute, (admin) => setSmoothScrollEnabled(!admin && !isSitePreview), { immediate: true, flush: 'sync' });
+installSitePreview();
 
 // Ao abrir/recarregar o site, o código de cada página chega separado (lazy
 // import no router). Sem esperar, cabeçalho e rodapé apareciam sozinhos por
@@ -154,7 +158,7 @@ async function onEnter(el: Element, done: () => void) {
   <Teleport to="#overlay-slot">
     <ScrollProgress v-if="ready && !isAdminRoute" />
     <WhatsAppButton v-if="ready && !isAdminRoute" variant="floating" />
-    <AppIntroLoader v-if="ready && !isAdminRoute" />
+    <AppIntroLoader v-if="ready && !isAdminRoute && !isSitePreview" />
     <div ref="veil" class="route-veil" aria-hidden="true" />
   </Teleport>
 </template>

@@ -37,10 +37,14 @@ const site = useSiteContentStore();
 // Música: playlist do YouTube escolhida em Painel → Site. O navegador só deixa
 // tocar som depois de um toque, então espera o OK do controle remoto. O player
 // fica visível num canto (as regras do YouTube não permitem escondê-lo).
-const playlistId = computed(() => {
+// Aceita link de playlist (toca em sequência) ou de um vídeo só (repete).
+const musicSrc = computed(() => {
   const raw = site.get('tv.playlist').trim();
-  const id = raw.match(/[?&]list=([\w-]+)/)?.[1] ?? raw;
-  return /^[\w-]{10,64}$/.test(id) ? id : null;
+  const params = 'autoplay=1&loop=1&playsinline=1&rel=0';
+  const list = raw.match(/[?&]list=([\w-]{10,64})/)?.[1] ?? (/^(PL|OL|RD)[\w-]{8,62}$/.test(raw) ? raw : null);
+  if (list) return `https://www.youtube.com/embed/videoseries?list=${list}&${params}`;
+  const video = raw.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([\w-]{11})/)?.[1] ?? (/^[\w-]{11}$/.test(raw) ? raw : null);
+  return video ? `https://www.youtube.com/embed/${video}?${params}&playlist=${video}` : null;
 });
 const musicOn = ref(false);
 const startMusic = () => (musicOn.value = true);
@@ -199,10 +203,10 @@ onUnmounted(() => {
       </p>
     </div>
 
-    <div v-if="playlistId" class="tv__music">
+    <div v-if="musicSrc" class="tv__music">
       <iframe
         v-if="musicOn"
-        :src="`https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&loop=1&playsinline=1&rel=0`"
+        :src="musicSrc"
         title="Música da clínica"
         allow="autoplay; encrypted-media"
       />

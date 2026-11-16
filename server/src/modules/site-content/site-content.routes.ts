@@ -18,8 +18,11 @@ const TEXT_KEYS = [
   'home.instagramText', 'home.ctaTitle',
   'services.title', 'services.description', 'booking.title', 'booking.description', 'contact.title', 'contact.description',
   'tv.playlist',
+  'home.primaryCta', 'home.secondaryCta', 'home.fact2Title', 'home.fact2Text', 'home.fact3Title', 'home.fact3Text',
+  'home.marquee', 'home.featuredCta', 'home.resultsTitle', 'home.resultsLead',
+  'home.showResults', 'home.showSteps', 'home.showValues', 'home.showInstagram',
 ] as const;
-const IMAGE_KEYS = ['home.heroPhoto', 'services.image', 'booking.image', 'contact.image'] as const;
+const IMAGE_KEYS = ['home.heroPhoto', 'home.aboutPhoto', 'services.image', 'booking.image', 'contact.image'] as const;
 
 // Foto: uma enviada pelo painel ou uma das que já vêm com o site.
 const imageValue = z

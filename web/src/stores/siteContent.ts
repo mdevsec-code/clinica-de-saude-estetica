@@ -5,7 +5,8 @@ import { SITE_DEFAULTS } from '@/data/site-content';
 // Textos/fotos editados no painel (Painel → Site). Enquanto carrega (ou se a
 // API falhar) o site mostra os textos padrão — nunca fica em branco.
 export const useSiteContentStore = defineStore('siteContent', {
-  state: () => ({ saved: {} as Record<string, string>, loaded: false }),
+  // preview: rascunho vindo do Painel → Site (só na pré-visualização, ver utils/sitePreview).
+  state: () => ({ saved: {} as Record<string, string>, loaded: false, preview: null as Record<string, string> | null }),
   actions: {
     async load(force = false) {
       if (this.loaded && !force) return;
@@ -19,6 +20,6 @@ export const useSiteContentStore = defineStore('siteContent', {
     },
   },
   getters: {
-    get: (state) => (key: string) => state.saved[key] ?? SITE_DEFAULTS[key] ?? '',
+    get: (state) => (key: string) => state.preview?.[key] ?? state.saved[key] ?? SITE_DEFAULTS[key] ?? '',
   },
 });
