@@ -184,6 +184,8 @@ async function addService(serviceId: string, force = false) {
       serviceIds: [serviceId],
       startAt: props.visit[props.visit.length - 1].endAt,
       customer: { name: first.value.customer.name, whatsapp: first.value.customer.whatsapp },
+      // A mesma paciente da comanda, pelo id: o telefone pode ser de mais de uma pessoa.
+      customerId: first.value.customerId,
       fitIn: force,
     });
     emit('changed');
