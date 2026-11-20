@@ -130,6 +130,7 @@ const internalSchema = createSchema.omit({ serviceId: true, serviceIds: true }).
   serviceIds: z.array(z.string().min(1)).min(1, 'Escolha ao menos um serviço.').max(10),
   startAt: z.string().datetime({ offset: true }),
   fitIn: z.boolean().optional(),
+  customerId: z.string().min(1).optional(),
 });
 
 appointmentsRouter.post(

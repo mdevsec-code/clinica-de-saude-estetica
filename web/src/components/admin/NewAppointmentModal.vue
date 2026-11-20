@@ -137,7 +137,17 @@ function searchPatients(field: 'name' | 'whatsapp') {
   }, 250);
 }
 
+// Paciente escolhida na lista: vai pelo id. Parentes podem dividir o mesmo
+// WhatsApp, e o telefone sozinho não diz qual delas é.
+const customerId = ref<string | null>(null);
+
+function onCustomerInput(field: 'name' | 'whatsapp') {
+  customerId.value = null; // editou à mão: deixa de ser a paciente escolhida
+  searchPatients(field);
+}
+
 function pickPatient(patient: PatientListItem) {
+  customerId.value = patient.id;
   customer.name = patient.name;
   customer.whatsapp = patient.whatsapp;
   customer.email = patient.email ?? '';
@@ -181,6 +191,7 @@ async function onSubmit(force = false) {
         whatsapp: customer.whatsapp.replace(/\D/g, ''),
         email: customer.email.trim() || undefined,
       },
+      customerId: customerId.value ?? undefined,
       notes: notes.value.trim() || undefined,
       fitIn: force,
     });
@@ -298,7 +309,7 @@ async function onSubmit(force = false) {
             type="text"
             autocomplete="off"
             required
-            @input="searchPatients('name')"
+            @input="onCustomerInput('name')"
             @focus="searchPatients('name')"
             @blur="closeSuggestions"
           />
@@ -323,7 +334,7 @@ async function onSubmit(force = false) {
             autocomplete="off"
             placeholder="71999999999"
             required
-            @input="searchPatients('whatsapp')"
+            @input="onCustomerInput('whatsapp')"
             @blur="closeSuggestions"
           />
         </label>

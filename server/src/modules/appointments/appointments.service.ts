@@ -15,6 +15,7 @@ interface CreateVisitInput {
   serviceIds: string[];
   startAt: string; // ISO 8601
   customer: { name: string; whatsapp: string; email?: string };
+  customerId?: string; // só pelo painel: a paciente escolhida na lista de sugestões
   notes?: string;
   fitIn?: boolean; // só pelo painel
   createdByName?: string; // quem da equipe marcou (painel)
@@ -47,6 +48,33 @@ function parseStart(iso: string) {
 //   2) EXCLUDE CONSTRAINT no Postgres (prisma/manual-sql/001_appointment_no_overlap.sql),
 //      que é quem realmente garante a invariante mesmo se este código tiver um bug.
 // Conflito de serialização: tenta de novo uma vez (padrão para SERIALIZABLE).
+const sameName = (a: string, b: string) => {
+  const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return norm(a) === norm(b);
+};
+
+// Quem é a paciente da visita. Pelo painel, a escolhida na lista vem pelo id:
+// procurar pelo telefone confundia parentes que dividem o mesmo número (o
+// cadastro mais antigo ganhava e o agendamento saía no nome errado).
+async function resolveCustomer(tx: Prisma.TransactionClient, input: CreateVisitInput, source: 'PUBLIC_SITE' | 'INTERNAL') {
+  if (source === 'INTERNAL' && input.customerId) {
+    const chosen = await tx.customer.findFirst({ where: { id: input.customerId, tenantId: input.tenantId } });
+    if (!chosen) throw new NotFoundError('Paciente não encontrada.');
+    return chosen;
+  }
+  const { customer, created } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
+  // Digitado à mão no painel com o telefone de outra pessoa: avisa em vez de
+  // marcar no nome dela sem ninguém perceber.
+  if (source === 'INTERNAL' && !created && !sameName(customer.name, input.customer.name)) {
+    throw new AppError(
+      `Este WhatsApp já está no cadastro de ${customer.name}. Escolha a paciente na lista de sugestões ou confira o número.`,
+      422,
+      'CUSTOMER_PHONE_MISMATCH',
+    );
+  }
+  return customer;
+}
+
 async function insertVisit(
   input: CreateVisitInput,
   services: Awaited<ReturnType<typeof loadServices>>,
@@ -79,7 +107,7 @@ async function insertVisit(
               `Conflita com o atendimento de ${overlap.customer.name} às ${formatInTimeZone(overlap.startAt, tenant.timezone, 'HH:mm')}.`,
             );
           }
-          const { customer } = await findOrCreateCustomer(tx, input.tenantId, input.customer);
+          const customer = await resolveCustomer(tx, input, source);
           const rows = [];
           for (const period of periods) {
             rows.push(

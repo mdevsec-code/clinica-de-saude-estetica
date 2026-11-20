@@ -7,6 +7,7 @@ interface CreateAppointmentPayload {
   customer: CustomerInput;
   notes?: string;
   fitIn?: boolean; // só no painel (Encaixe)
+  customerId?: string; // só no painel: paciente escolhida na lista
 }
 
 export function createAppointment(payload: CreateAppointmentPayload) {
